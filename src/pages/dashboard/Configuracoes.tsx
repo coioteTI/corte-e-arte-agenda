@@ -5,8 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
+import { Settings, MessageSquare, Bell } from "lucide-react";
 
 const Configuracoes = () => {
   const [configuracoes, setConfiguracoes] = useState({
@@ -30,6 +34,17 @@ const Configuracoes = () => {
       integracaoWhatsApp: false
     }
   });
+
+  const [mensagensAutomaticas, setMensagensAutomaticas] = useState({
+    lembrete: "Olá {nome}, você tem um agendamento às {horario} no dia {data}. Se irá comparecer, clique em OK. Caso contrário, clique em Cancelar.",
+    confirmacao: "Agendamento confirmado! {nome}, seu horário está marcado para {data} às {horario}. Aguardamos você!",
+    boasVindas: "Bem-vindo(a) à {barbearia}! Agradecemos sua preferência. Em caso de dúvidas, entre em contato conosco.",
+    cancelamento: "Seu agendamento do dia {data} às {horario} foi cancelado. Para reagendar, entre em contato ou acesse nossa plataforma."
+  });
+
+  const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
+  const [editingMessageType, setEditingMessageType] = useState<string>('');
+  const [tempMessage, setTempMessage] = useState('');
 
   const { toast } = useToast();
 
@@ -59,6 +74,51 @@ const Configuracoes = () => {
       description: "Suas configurações foram atualizadas com sucesso!"
     });
   };
+
+  const handleEditMessage = (tipo: string) => {
+    setEditingMessageType(tipo);
+    setTempMessage(mensagensAutomaticas[tipo as keyof typeof mensagensAutomaticas]);
+    setIsMessageDialogOpen(true);
+  };
+
+  const handleSaveMessage = () => {
+    setMensagensAutomaticas(prev => ({
+      ...prev,
+      [editingMessageType]: tempMessage
+    }));
+    setIsMessageDialogOpen(false);
+    toast({
+      title: "Mensagem atualizada",
+      description: "Sua mensagem personalizada foi salva com sucesso!"
+    });
+  };
+
+  const messageTypes = [
+    { 
+      key: 'lembrete', 
+      name: 'Lembrete de Agendamento', 
+      description: 'Enviado 1 hora antes do agendamento',
+      icon: Bell
+    },
+    { 
+      key: 'confirmacao', 
+      name: 'Confirmação de Agendamento', 
+      description: 'Enviado após o agendamento ser confirmado',
+      icon: MessageSquare
+    },
+    { 
+      key: 'boasVindas', 
+      name: 'Mensagem de Boas-vindas', 
+      description: 'Enviado para novos clientes',
+      icon: MessageSquare
+    },
+    { 
+      key: 'cancelamento', 
+      name: 'Cancelamento de Agendamento', 
+      description: 'Enviado quando um agendamento é cancelado',
+      icon: MessageSquare
+    }
+  ];
 
   const temConfiguracoes = true; // Para demonstrar que há configurações
 
@@ -327,6 +387,107 @@ const Configuracoes = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Mensagens Personalizadas */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Mensagens Automáticas Personalizadas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Configure mensagens personalizadas para diferentes tipos de notificações. 
+              Use variáveis como {"{nome}"}, {"{data}"}, {"{horario}"} e {"{barbearia}"} para personalizar suas mensagens.
+            </p>
+            
+            <div className="grid gap-4">
+              {messageTypes.map((messageType) => {
+                const IconComponent = messageType.icon;
+                return (
+                  <div key={messageType.key} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <IconComponent className="h-4 w-4 text-primary" />
+                        <div>
+                          <h4 className="font-medium">{messageType.name}</h4>
+                          <p className="text-xs text-muted-foreground">{messageType.description}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditMessage(messageType.key)}
+                      >
+                        Editar
+                      </Button>
+                    </div>
+                    <div className="text-sm text-muted-foreground bg-muted p-2 rounded text-xs">
+                      {mensagensAutomaticas[messageType.key as keyof typeof mensagensAutomaticas]}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Regras e Informações */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+              <h4 className="font-medium text-blue-900 mb-2">📌 Regras importantes:</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Mensagens são enviadas apenas para agendamentos confirmados</li>
+                <li>• Botão "Cancelar" redireciona para [Meus Agendamentos]</li>
+                <li>• Lembretes são enviados 1 hora antes do agendamento</li>
+                <li>• Use as variáveis disponíveis para personalizar as mensagens</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Dialog para editar mensagens */}
+        <Dialog open={isMessageDialogOpen} onOpenChange={setIsMessageDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                Editar {messageTypes.find(t => t.key === editingMessageType)?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="message-content">Conteúdo da Mensagem</Label>
+                <Textarea
+                  id="message-content"
+                  value={tempMessage}
+                  onChange={(e) => setTempMessage(e.target.value)}
+                  placeholder="Digite sua mensagem personalizada..."
+                  className="min-h-32"
+                />
+              </div>
+              
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <h4 className="font-medium text-sm mb-2">Variáveis disponíveis:</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <span className="bg-gray-200 px-2 py-1 rounded">{"{nome}"} - Nome do cliente</span>
+                  <span className="bg-gray-200 px-2 py-1 rounded">{"{data}"} - Data do agendamento</span>
+                  <span className="bg-gray-200 px-2 py-1 rounded">{"{horario}"} - Horário do agendamento</span>
+                  <span className="bg-gray-200 px-2 py-1 rounded">{"{barbearia}"} - Nome da barbearia</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsMessageDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveMessage}>
+                  Salvar Mensagem
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
