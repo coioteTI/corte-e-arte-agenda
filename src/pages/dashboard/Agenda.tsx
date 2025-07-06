@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ptBR } from "date-fns/locale";
+import { startOfWeek, endOfWeek, isSameDay, isWithinInterval } from "date-fns";
 
 const agendamentosExemplo = [
   {
@@ -42,6 +44,8 @@ const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedView, setSelectedView] = useState<"day" | "week">("day");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingAgendamento, setEditingAgendamento] = useState<any>(null);
   const [novoAgendamento, setNovoAgendamento] = useState({
     cliente: "",
     servico: "",
@@ -97,13 +101,42 @@ const Agenda = () => {
     });
   };
 
-  const agendamentosDoDay = selectedDate 
-    ? agendamentos.filter(ag => {
-        const today = selectedDate.toDateString();
-        const agendamentoDate = new Date().toDateString(); // Simular data do agendamento
-        return today === agendamentoDate;
-      })
-    : agendamentos;
+  const handleEditAgendamento = (agendamento: any) => {
+    setEditingAgendamento(agendamento);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingAgendamento) return;
+    
+    setAgendamentos(agendamentos.map(ag => 
+      ag.id === editingAgendamento.id ? editingAgendamento : ag
+    ));
+    setIsEditDialogOpen(false);
+    setEditingAgendamento(null);
+    
+    toast({
+      title: "Agendamento atualizado",
+      description: "As alterações foram salvas com sucesso!"
+    });
+  };
+
+  const getFilteredAgendamentos = () => {
+    if (!selectedDate) return agendamentos;
+    
+    if (selectedView === "day") {
+      // Para simulação, mostrar todos os agendamentos no dia selecionado
+      return agendamentos;
+    } else {
+      // Visualização semanal - mostrar agendamentos da semana
+      const weekStart = startOfWeek(selectedDate, { locale: ptBR });
+      const weekEnd = endOfWeek(selectedDate, { locale: ptBR });
+      // Para simulação, mostrar todos os agendamentos
+      return agendamentos;
+    }
+  };
+
+  const agendamentosDoDay = getFilteredAgendamentos();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -163,6 +196,7 @@ const Agenda = () => {
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
+                locale={ptBR}
                 className="rounded-md border w-full"
               />
             </CardContent>
@@ -287,7 +321,11 @@ const Agenda = () => {
                           {getStatusText(agendamento.status)}
                         </Badge>
                         <div className="flex space-x-1">
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleEditAgendamento(agendamento)}
+                          >
                             Editar
                           </Button>
                           {agendamento.status === "agendado" && (
@@ -315,6 +353,97 @@ const Agenda = () => {
             </Card>
           </div>
         </div>
+
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Agendamento</DialogTitle>
+            </DialogHeader>
+            {editingAgendamento && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-cliente">Nome do Cliente*</Label>
+                  <Input
+                    id="edit-cliente"
+                    value={editingAgendamento.cliente}
+                    onChange={(e) => setEditingAgendamento({
+                      ...editingAgendamento, 
+                      cliente: e.target.value
+                    })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-servico">Serviço*</Label>
+                  <Select 
+                    value={editingAgendamento.servico} 
+                    onValueChange={(value) => setEditingAgendamento({
+                      ...editingAgendamento, 
+                      servico: value
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Corte + Barba">Corte + Barba</SelectItem>
+                      <SelectItem value="Corte Masculino">Corte Masculino</SelectItem>
+                      <SelectItem value="Corte Feminino">Corte Feminino</SelectItem>
+                      <SelectItem value="Barba">Barba</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-profissional">Profissional*</Label>
+                  <Select 
+                    value={editingAgendamento.profissional} 
+                    onValueChange={(value) => setEditingAgendamento({
+                      ...editingAgendamento, 
+                      profissional: value
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pedro">Pedro</SelectItem>
+                      <SelectItem value="Ana">Ana</SelectItem>
+                      <SelectItem value="Carlos">Carlos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-horario">Horário*</Label>
+                  <Input
+                    id="edit-horario"
+                    type="time"
+                    value={editingAgendamento.horario}
+                    onChange={(e) => setEditingAgendamento({
+                      ...editingAgendamento, 
+                      horario: e.target.value
+                    })}
+                  />
+                </div>
+                
+                <div className="flex space-x-2 pt-4">
+                  <Button onClick={handleSaveEdit} className="flex-1">
+                    Salvar Alterações
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsEditDialogOpen(false)}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
