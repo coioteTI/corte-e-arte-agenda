@@ -1,37 +1,97 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate } from "react-router-dom";
+import { Fingerprint, Eye, EyeOff, Smartphone, Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [senha, setSenha] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [lembrarSenha, setLembrarSenha] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [biometriaDisponivel, setBiometriaDisponivel] = useState(false);
+  const [carregandoBiometria, setCarregandoBiometria] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // Verificar se biometria está disponível (simulado)
+    const temBiometria = 'webauthn' in window || 'TouchID' in window || 'FaceID' in window;
+    setBiometriaDisponivel(temBiometria || true); // Sempre true para demonstração
+    
+    // Carregar dados salvos se existirem
+    const emailSalvo = localStorage.getItem('email_salvo');
+    const lembrarLogin = localStorage.getItem('lembrar_login');
+    
+    if (emailSalvo && lembrarLogin === 'true') {
+      setEmail(emailSalvo);
+      setLembrarSenha(true);
+    }
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     // Simular login por enquanto
     setTimeout(() => {
       setIsLoading(false);
+      
+      if (lembrarSenha) {
+        localStorage.setItem('lembrar_login', 'true');
+        localStorage.setItem('email_salvo', email);
+      } else {
+        localStorage.removeItem('lembrar_login');
+        localStorage.removeItem('email_salvo');
+      }
+      
       toast({
         title: "Login realizado com sucesso!",
         description: "Redirecionando para o dashboard...",
       });
       navigate("/dashboard");
-    }, 1000);
+    }, 2000);
+  };
+
+  const handleBiometricLogin = async () => {
+    setCarregandoBiometria(true);
+    
+    try {
+      // Simular autenticação biométrica
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast({
+        title: "Autenticação biométrica realizada!",
+        description: "Login realizado com sucesso.",
+      });
+      navigate("/dashboard");
+    } catch (error) {
+      toast({
+        title: "Falha na autenticação",
+        description: "Tente novamente ou use email e senha.",
+        variant: "destructive"
+      });
+    } finally {
+      setCarregandoBiometria(false);
+    }
+  };
+
+  const handleEsqueciSenha = () => {
+    toast({
+      title: "Email enviado!",
+      description: "Verifique sua caixa de entrada para redefinir a senha.",
+    });
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md animate-fade-in">
         <CardHeader className="text-center">
           <img 
             src={logo} 
@@ -41,7 +101,7 @@ const Login = () => {
           <CardTitle className="text-xl">Entrar no Sistema</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
               <Input
@@ -51,43 +111,123 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
+              <Label htmlFor="senha">Senha</Label>
+              <div className="relative">
+                <Input
+                  id="senha"
+                  type={mostrarSenha ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  required
+                  className="pr-10 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setMostrarSenha(!mostrarSenha)}
+                >
+                  {mostrarSenha ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="lembrar"
+                checked={lembrarSenha}
+                onCheckedChange={(checked) => setLembrarSenha(checked as boolean)}
               />
+              <Label htmlFor="lembrar" className="text-sm text-muted-foreground">
+                Lembrar minha senha neste dispositivo
+              </Label>
             </div>
             
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Entrando..." : "Entrar"}
+            <Button 
+              type="submit" 
+              className="w-full hover:scale-105 transition-transform duration-200" 
+              size="lg" 
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                "Entrar"
+              )}
             </Button>
+
+            {/* Biometria */}
+            {biometriaDisponivel && (
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-muted" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">ou</span>
+                </div>
+              </div>
+            )}
+
+            {biometriaDisponivel && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full hover:scale-105 transition-transform duration-200"
+                size="lg"
+                onClick={handleBiometricLogin}
+                disabled={isLoading || carregandoBiometria}
+              >
+                {carregandoBiometria ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <Fingerprint className="h-4 w-4 mr-2" />
+                    Entrar com Biometria/Face ID
+                  </>
+                )}
+              </Button>
+            )}
+
+            {/* Esqueci senha */}
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="link"
+                onClick={handleEsqueciSenha}
+                className="text-sm hover:underline p-0"
+              >
+                Esqueci minha senha
+              </Button>
+            </div>
           </form>
           
           <div className="mt-6 text-center space-y-3">
-            <Link 
-              to="/recuperar-senha" 
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Esqueceu sua senha?
-            </Link>
-            
             <div className="text-sm text-muted-foreground">
               Não tem uma conta?{" "}
-              <Link to="/cadastro" className="text-foreground hover:underline">
+              <Link to="/cadastro" className="text-foreground hover:underline font-medium">
                 Cadastre sua barbearia
               </Link>
             </div>
             
             <div className="text-sm">
-              <Link to="/" className="text-muted-foreground hover:text-foreground">
+              <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
                 ← Voltar ao início
               </Link>
             </div>
