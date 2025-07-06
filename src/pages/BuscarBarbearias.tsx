@@ -4,97 +4,254 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
-import { Search, MapPin, Star, Navigation, Crown } from "lucide-react";
+import { Search, MapPin, Star, Navigation, Crown, Heart } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock data para barbearias
-const barbearias = [
-  {
-    id: 1,
-    nome: "Barbearia do João",
-    cidade: "São Paulo",
-    estado: "SP",
-    logo: logo,
-    slug: "barbearia-do-joao",
-    rating: 4.8,
-    agendamentos: 1250,
-    destaque: true
-  },
-  {
-    id: 2,
-    nome: "Salão Elite",
-    cidade: "Rio de Janeiro", 
-    estado: "RJ",
-    logo: logo,
-    slug: "salao-elite",
-    rating: 4.9,
-    agendamentos: 980,
-    destaque: true
-  },
-  {
-    id: 3,
-    nome: "Corte & Arte Premium",
-    cidade: "Belo Horizonte",
-    estado: "MG", 
-    logo: logo,
-    slug: "corte-arte-premium",
-    rating: 4.7,
-    agendamentos: 756,
-    destaque: true
-  },
-  {
-    id: 4,
-    nome: "Barbearia Central",
-    cidade: "São Paulo",
-    estado: "SP",
-    logo: logo,
-    slug: "barbearia-central",
-    rating: 4.5,
-    agendamentos: 650
-  },
-  {
-    id: 5,
-    nome: "Style Hair",
-    cidade: "Salvador",
-    estado: "BA",
-    logo: logo,
-    slug: "style-hair",
-    rating: 4.6,
-    agendamentos: 540
-  }
-];
+// Interface para as barbearias - simplifciada para evitar conflitos
+interface Barbearia {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  likes_count: number;
+  slug: string;
+  is_favorite?: boolean;
+  ranking?: number;
+  [key: string]: any; // Allow additional properties from Supabase
+}
+
+// Mock rating data since we don't have reviews table yet
+const getMockRating = () => (4.5 + Math.random() * 0.5);
 
 const BuscarBarbearias = () => {
   const [estado, setEstado] = useState("");
   const [cidade, setCidade] = useState("");
-  const [resultados, setResultados] = useState(barbearias);
+  const [resultados, setResultados] = useState<Barbearia[]>([]);
+  const [topBarbearias, setTopBarbearias] = useState<Barbearia[]>([]);
   const [localizacaoPermitida, setLocalizacaoPermitida] = useState(false);
   const [carregandoLocalizacao, setCarregandoLocalizacao] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const { toast } = useToast();
 
-  // Top barbearias para o carrossel
-  const topBarbearias = barbearias
-    .filter(b => b.destaque)
-    .sort((a, b) => b.agendamentos - a.agendamentos)
-    .slice(0, 3);
+  useEffect(() => {
+    initializeData();
+  }, []);
 
-  const handleBuscar = () => {
-    let filtrados = barbearias;
-    
-    if (estado) {
-      filtrados = filtrados.filter(b => 
-        b.estado.toLowerCase().includes(estado.toLowerCase())
-      );
+  const initializeData = async () => {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+
+      // Fetch companies and rankings
+      await Promise.all([
+        fetchCompanies(),
+        fetchTopRankings()
+      ]);
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    if (cidade) {
-      filtrados = filtrados.filter(b => 
-        b.cidade.toLowerCase().includes(cidade.toLowerCase())
-      );
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const { data: companies, error } = await supabase
+        .from('companies')
+        .select('*')
+        .order('likes_count', { ascending: false });
+
+      if (error) throw error;
+
+      let companiesWithFavorites: Barbearia[] = [];
+
+      // If user is logged in, check favorites
+      if (user) {
+        const { data: favorites, error: favError } = await supabase
+          .from('favorites')
+          .select('company_id')
+          .eq('user_id', user.id);
+
+        if (!favError && favorites) {
+          const favoriteIds = favorites.map(f => f.company_id);
+          companiesWithFavorites = (companies || []).map(company => ({
+            ...company,
+            slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+            is_favorite: favoriteIds.includes(company.id)
+          })) as Barbearia[];
+        }
+      } else {
+        companiesWithFavorites = (companies || []).map(company => ({
+          ...company,
+          slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+          is_favorite: false
+        })) as Barbearia[];
+      }
+
+      setResultados(companiesWithFavorites);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+      toast({
+        title: "Erro ao carregar barbearias",
+        description: "Não foi possível carregar as barbearias.",
+        variant: "destructive",
+      });
     }
-    
-    setResultados(filtrados);
+  };
+
+  const fetchTopRankings = async () => {
+    try {
+      const { data: rankings, error } = await supabase.rpc('get_company_rankings');
+      
+      if (error) throw error;
+      
+      // Get full company data for top 3
+      const top3Ids = (rankings || []).slice(0, 3).map(r => r.id);
+      
+      if (top3Ids.length > 0) {
+        const { data: companies, error: companiesError } = await supabase
+          .from('companies')
+          .select('*')
+          .in('id', top3Ids);
+        
+        if (!companiesError && companies) {
+          const top3: Barbearia[] = companies.map(company => ({
+            ...company,
+            slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+            is_favorite: false,
+            ranking: rankings.find(r => r.id === company.id)?.ranking || 0
+          })) as Barbearia[];
+          
+          setTopBarbearias(top3);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching rankings:', error);
+    }
+  };
+
+  const handleBuscar = async () => {
+    setLoading(true);
+    try {
+      let query = supabase.from('companies').select('*');
+      
+      if (estado) {
+        query = query.ilike('state', `%${estado}%`);
+      }
+      
+      if (cidade) {
+        query = query.ilike('city', `%${cidade}%`);
+      }
+      
+      const { data: companies, error } = await query.order('likes_count', { ascending: false });
+      
+      if (error) throw error;
+      
+      let companiesWithFavorites: Barbearia[] = [];
+      
+      // Check favorites if user is logged in
+      if (user) {
+        const { data: favorites, error: favError } = await supabase
+          .from('favorites')
+          .select('company_id')
+          .eq('user_id', user.id);
+
+        if (!favError && favorites) {
+          const favoriteIds = favorites.map(f => f.company_id);
+          companiesWithFavorites = (companies || []).map(company => ({
+            ...company,
+            slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+            is_favorite: favoriteIds.includes(company.id)
+          })) as Barbearia[];
+        }
+      } else {
+        companiesWithFavorites = (companies || []).map(company => ({
+          ...company,
+          slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+          is_favorite: false
+        })) as Barbearia[];
+      }
+      
+      setResultados(companiesWithFavorites);
+    } catch (error) {
+      console.error('Error searching companies:', error);
+      toast({
+        title: "Erro na busca",
+        description: "Não foi possível realizar a busca.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleFavorite = async (companyId: string, isFavorite: boolean) => {
+    if (!user) {
+      toast({
+        title: "Login necessário",
+        description: "Faça login para favoritar barbearias.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        // Remove from favorites
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('company_id', companyId);
+
+        if (error) throw error;
+
+        // Decrement likes count
+        const { error: updateError } = await supabase
+          .from('companies')
+          .update({ 
+            likes_count: Math.max(0, (resultados.find(r => r.id === companyId)?.likes_count || 1) - 1)
+          })
+          .eq('id', companyId);
+
+        if (updateError) console.error('Error updating likes:', updateError);
+
+        toast({
+          title: "Removido dos favoritos",
+          description: "Barbearia removida dos seus favoritos.",
+        });
+      } else {
+        // Add to favorites
+        const { error } = await supabase
+          .from('favorites')
+          .insert({ user_id: user.id, company_id: companyId });
+
+        if (error) throw error;
+
+        // Increment likes count
+        await supabase.rpc('increment_likes', { company_id: companyId });
+
+        toast({
+          title: "Adicionado aos favoritos",
+          description: "Barbearia adicionada aos seus favoritos!",
+        });
+      }
+
+      // Refresh data
+      await fetchCompanies();
+      await fetchTopRankings();
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar os favoritos.",
+        variant: "destructive",
+      });
+    }
   };
 
   const solicitarLocalizacao = () => {
@@ -106,8 +263,8 @@ const BuscarBarbearias = () => {
           setCarregandoLocalizacao(false);
           setLocalizacaoPermitida(true);
           // Simular filtragem por localização próxima
-          const barbeariasPróximas = barbearias.filter(b => 
-            b.cidade === "São Paulo" || b.estado === "SP"
+          const barbeariasPróximas = resultados.filter(b => 
+            b.city === "São Paulo" || b.state === "SP"
           );
           setResultados(barbeariasPróximas);
           toast({
@@ -194,30 +351,34 @@ const BuscarBarbearias = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="relative">
-                      <img
-                        src={barbearia.logo}
-                        alt={barbearia.nome}
-                        className="h-12 w-12 rounded-full object-cover"
-                      />
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                        <span className="text-lg font-bold text-primary">
+                          {barbearia.name?.charAt(0) || 'B'}
+                        </span>
+                      </div>
                       <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold">
                         {index + 1}
                       </div>
+                      {index === 0 && (
+                        <Crown className="absolute -top-2 -left-2 h-4 w-4 text-yellow-500" />
+                      )}
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-medium text-sm">{barbearia.nome}</h3>
+                      <h3 className="font-medium text-sm">{barbearia.name}</h3>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <MapPin className="h-3 w-3" />
-                        {barbearia.cidade}, {barbearia.estado}
+                        {barbearia.city}, {barbearia.state}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-1">
                       <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="text-sm font-medium">{barbearia.rating}</span>
+                      <span className="text-sm font-medium">{getMockRating().toFixed(1)}</span>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {barbearia.agendamentos}+ agendamentos
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Heart className="h-3 w-3 text-red-500" />
+                      {barbearia.likes_count} curtidas
                     </div>
                   </div>
                   <Button asChild size="sm" className="w-full">
@@ -288,6 +449,22 @@ const BuscarBarbearias = () => {
                 </p>
               </CardContent>
             </Card>
+          ) : loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      <div className="h-16 w-16 mx-auto bg-gray-200 rounded-full"></div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {resultados.map((barbearia) => (
@@ -295,32 +472,48 @@ const BuscarBarbearias = () => {
                   <CardContent className="p-6">
                     <div className="text-center space-y-4">
                       <div className="relative">
-                        <img
-                          src={barbearia.logo}
-                          alt={barbearia.nome}
-                          className="h-16 w-16 mx-auto rounded-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
-                        {barbearia.destaque && (
-                          <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full font-medium">
+                        <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                          <span className="text-2xl font-bold text-primary">
+                            {barbearia.name?.charAt(0) || 'B'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => toggleFavorite(barbearia.id, barbearia.is_favorite || false)}
+                          className="absolute -top-2 -right-2 p-1 rounded-full bg-white shadow-md hover:scale-110 transition-transform duration-200"
+                        >
+                          <Heart 
+                            className={`h-4 w-4 ${
+                              barbearia.is_favorite 
+                                ? 'text-red-500 fill-current' 
+                                : 'text-gray-400 hover:text-red-500'
+                            }`}
+                          />
+                        </button>
+                        {barbearia.likes_count >= 5000 && (
+                          <div className="absolute -top-3 -left-3 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                            <Crown className="h-3 w-3" />
                             TOP
                           </div>
                         )}
                       </div>
                       
                       <div>
-                        <h3 className="font-semibold text-lg">{barbearia.nome}</h3>
+                        <h3 className="font-semibold text-lg">{barbearia.name}</h3>
                         <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-2">
                           <MapPin className="h-4 w-4" />
-                          {barbearia.cidade}, {barbearia.estado}
+                          {barbearia.city}, {barbearia.state}
                         </div>
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-4">
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                            <span className="text-sm font-medium">{barbearia.rating}</span>
+                            <span className="text-sm font-medium">{getMockRating().toFixed(1)}</span>
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            ({barbearia.agendamentos} agendamentos)
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <Heart className="h-4 w-4 text-red-500" />
+                            <span className="text-xs text-muted-foreground">
+                              {barbearia.likes_count} curtidas
+                            </span>
+                          </div>
                         </div>
                       </div>
                       

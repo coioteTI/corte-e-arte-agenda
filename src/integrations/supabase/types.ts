@@ -208,6 +208,44 @@ export type Database = {
           },
         ]
       }
+      notification_templates: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          message_template: string
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          message_template: string
+          template_type: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          message_template?: string
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professionals: {
         Row: {
           company_id: string | null
@@ -336,7 +374,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_company_rankings: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+          likes_count: number
+          ranking: number
+        }[]
+      }
+      increment_likes: {
+        Args: { company_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
