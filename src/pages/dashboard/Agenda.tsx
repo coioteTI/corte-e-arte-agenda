@@ -3,7 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const agendamentosExemplo = [
   {
@@ -35,6 +41,69 @@ const agendamentosExemplo = [
 const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedView, setSelectedView] = useState<"day" | "week">("day");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [novoAgendamento, setNovoAgendamento] = useState({
+    cliente: "",
+    servico: "",
+    profissional: "",
+    data: "",
+    horario: ""
+  });
+  const [agendamentos, setAgendamentos] = useState(agendamentosExemplo);
+  const { toast } = useToast();
+
+  const handleNovoAgendamento = () => {
+    if (!novoAgendamento.cliente || !novoAgendamento.servico || !novoAgendamento.profissional || !novoAgendamento.data || !novoAgendamento.horario) {
+      toast({
+        title: "Erro",
+        description: "Preencha todos os campos obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const agendamento = {
+      id: Date.now(),
+      cliente: novoAgendamento.cliente,
+      servico: novoAgendamento.servico,
+      horario: novoAgendamento.horario,
+      status: "agendado" as const,
+      profissional: novoAgendamento.profissional
+    };
+
+    setAgendamentos([...agendamentos, agendamento]);
+    setNovoAgendamento({
+      cliente: "",
+      servico: "",
+      profissional: "",
+      data: "",
+      horario: ""
+    });
+    setIsDialogOpen(false);
+    
+    toast({
+      title: "Sucesso",
+      description: "Agendamento criado com sucesso!"
+    });
+  };
+
+  const handleConcluirAgendamento = (id: number) => {
+    setAgendamentos(agendamentos.map(ag => 
+      ag.id === id ? { ...ag, status: "concluido" as const } : ag
+    ));
+    toast({
+      title: "Agendamento concluído",
+      description: "Status atualizado com sucesso!"
+    });
+  };
+
+  const agendamentosDoDay = selectedDate 
+    ? agendamentos.filter(ag => {
+        const today = selectedDate.toDateString();
+        const agendamentoDate = new Date().toDateString(); // Simular data do agendamento
+        return today === agendamentoDate;
+      })
+    : agendamentos;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -106,11 +175,95 @@ const Agenda = () => {
                 <CardTitle className="text-lg">
                   Agendamentos - {selectedDate?.toLocaleDateString("pt-BR")}
                 </CardTitle>
-                <Button>Novo Agendamento</Button>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>Novo Agendamento</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Novo Agendamento</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="cliente">Nome do Cliente*</Label>
+                        <Input
+                          id="cliente"
+                          placeholder="Nome completo"
+                          value={novoAgendamento.cliente}
+                          onChange={(e) => setNovoAgendamento({...novoAgendamento, cliente: e.target.value})}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="servico">Serviço*</Label>
+                        <Select value={novoAgendamento.servico} onValueChange={(value) => setNovoAgendamento({...novoAgendamento, servico: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o serviço" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Corte + Barba">Corte + Barba</SelectItem>
+                            <SelectItem value="Corte Masculino">Corte Masculino</SelectItem>
+                            <SelectItem value="Corte Feminino">Corte Feminino</SelectItem>
+                            <SelectItem value="Barba">Barba</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="profissional">Profissional*</Label>
+                        <Select value={novoAgendamento.profissional} onValueChange={(value) => setNovoAgendamento({...novoAgendamento, profissional: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o profissional" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Pedro">Pedro</SelectItem>
+                            <SelectItem value="Ana">Ana</SelectItem>
+                            <SelectItem value="Carlos">Carlos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="data">Data*</Label>
+                          <Input
+                            id="data"
+                            type="date"
+                            value={novoAgendamento.data}
+                            onChange={(e) => setNovoAgendamento({...novoAgendamento, data: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="horario">Horário*</Label>
+                          <Input
+                            id="horario"
+                            type="time"
+                            value={novoAgendamento.horario}
+                            onChange={(e) => setNovoAgendamento({...novoAgendamento, horario: e.target.value})}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2 pt-4">
+                        <Button onClick={handleNovoAgendamento} className="flex-1">
+                          Criar Agendamento
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setIsDialogOpen(false)}
+                          className="flex-1"
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {agendamentosExemplo.map((agendamento) => (
+                  {agendamentosDoDay.map((agendamento) => (
                     <div
                       key={agendamento.id}
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
@@ -138,7 +291,11 @@ const Agenda = () => {
                             Editar
                           </Button>
                           {agendamento.status === "agendado" && (
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleConcluirAgendamento(agendamento.id)}
+                            >
                               Concluir
                             </Button>
                           )}
@@ -146,6 +303,13 @@ const Agenda = () => {
                       </div>
                     </div>
                   ))}
+                  {agendamentosDoDay.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">
+                        Nenhum agendamento para esta data
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

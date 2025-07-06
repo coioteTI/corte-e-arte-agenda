@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useToast } from "@/hooks/use-toast";
 
 const clientesExemplo = [
   {
@@ -34,6 +37,43 @@ const clientesExemplo = [
 
 const Clientes = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [clientes, setClientes] = useState(clientesExemplo);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [novoCliente, setNovoCliente] = useState({
+    nome: "",
+    telefone: "",
+    email: ""
+  });
+  const { toast } = useToast();
+
+  const handleNovoCliente = () => {
+    if (!novoCliente.nome || !novoCliente.telefone) {
+      toast({
+        title: "Erro",
+        description: "Nome e telefone são obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const cliente = {
+      id: Date.now(),
+      nome: novoCliente.nome,
+      telefone: novoCliente.telefone,
+      email: novoCliente.email,
+      ultimoAtendimento: new Date().toISOString().split('T')[0],
+      totalAtendimentos: 0
+    };
+
+    setClientes([...clientes, cliente]);
+    setNovoCliente({ nome: "", telefone: "", email: "" });
+    setIsDialogOpen(false);
+    
+    toast({
+      title: "Sucesso",
+      description: "Cliente cadastrado com sucesso!"
+    });
+  };
   
   const filteredClientes = clientesExemplo.filter(cliente =>
     cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,7 +86,58 @@ const Clientes = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Clientes</h1>
-          <Button>Novo Cliente</Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>Novo Cliente</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Novo Cliente</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome*</Label>
+                  <Input
+                    id="nome"
+                    placeholder="Nome completo"
+                    value={novoCliente.nome}
+                    onChange={(e) => setNovoCliente({...novoCliente, nome: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telefone">Telefone*</Label>
+                  <Input
+                    id="telefone"
+                    placeholder="(11) 99999-9999"
+                    value={novoCliente.telefone}
+                    onChange={(e) => setNovoCliente({...novoCliente, telefone: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="cliente@email.com"
+                    value={novoCliente.email}
+                    onChange={(e) => setNovoCliente({...novoCliente, email: e.target.value})}
+                  />
+                </div>
+                <div className="flex space-x-2 pt-4">
+                  <Button onClick={handleNovoCliente} className="flex-1">
+                    Cadastrar
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsDialogOpen(false)}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Estatísticas */}

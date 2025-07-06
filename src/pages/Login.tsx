@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -33,10 +34,21 @@ const Login = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simular login por enquanto
-    setTimeout(() => {
-      setIsLoading(false);
-      
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      });
+
+      if (error) {
+        toast({
+          title: "Erro no login",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
       if (lembrarSenha) {
         localStorage.setItem('lembrar_login', 'true');
         localStorage.setItem('email_salvo', email);
@@ -50,7 +62,15 @@ const Login = () => {
         description: "Redirecionando para o dashboard...",
       });
       navigate("/dashboard");
-    }, 2000);
+    } catch (error: any) {
+      toast({
+        title: "Erro no login",
+        description: "Verifique suas credenciais e tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEsqueciSenha = () => {

@@ -8,6 +8,7 @@ import CookieConsent from "@/components/CookieConsent";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Cadastro from "./pages/Cadastro";
 import Dashboard from "./pages/Dashboard";
 import Agenda from "./pages/dashboard/Agenda";
@@ -50,6 +51,7 @@ const App = () => (
           {/* Rotas da Empresa */}
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/agenda" element={<Agenda />} />
