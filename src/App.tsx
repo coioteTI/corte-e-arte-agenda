@@ -4,8 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
+import CookieConsent from "@/components/CookieConsent";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
 import Cadastro from "./pages/Cadastro";
 import Dashboard from "./pages/Dashboard";
 import Agenda from "./pages/dashboard/Agenda";
@@ -18,6 +20,9 @@ import BuscarBarbearias from "./pages/BuscarBarbearias";
 import PerfilBarbearia from "./pages/PerfilBarbearia";
 import AgendarServico from "./pages/AgendarServico";
 import AgendamentoConfirmado from "./pages/AgendamentoConfirmado";
+import Historico from "./pages/cliente/Historico";
+import Agendamentos from "./pages/cliente/Agendamentos";
+import Favoritos from "./pages/cliente/Favoritos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +33,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <WhatsAppWidget />
+      <CookieConsent />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
@@ -37,9 +43,13 @@ const App = () => (
           <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
           <Route path="/agendar/:slug" element={<AgendarServico />} />
           <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
+          <Route path="/cliente/historico" element={<Historico />} />
+          <Route path="/cliente/agendamentos" element={<Agendamentos />} />
+          <Route path="/cliente/favoritos" element={<Favoritos />} />
           
           {/* Rotas da Empresa */}
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/agenda" element={<Agenda />} />

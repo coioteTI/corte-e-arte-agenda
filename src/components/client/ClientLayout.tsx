@@ -9,34 +9,26 @@ import {
   SidebarMenuItem, 
   SidebarMenuButton,
   SidebarProvider,
-  SidebarTrigger,
-  useSidebar
+  SidebarTrigger
 } from "@/components/ui/sidebar";
-import { Calendar, Users, Settings, FileText, Clock, BarChart } from "lucide-react";
+import { Calendar, Heart, History, User, ArrowLeft } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 
 const menuItems = [
-  { title: "Agenda", url: "/dashboard/agenda", icon: Calendar },
-  { title: "Clientes", url: "/dashboard/clientes", icon: Users },
-  { title: "Serviços", url: "/dashboard/servicos", icon: FileText },
-  { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart },
-  { title: "Horários", url: "/dashboard/horarios", icon: Clock },
-  { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
+  { title: "Buscar Barbearias", url: "/buscar-barbearias", icon: Calendar },
+  { title: "Meus Agendamentos", url: "/cliente/agendamentos", icon: Calendar },
+  { title: "Histórico", url: "/cliente/historico", icon: History },
+  { title: "Favoritos", url: "/cliente/favoritos", icon: Heart },
 ];
 
-const AppSidebar = () => {
+const ClientSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogout = () => {
-    toast({
-      title: "Logout realizado",
-      description: "Até logo!",
-    });
-    navigate("/");
-  };
+  // Get client name from localStorage
+  const clientName = localStorage.getItem('clientName') || 'Cliente';
 
   return (
     <Sidebar className="border-r">
@@ -49,7 +41,7 @@ const AppSidebar = () => {
           />
           <div>
             <h2 className="text-lg font-semibold">Corte & Arte</h2>
-            <p className="text-xs text-muted-foreground">Dashboard</p>
+            <p className="text-xs text-muted-foreground">Cliente</p>
           </div>
         </div>
       </SidebarHeader>
@@ -75,9 +67,10 @@ const AppSidebar = () => {
           <Button 
             variant="outline" 
             className="w-full"
-            onClick={handleLogout}
+            onClick={() => navigate("/")}
           >
-            Sair
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar ao Início
           </Button>
         </div>
       </SidebarContent>
@@ -85,21 +78,23 @@ const AppSidebar = () => {
   );
 };
 
-interface DashboardLayoutProps {
+interface ClientLayoutProps {
   children: React.ReactNode;
 }
 
-const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+const ClientLayout = ({ children }: ClientLayoutProps) => {
+  const clientName = localStorage.getItem('clientName') || 'Cliente';
+  
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar />
+        <ClientSidebar />
         <main className="flex-1 p-6">
           <div className="mb-6 flex items-center justify-between">
             <SidebarTrigger />
             <div className="flex items-center space-x-4">
               <div className="text-sm text-muted-foreground">
-                Bem-vindo, {localStorage.getItem('nomeBarbearia') || 'Administrador'}
+                Bem-vindo, {clientName}
               </div>
             </div>
           </div>
@@ -110,4 +105,4 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   );
 };
 
-export default DashboardLayout;
+export default ClientLayout;

@@ -83,10 +83,7 @@ const Login = () => {
   };
 
   const handleEsqueciSenha = () => {
-    toast({
-      title: "Email enviado!",
-      description: "Verifique sua caixa de entrada para redefinir a senha.",
-    });
+    navigate("/forgot-password");
   };
 
   return (

@@ -41,11 +41,20 @@ const Cadastro = () => {
     // Simular cadastro por enquanto
     setTimeout(() => {
       setIsLoading(false);
+      
+      // Salvar dados da empresa
+      localStorage.setItem('nomeBarbearia', formData.nomeBarbearia);
+      localStorage.setItem('planoSelecionado', formData.plano);
+      
       toast({
         title: "Cadastro realizado com sucesso!",
-        description: "Redirecionando para o login...",
+        description: `Plano ${formData.plano === 'pro' ? 'Pro' : 'Premium'} selecionado. Redirecionando para pagamento...`,
       });
-      navigate("/login");
+      
+      // Redirecionar para página de pagamento (simulado)
+      setTimeout(() => {
+        navigate("/login");
+      }, 1000);
     }, 2000);
   };
 
@@ -59,7 +68,7 @@ const Cadastro = () => {
               alt="Corte & Arte" 
               className="h-12 w-auto mx-auto mb-4"
             />
-            <CardTitle className="text-xl">Cadastrar Barbearia/Salão</CardTitle>
+            <CardTitle className="text-xl">Cadastrar Barbearia & Salão</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
