@@ -1,1 +1,49 @@
-project_id = "gwyickztdeiplccievyt"
+project_id = "a4b6f7bb-2365-4595-ad9a-e1efd7248c06"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+smtp_port = 54325
+
+[functions]
+verify_jwt = true
+
+[functions.custom-auth-emails]
+verify_jwt = false
+
+[edge-runtime]
+ip_version = "IPv4Only"
+
+[auth]
+enabled = true
+site_url = "https://corte-e-arte-agenda.lovable.app"
+additional_redirect_urls = ["https://a4b6f7bb-2365-4595-ad9a-e1efd7248c06.lovableproject.com"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[auth.jwt]
+default_group_name = ""
+admin_group_name = ""
