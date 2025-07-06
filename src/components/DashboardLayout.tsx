@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar";
-import { Calendar, Users, Settings, FileText, Clock, BarChart } from "lucide-react";
+import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,6 +22,7 @@ const menuItems = [
   { title: "Serviços", url: "/dashboard/servicos", icon: FileText },
   { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart },
   { title: "Horários", url: "/dashboard/horarios", icon: Clock },
+  { title: "Plano", url: "/dashboard/planos", icon: Crown },
   { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
 ];
 

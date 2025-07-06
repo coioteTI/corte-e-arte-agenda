@@ -86,7 +86,7 @@ const Cadastro = () => {
         zip_code: formData.cep,
         instagram: formData.instagram || null,
         user_id: authData.user.id,
-        plan: 'premium'
+        plan: 'nenhum'
       };
 
       console.log("Salvando empresa com dados:", companyData);
@@ -106,21 +106,16 @@ const Cadastro = () => {
       }
 
       console.log("Empresa criada com sucesso:", companyResult[0]);
-
-      // Salvar dados temporários para o plano
-      localStorage.setItem('nomeBarbearia', formData.nomeBarbearia);
-      localStorage.setItem('emailAdmin', formData.emailAdmin);
-      localStorage.setItem('companyId', companyResult[0].id);
       
       toast({
         title: "Cadastro realizado com sucesso!",
-        description: "Agora escolha seu plano para continuar.",
+        description: "Bem-vindo ao Corte & Arte! Você já pode acessar sua conta.",
       });
       
-      console.log("Redirecionando para plano premium...");
+      console.log("Redirecionando para dashboard...");
       
-      // Redirecionar para página do plano premium
-      navigate("/plano-premium");
+      // Redirecionar para o dashboard
+      navigate("/dashboard");
       
     } catch (error: any) {
       console.error("Erro completo no cadastro:", error);

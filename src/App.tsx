@@ -16,6 +16,7 @@ import Clientes from "./pages/dashboard/Clientes";
 import Servicos from "./pages/dashboard/Servicos";
 import Relatorios from "./pages/dashboard/Relatorios";
 import Horarios from "./pages/dashboard/Horarios";
+import Planos from "./pages/dashboard/Planos";
 import Configuracoes from "./pages/dashboard/Configuracoes";
 import BuscarBarbearias from "./pages/BuscarBarbearias";
 import PerfilBarbearia from "./pages/PerfilBarbearia";
@@ -65,6 +66,7 @@ const App = () => (
           <Route path="/dashboard/servicos" element={<Servicos />} />
           <Route path="/dashboard/relatorios" element={<Relatorios />} />
           <Route path="/dashboard/horarios" element={<Horarios />} />
+          <Route path="/dashboard/planos" element={<Planos />} />
           <Route path="/dashboard/configuracoes" element={<Configuracoes />} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
