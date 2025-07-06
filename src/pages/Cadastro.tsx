@@ -3,11 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Cadastro = () => {
   const [formData, setFormData] = useState({
@@ -21,7 +20,6 @@ const Cadastro = () => {
     telefone: "",
     emailContato: "",
     instagram: "",
-    plano: "pro",
     nomeAdmin: "",
     emailAdmin: "",
     senhaAdmin: "",
@@ -38,24 +36,66 @@ const Cadastro = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simular cadastro por enquanto
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      // Salvar dados da empresa
-      localStorage.setItem('nomeBarbearia', formData.nomeBarbearia);
-      localStorage.setItem('planoSelecionado', formData.plano);
-      
-      toast({
-        title: "Cadastro realizado com sucesso!",
-        description: `Plano ${formData.plano === 'pro' ? 'Pro' : 'Premium'} selecionado. Redirecionando para pagamento...`,
+    try {
+      // Criar usuário no Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.emailAdmin,
+        password: formData.senhaAdmin,
+        options: {
+          data: {
+            full_name: formData.nomeAdmin,
+          }
+        }
       });
-      
-      // Redirecionar para página de pagamento (simulado)
-      setTimeout(() => {
-        navigate("/login");
-      }, 1000);
-    }, 2000);
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (authData.user) {
+        // Criar empresa
+        const { error: companyError } = await supabase
+          .from('companies')
+          .insert({
+            name: formData.nomeBarbearia,
+            email: formData.emailContato,
+            phone: formData.telefone,
+            address: formData.endereco,
+            number: formData.numero,
+            neighborhood: formData.bairro,
+            city: formData.cidade,
+            state: formData.estado,
+            zip_code: formData.cep,
+            instagram: formData.instagram || null,
+            user_id: authData.user.id,
+            plan: 'premium'
+          });
+
+        if (companyError) {
+          throw companyError;
+        }
+
+        // Salvar dados temporários para o plano
+        localStorage.setItem('nomeBarbearia', formData.nomeBarbearia);
+        localStorage.setItem('emailAdmin', formData.emailAdmin);
+        
+        toast({
+          title: "Cadastro realizado com sucesso!",
+          description: "Agora escolha seu plano para continuar.",
+        });
+        
+        // Redirecionar para página do plano premium
+        navigate("/plano-premium");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro no cadastro",
+        description: error.message || "Ocorreu um erro ao criar sua conta.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -195,31 +235,6 @@ const Cadastro = () => {
                 </div>
               </div>
 
-              {/* Plano */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Escolha seu Plano</h3>
-                <RadioGroup value={formData.plano} onValueChange={(value) => handleInputChange("plano", value)}>
-                  <div className="flex items-center space-x-2 p-4 border rounded-lg">
-                    <RadioGroupItem value="pro" id="pro" />
-                    <Label htmlFor="pro" className="flex-1">
-                      <div className="font-medium">Plano Pro - R$ 29/mês</div>
-                      <div className="text-sm text-muted-foreground">
-                        Acesso completo, agenda ilimitada, relatórios básicos
-                      </div>
-                    </Label>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 p-4 border rounded-lg">
-                    <RadioGroupItem value="premium" id="premium" />
-                    <Label htmlFor="premium" className="flex-1">
-                      <div className="font-medium">Plano Premium - R$ 59/mês</div>
-                      <div className="text-sm text-muted-foreground">
-                        Tudo do Pro + notificações WhatsApp, relatórios avançados, fidelização
-                      </div>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
               {/* Usuário Admin */}
               <div className="space-y-4">

@@ -25,6 +25,9 @@ import Historico from "./pages/cliente/Historico";
 import Agendamentos from "./pages/cliente/Agendamentos";
 import Favoritos from "./pages/cliente/Favoritos";
 import NotFound from "./pages/NotFound";
+import PlanoPremium from "./pages/PlanoPremium";
+import PagamentoSucesso from "./pages/PagamentoSucesso";
+import PagamentoCancelado from "./pages/PagamentoCancelado";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +56,9 @@ const App = () => (
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/plano-premium" element={<PlanoPremium />} />
+          <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
+          <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/agenda" element={<Agenda />} />
           <Route path="/dashboard/clientes" element={<Clientes />} />
