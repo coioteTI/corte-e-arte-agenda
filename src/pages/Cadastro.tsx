@@ -37,6 +37,20 @@ const Cadastro = () => {
     setIsLoading(true);
     
     try {
+      // Validar campos obrigatórios
+      if (!formData.nomeBarbearia || !formData.endereco || !formData.telefone || 
+          !formData.emailContato || !formData.nomeAdmin || !formData.emailAdmin || 
+          !formData.senhaAdmin || !formData.numero || !formData.bairro || 
+          !formData.cidade || !formData.estado || !formData.cep) {
+        throw new Error("Por favor, preencha todos os campos obrigatórios.");
+      }
+
+      console.log("Iniciando cadastro com dados:", {
+        nomeBarbearia: formData.nomeBarbearia,
+        email: formData.emailAdmin,
+        emailContato: formData.emailContato
+      });
+
       // Criar usuário no Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.emailAdmin,
@@ -49,48 +63,70 @@ const Cadastro = () => {
       });
 
       if (authError) {
-        throw authError;
+        console.error("Erro na autenticação:", authError);
+        throw new Error(`Erro ao criar usuário: ${authError.message}`);
       }
 
-      if (authData.user) {
-        // Criar empresa
-        const { error: companyError } = await supabase
-          .from('companies')
-          .insert({
-            name: formData.nomeBarbearia,
-            email: formData.emailContato,
-            phone: formData.telefone,
-            address: formData.endereco,
-            number: formData.numero,
-            neighborhood: formData.bairro,
-            city: formData.cidade,
-            state: formData.estado,
-            zip_code: formData.cep,
-            instagram: formData.instagram || null,
-            user_id: authData.user.id,
-            plan: 'premium'
-          });
-
-        if (companyError) {
-          throw companyError;
-        }
-
-        // Salvar dados temporários para o plano
-        localStorage.setItem('nomeBarbearia', formData.nomeBarbearia);
-        localStorage.setItem('emailAdmin', formData.emailAdmin);
-        
-        toast({
-          title: "Cadastro realizado com sucesso!",
-          description: "Agora escolha seu plano para continuar.",
-        });
-        
-        // Redirecionar para página do plano premium
-        navigate("/plano-premium");
+      if (!authData.user) {
+        throw new Error("Erro: Usuário não foi criado corretamente.");
       }
+
+      console.log("Usuário criado com sucesso:", authData.user.id);
+
+      // Criar empresa na tabela companies
+      const companyData = {
+        name: formData.nomeBarbearia,
+        email: formData.emailContato,
+        phone: formData.telefone,
+        address: formData.endereco,
+        number: formData.numero,
+        neighborhood: formData.bairro,
+        city: formData.cidade,
+        state: formData.estado,
+        zip_code: formData.cep,
+        instagram: formData.instagram || null,
+        user_id: authData.user.id,
+        plan: 'premium'
+      };
+
+      console.log("Salvando empresa com dados:", companyData);
+
+      const { data: companyResult, error: companyError } = await supabase
+        .from('companies')
+        .insert(companyData)
+        .select();
+
+      if (companyError) {
+        console.error("Erro ao criar empresa:", companyError);
+        throw new Error(`Erro ao salvar dados da empresa: ${companyError.message}`);
+      }
+
+      if (!companyResult || companyResult.length === 0) {
+        throw new Error("Erro: Empresa não foi criada corretamente.");
+      }
+
+      console.log("Empresa criada com sucesso:", companyResult[0]);
+
+      // Salvar dados temporários para o plano
+      localStorage.setItem('nomeBarbearia', formData.nomeBarbearia);
+      localStorage.setItem('emailAdmin', formData.emailAdmin);
+      localStorage.setItem('companyId', companyResult[0].id);
+      
+      toast({
+        title: "Cadastro realizado com sucesso!",
+        description: "Agora escolha seu plano para continuar.",
+      });
+      
+      console.log("Redirecionando para plano premium...");
+      
+      // Redirecionar para página do plano premium
+      navigate("/plano-premium");
+      
     } catch (error: any) {
+      console.error("Erro completo no cadastro:", error);
       toast({
         title: "Erro no cadastro",
-        description: error.message || "Ocorreu um erro ao criar sua conta.",
+        description: error.message || "Ocorreu um erro ao criar sua conta. Verifique os dados e tente novamente.",
         variant: "destructive",
       });
     } finally {

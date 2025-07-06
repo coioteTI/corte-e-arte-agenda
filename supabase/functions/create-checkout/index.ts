@@ -8,33 +8,63 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log(`[${new Date().toISOString()}] Recebida requisição: ${req.method}`);
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log("Iniciando processamento do checkout...");
+    
+    // Verificar variáveis de ambiente
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    
+    if (!supabaseUrl || !supabaseKey || !stripeKey) {
+      console.error("Variáveis de ambiente não configuradas:", {
+        supabaseUrl: !!supabaseUrl,
+        supabaseKey: !!supabaseKey,
+        stripeKey: !!stripeKey
+      });
+      throw new Error("Configuração do servidor incompleta");
+    }
+
     // Criar cliente Supabase
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    console.log("Cliente Supabase criado com sucesso");
 
     // Autenticar usuário
-    const authHeader = req.headers.get("Authorization")!;
-    const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
-    const user = data.user;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Token de autorização não fornecido");
+    }
     
+    const token = authHeader.replace("Bearer ", "");
+    console.log("Verificando autenticação do usuário...");
+    
+    const { data, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError) {
+      console.error("Erro na autenticação:", authError);
+      throw new Error(`Erro de autenticação: ${authError.message}`);
+    }
+    
+    const user = data.user;
     if (!user?.email) {
       throw new Error("Usuário não autenticado ou email não disponível");
     }
+    
+    console.log("Usuário autenticado:", user.email);
 
     // Inicializar Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+    const stripe = new Stripe(stripeKey, {
       apiVersion: "2023-10-16",
     });
+    console.log("Cliente Stripe inicializado");
 
     // Verificar se cliente já existe no Stripe
+    console.log("Verificando cliente existente no Stripe...");
     const customers = await stripe.customers.list({ 
       email: user.email, 
       limit: 1 
@@ -43,9 +73,17 @@ serve(async (req) => {
     let customerId;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
+      console.log("Cliente existente encontrado:", customerId);
+    } else {
+      console.log("Nenhum cliente existente encontrado");
     }
 
+    // Obter origem para URLs de redirect
+    const origin = req.headers.get("origin") || "http://localhost:3000";
+    console.log("Origem da requisição:", origin);
+
     // Criar sessão de checkout
+    console.log("Criando sessão de checkout no Stripe...");
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -66,18 +104,29 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/pagamento-sucesso`,
-      cancel_url: `${req.headers.get("origin")}/pagamento-cancelado`,
+      success_url: `${origin}/pagamento-sucesso`,
+      cancel_url: `${origin}/pagamento-cancelado`,
     });
 
-    return new Response(JSON.stringify({ url: session.url }), {
+    console.log("Sessão de checkout criada com sucesso:", session.id);
+
+    return new Response(JSON.stringify({ 
+      url: session.url,
+      sessionId: session.id 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
+    
   } catch (error) {
     console.error("Erro no create-checkout:", error);
+    
+    const errorMessage = error instanceof Error ? error.message : "Erro interno do servidor";
+    console.error("Mensagem de erro:", errorMessage);
+    
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Erro interno do servidor" 
+      error: errorMessage,
+      timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
