@@ -19,24 +19,29 @@ const Index = () => {
                 Corte & Arte
               </h1>
               <p className="text-muted-foreground">
-                Bem-vindo ao Corte & Arte!<br />
-                Sua barbearia na palma da mão.
+                Agende com estilo. Administre com facilidade.
               </p>
             </div>
           </div>
           
           <div className="space-y-3">
             <Button asChild className="w-full" size="lg">
-              <Link to="/login">
-                Entrar
+              <Link to="/buscar-barbearias">
+                Sou Cliente – Procurar Barbearias
               </Link>
             </Button>
             
             <Button asChild variant="outline" className="w-full" size="lg">
-              <Link to="/cadastro">
-                Cadastrar barbearia/salão
+              <Link to="/login">
+                Sou Profissional – Entrar no Sistema
               </Link>
             </Button>
+          </div>
+          
+          <div className="text-sm text-muted-foreground">
+            <Link to="/cadastro" className="hover:text-foreground">
+              Cadastrar nova barbearia/salão
+            </Link>
           </div>
         </CardContent>
       </Card>

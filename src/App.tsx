@@ -13,6 +13,10 @@ import Servicos from "./pages/dashboard/Servicos";
 import Relatorios from "./pages/dashboard/Relatorios";
 import Horarios from "./pages/dashboard/Horarios";
 import Configuracoes from "./pages/dashboard/Configuracoes";
+import BuscarBarbearias from "./pages/BuscarBarbearias";
+import PerfilBarbearia from "./pages/PerfilBarbearia";
+import AgendarServico from "./pages/AgendarServico";
+import AgendamentoConfirmado from "./pages/AgendamentoConfirmado";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +29,14 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          
+          {/* Rotas do Cliente */}
+          <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
+          <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
+          <Route path="/agendar/:slug" element={<AgendarServico />} />
+          <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
+          
+          {/* Rotas da Empresa */}
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -34,6 +46,7 @@ const App = () => (
           <Route path="/dashboard/relatorios" element={<Relatorios />} />
           <Route path="/dashboard/horarios" element={<Horarios />} />
           <Route path="/dashboard/configuracoes" element={<Configuracoes />} />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
