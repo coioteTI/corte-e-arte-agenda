@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate } from "react-router-dom";
-import { Fingerprint, Eye, EyeOff, Smartphone, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,16 +15,10 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lembrarSenha, setLembrarSenha] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
-  const [biometriaDisponivel, setBiometriaDisponivel] = useState(false);
-  const [carregandoBiometria, setCarregandoBiometria] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Verificar se biometria está disponível (simulado)
-    const temBiometria = 'webauthn' in window || 'TouchID' in window || 'FaceID' in window;
-    setBiometriaDisponivel(temBiometria || true); // Sempre true para demonstração
-    
     // Carregar dados salvos se existirem
     const emailSalvo = localStorage.getItem('email_salvo');
     const lembrarLogin = localStorage.getItem('lembrar_login');
@@ -57,29 +51,6 @@ const Login = () => {
       });
       navigate("/dashboard");
     }, 2000);
-  };
-
-  const handleBiometricLogin = async () => {
-    setCarregandoBiometria(true);
-    
-    try {
-      // Simular autenticação biométrica
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      toast({
-        title: "Autenticação biométrica realizada!",
-        description: "Login realizado com sucesso.",
-      });
-      navigate("/dashboard");
-    } catch (error) {
-      toast({
-        title: "Falha na autenticação",
-        description: "Tente novamente ou use email e senha.",
-        variant: "destructive"
-      });
-    } finally {
-      setCarregandoBiometria(false);
-    }
   };
 
   const handleEsqueciSenha = () => {
@@ -166,41 +137,6 @@ const Login = () => {
                 "Entrar"
               )}
             </Button>
-
-            {/* Biometria */}
-            {biometriaDisponivel && (
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-muted" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">ou</span>
-                </div>
-              </div>
-            )}
-
-            {biometriaDisponivel && (
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full hover:scale-105 transition-transform duration-200"
-                size="lg"
-                onClick={handleBiometricLogin}
-                disabled={isLoading || carregandoBiometria}
-              >
-                {carregandoBiometria ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Verificando...
-                  </>
-                ) : (
-                  <>
-                    <Fingerprint className="h-4 w-4 mr-2" />
-                    Entrar com Biometria/Face ID
-                  </>
-                )}
-              </Button>
-            )}
 
             {/* Esqueci senha */}
             <div className="text-center">
