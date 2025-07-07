@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Calendar, Edit, History } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 
@@ -35,10 +38,36 @@ const clientesExemplo = [
   },
 ];
 
+const historicoExemplo = {
+  1: [
+    { data: "2024-01-15", servico: "Corte + Barba", profissional: "Pedro", status: "Concluído" },
+    { data: "2024-01-05", servico: "Corte Masculino", profissional: "Ana", status: "Concluído" },
+    { data: "2023-12-20", servico: "Barba", profissional: "Pedro", status: "Concluído" },
+  ],
+  2: [
+    { data: "2024-01-10", servico: "Corte Feminino", profissional: "Ana", status: "Concluído" },
+    { data: "2023-12-28", servico: "Corte + Tratamento", profissional: "Ana", status: "Concluído" },
+    { data: "2023-12-15", servico: "Corte Feminino", profissional: "Ana", status: "Concluído" },
+  ],
+  3: [
+    { data: "2024-01-12", servico: "Corte Masculino", profissional: "Carlos", status: "Concluído" },
+    { data: "2023-12-22", servico: "Barba", profissional: "Pedro", status: "Concluído" },
+  ]
+};
+
 const Clientes = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [clientes, setClientes] = useState(clientesExemplo);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isHistoricoDialogOpen, setIsHistoricoDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState<any>(null);
+  const [editingCliente, setEditingCliente] = useState({
+    nome: "",
+    telefone: "",
+    email: ""
+  });
   const [novoCliente, setNovoCliente] = useState({
     nome: "",
     telefone: "",
@@ -72,6 +101,60 @@ const Clientes = () => {
     toast({
       title: "Sucesso",
       description: "Cliente cadastrado com sucesso!"
+    });
+  };
+
+  const handleVerHistorico = (cliente: any) => {
+    setSelectedCliente(cliente);
+    setIsHistoricoDialogOpen(true);
+  };
+
+  const handleEditarCliente = (cliente: any) => {
+    setSelectedCliente(cliente);
+    setEditingCliente({
+      nome: cliente.nome,
+      telefone: cliente.telefone,
+      email: cliente.email
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSalvarEdicao = () => {
+    if (!editingCliente.nome || !editingCliente.telefone) {
+      toast({
+        title: "Erro",
+        description: "Nome e telefone são obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setClientes(clientes.map(cliente => 
+      cliente.id === selectedCliente.id 
+        ? { ...cliente, ...editingCliente }
+        : cliente
+    ));
+    
+    setIsEditDialogOpen(false);
+    setSelectedCliente(null);
+    
+    toast({
+      title: "Sucesso",
+      description: "Cliente atualizado com sucesso!"
+    });
+  };
+
+  const handleAgendar = (cliente: any) => {
+    // Redirecionar para agenda com cliente pré-selecionado
+    navigate('/dashboard/agenda', { 
+      state: { 
+        clientePreSelecionado: cliente 
+      } 
+    });
+    
+    toast({
+      title: "Redirecionando",
+      description: `Agendamento para ${cliente.nome}`
     });
   };
   
@@ -209,13 +292,27 @@ const Clientes = () => {
                     </Badge>
                     
                     <div className="flex space-x-2">
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleVerHistorico(cliente)}
+                      >
+                        <History className="h-4 w-4 mr-2" />
                         Ver Histórico
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleEditarCliente(cliente)}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
                         Editar
                       </Button>
-                      <Button size="sm">
+                      <Button 
+                        size="sm"
+                        onClick={() => handleAgendar(cliente)}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
                         Agendar
                       </Button>
                     </div>
@@ -225,6 +322,104 @@ const Clientes = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Modal de Histórico */}
+        <Dialog open={isHistoricoDialogOpen} onOpenChange={setIsHistoricoDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                Histórico de Atendimentos - {selectedCliente?.nome}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedCliente && historicoExemplo[selectedCliente.id as keyof typeof historicoExemplo] ? (
+                <>
+                  <div className="text-sm text-muted-foreground">
+                    Total de atendimentos: {selectedCliente.totalAtendimentos}
+                  </div>
+                  <Separator />
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {historicoExemplo[selectedCliente.id as keyof typeof historicoExemplo].map((atendimento, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium">{atendimento.servico}</div>
+                          <div className="text-sm text-muted-foreground">
+                            Profissional: {atendimento.profissional}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Data: {new Date(atendimento.data).toLocaleDateString("pt-BR")}
+                          </div>
+                        </div>
+                        <Badge variant="secondary">
+                          {atendimento.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    Nenhum histórico encontrado para este cliente
+                  </p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Edição */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Editar Cliente - {selectedCliente?.nome}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-nome">Nome*</Label>
+                <Input
+                  id="edit-nome"
+                  placeholder="Nome completo"
+                  value={editingCliente.nome}
+                  onChange={(e) => setEditingCliente({...editingCliente, nome: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-telefone">Telefone*</Label>
+                <Input
+                  id="edit-telefone"
+                  placeholder="(11) 99999-9999"
+                  value={editingCliente.telefone}
+                  onChange={(e) => setEditingCliente({...editingCliente, telefone: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">E-mail</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  placeholder="cliente@email.com"
+                  value={editingCliente.email}
+                  onChange={(e) => setEditingCliente({...editingCliente, email: e.target.value})}
+                />
+              </div>
+              <div className="flex space-x-2 pt-4">
+                <Button onClick={handleSalvarEdicao} className="flex-1">
+                  Salvar Alterações
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
