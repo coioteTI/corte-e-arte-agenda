@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Clock, User, Scissors } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 
 const agendamentosHoje = [
@@ -43,12 +47,29 @@ const horariosDisponiveis = [
 ];
 
 const Horarios = () => {
+  const [selectedProfessional, setSelectedProfessional] = useState<string>("Todos");
+  const [selectedAgendamento, setSelectedAgendamento] = useState<any>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  
   const dataHoje = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric"
   });
+
+  const handleViewDetails = (agendamento: any) => {
+    setSelectedAgendamento(agendamento);
+    setIsDetailsDialogOpen(true);
+  };
+
+  const handleProfessionalFilter = (professional: string) => {
+    setSelectedProfessional(professional);
+  };
+
+  const filteredAgendamentos = selectedProfessional === "Todos" 
+    ? agendamentosHoje 
+    : agendamentosHoje.filter(ag => ag.profissional === selectedProfessional);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -90,8 +111,10 @@ const Horarios = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold">{agendamentosHoje.length}</div>
-              <p className="text-sm text-muted-foreground">Clientes Agendados</p>
+              <div className="text-2xl font-bold">{filteredAgendamentos.length}</div>
+              <p className="text-sm text-muted-foreground">
+                {selectedProfessional === "Todos" ? "Clientes Agendados" : `Agendamentos - ${selectedProfessional}`}
+              </p>
             </CardContent>
           </Card>
 
@@ -119,10 +142,13 @@ const Horarios = () => {
               <CardTitle>Clientes Agendados Hoje</CardTitle>
             </CardHeader>
             <CardContent>
-              {agendamentosHoje.length === 0 ? (
+              {filteredAgendamentos.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">
-                    Nenhum cliente agendado para hoje
+                    {selectedProfessional === "Todos" 
+                      ? "Nenhum cliente agendado para hoje"
+                      : `Nenhum agendamento para ${selectedProfessional} hoje`
+                    }
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
                     Aproveite para organizar o ambiente!
@@ -130,13 +156,13 @@ const Horarios = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {agendamentosHoje.map((agendamento) => (
+                  {filteredAgendamentos.map((agendamento) => (
                     <div
                       key={agendamento.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center space-x-4">
-                        <div className="text-sm font-medium min-w-[50px]">
+                        <div className="text-sm font-medium min-w-[50px] bg-muted rounded px-2 py-1">
                           {agendamento.horario}
                         </div>
                         <div>
@@ -153,7 +179,11 @@ const Horarios = () => {
                         >
                           {getStatusText(agendamento.status)}
                         </Badge>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleViewDetails(agendamento)}
+                        >
                           Detalhes
                         </Button>
                       </div>
@@ -203,22 +233,87 @@ const Horarios = () => {
             <CardTitle>Filtrar por Profissional</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm">
-                Todos
-              </Button>
-              <Button variant="outline" size="sm">
-                Pedro
-              </Button>
-              <Button variant="outline" size="sm">
-                Ana
-              </Button>
-              <Button variant="outline" size="sm">
-                Carlos
-              </Button>
+            <div className="flex space-x-2 flex-wrap gap-2">
+              {["Todos", "Pedro", "Ana", "Carlos"].map((professional) => (
+                <Button 
+                  key={professional}
+                  variant={selectedProfessional === professional ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => handleProfessionalFilter(professional)}
+                  className="transition-all duration-200"
+                >
+                  {professional}
+                </Button>
+              ))}
             </div>
           </CardContent>
         </Card>
+
+        {/* Details Dialog */}
+        <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Detalhes do Agendamento
+              </DialogTitle>
+            </DialogHeader>
+            {selectedAgendamento && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold mb-2">
+                    {selectedAgendamento.horario}
+                  </div>
+                  <Badge 
+                    variant="secondary"
+                    className={`${getStatusColor(selectedAgendamento.status)} text-white`}
+                  >
+                    {getStatusText(selectedAgendamento.status)}
+                  </Badge>
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Cliente</div>
+                      <div className="font-medium">{selectedAgendamento.cliente}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <Scissors className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Serviço</div>
+                      <div className="font-medium">{selectedAgendamento.servico}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="text-sm text-muted-foreground">Profissional</div>
+                      <div className="font-medium">{selectedAgendamento.profissional}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div className="flex space-x-2">
+                  <Button className="flex-1">
+                    Iniciar Atendimento
+                  </Button>
+                  <Button variant="outline" className="flex-1">
+                    Remarcar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

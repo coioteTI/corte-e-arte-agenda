@@ -38,6 +38,15 @@ const servicosExemplo = [
 const Servicos = () => {
   const [servicos, setServicos] = useState(servicosExemplo);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedServico, setSelectedServico] = useState<any>(null);
+  const [editingServico, setEditingServico] = useState({
+    nome: "",
+    descricao: "",
+    duracao: "",
+    valor: "",
+    profissional: ""
+  });
   const [novoServico, setNovoServico] = useState({
     nome: "",
     descricao: "",
@@ -79,6 +88,50 @@ const Servicos = () => {
     toast({
       title: "Sucesso",
       description: "Serviço adicionado com sucesso!"
+    });
+  };
+
+  const handleEditServico = (servico: any) => {
+    setSelectedServico(servico);
+    setEditingServico({
+      nome: servico.nome,
+      descricao: servico.descricao,
+      duracao: servico.duracao.toString(),
+      valor: servico.valor.toString(),
+      profissional: servico.profissional
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingServico.nome || !editingServico.duracao || !editingServico.valor) {
+      toast({
+        title: "Erro",
+        description: "Preencha os campos obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const updatedServico = {
+      ...selectedServico,
+      nome: editingServico.nome,
+      descricao: editingServico.descricao,
+      duracao: parseInt(editingServico.duracao),
+      valor: parseFloat(editingServico.valor),
+      profissional: editingServico.profissional || "Não definido"
+    };
+
+    setServicos(servicos.map(s => 
+      s.id === selectedServico.id ? updatedServico : s
+    ));
+    
+    setIsEditDialogOpen(false);
+    setSelectedServico(null);
+    
+    toast({
+      title: "Sucesso",
+      description: "Serviço atualizado com sucesso!"
     });
   };
 
@@ -176,6 +229,84 @@ const Servicos = () => {
           </Dialog>
         </div>
 
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Serviço</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-nome">Nome do serviço*</Label>
+                <Input
+                  id="edit-nome"
+                  placeholder="Ex: Corte Masculino"
+                  value={editingServico.nome}
+                  onChange={(e) => setEditingServico({...editingServico, nome: e.target.value})}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-descricao">Descrição</Label>
+                <Input
+                  id="edit-descricao"
+                  placeholder="Descrição do serviço"
+                  value={editingServico.descricao}
+                  onChange={(e) => setEditingServico({...editingServico, descricao: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-duracao">Duração (min)*</Label>
+                  <Input
+                    id="edit-duracao"
+                    type="number"
+                    placeholder="30"
+                    value={editingServico.duracao}
+                    onChange={(e) => setEditingServico({...editingServico, duracao: e.target.value})}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-valor">Valor (R$)*</Label>
+                  <Input
+                    id="edit-valor"
+                    type="number"
+                    step="0.01"
+                    placeholder="25.00"
+                    value={editingServico.valor}
+                    onChange={(e) => setEditingServico({...editingServico, valor: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-profissional">Profissional responsável</Label>
+                <Input
+                  id="edit-profissional"
+                  placeholder="Ex: Pedro"
+                  value={editingServico.profissional}
+                  onChange={(e) => setEditingServico({...editingServico, profissional: e.target.value})}
+                />
+              </div>
+              
+              <div className="flex space-x-2 pt-4">
+                <Button onClick={handleSaveEdit} className="flex-1">
+                  Salvar Alterações
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Lista de Serviços */}
         {servicos.length === 0 ? (
           <Card>
@@ -215,7 +346,12 @@ const Servicos = () => {
                     </div>
                     
                     <div className="flex space-x-2 pt-2">
-                      <Button size="sm" variant="outline" className="flex-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => handleEditServico(servico)}
+                      >
                         Editar
                       </Button>
                       <Button 
