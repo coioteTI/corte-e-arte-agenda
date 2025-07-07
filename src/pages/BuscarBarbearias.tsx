@@ -139,12 +139,14 @@ const BuscarBarbearias = () => {
     try {
       let query = supabase.from('companies').select('*');
       
-      if (estado) {
-        query = query.ilike('state', `%${estado}%`);
+      // Filter by state (exact or partial match)
+      if (estado.trim()) {
+        query = query.or(`state.ilike.%${estado.trim()}%,state.eq.${estado.trim().toUpperCase()}`);
       }
       
-      if (cidade) {
-        query = query.ilike('city', `%${cidade}%`);
+      // Filter by city (exact or partial match)
+      if (cidade.trim()) {
+        query = query.or(`city.ilike.%${cidade.trim()}%,city.eq.${cidade.trim()}`);
       }
       
       const { data: companies, error } = await query.order('likes_count', { ascending: false });

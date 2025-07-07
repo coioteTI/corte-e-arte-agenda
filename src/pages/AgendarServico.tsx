@@ -1,35 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { Calendar, Clock, User, Phone, Mail } from "lucide-react";
+import { Calendar, Clock, User, Phone, Mail, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
 
-// Mock data para agendamento
-const getBarbeariaAgendamento = (slug: string) => {
-  const barbearias = {
-    "barbearia-do-joao": {
-      nome: "Barbearia do João",
-      logo: logo,
-      servicos: [
-        { id: 1, nome: "Corte Masculino", duracao: 30, valor: 25.00 },
-        { id: 2, nome: "Barba", duracao: 20, valor: 15.00 },
-        { id: 3, nome: "Corte + Barba", duracao: 45, valor: 35.00 },
-        { id: 4, nome: "Sobrancelha", duracao: 15, valor: 10.00 }
-      ],
-      horarios: [
-        "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
-        "11:00", "11:30", "14:00", "14:30", "15:00", "15:30",
-        "16:00", "16:30", "17:00", "17:30"
-      ]
-    }
-  };
-  
-  return barbearias[slug as keyof typeof barbearias] || barbearias["barbearia-do-joao"];
+// Load saved client data from localStorage
+const loadSavedClientData = () => {
+  try {
+    const saved = localStorage.getItem('clientData');
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
+// Save client data to localStorage
+const saveClientData = (data: any) => {
+  try {
+    localStorage.setItem('clientData', JSON.stringify(data));
+  } catch (error) {
+    console.error('Error saving client data:', error);
+  }
 };
 
 // Gerar próximos 14 dias úteis
@@ -61,20 +59,134 @@ const AgendarServico = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const barbearia = getBarbeariaAgendamento(slug || "barbearia-do-joao");
   const diasDisponiveis = gerarProximosDias();
+  
+  const [company, setCompany] = useState<any>(null);
+  const [services, setServices] = useState<any[]>([]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [formData, setFormData] = useState({
     nome: "",
     telefone: "",
     email: "",
     servicoId: "",
+    professionalId: "",
     data: "",
     horario: ""
   });
+  const [saveData, setSaveData] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const servicoSelecionado = barbearia.servicos.find(s => s.id.toString() === formData.servicoId);
+  useEffect(() => {
+    fetchCompanyData();
+    loadSavedData();
+  }, [slug]);
+
+  const loadSavedData = () => {
+    const saved = loadSavedClientData();
+    if (saved) {
+      setFormData(prev => ({
+        ...prev,
+        nome: saved.nome || "",
+        telefone: saved.telefone || "",
+        email: saved.email || ""
+      }));
+    }
+  };
+
+  const fetchCompanyData = async () => {
+    try {
+      // Get company by matching slug-like pattern
+      const { data: companies, error } = await supabase
+        .from('companies')
+        .select('*')
+        .limit(10);
+
+      if (error) throw error;
+
+      // Find company by slug match or use first one
+      const foundCompany = companies?.find(c => 
+        c.name.toLowerCase().replace(/\s+/g, '-') === slug
+      ) || companies?.[0];
+
+      if (foundCompany) {
+        setCompany(foundCompany);
+        
+        // Fetch services for this company
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('services')
+          .select('*')
+          .eq('company_id', foundCompany.id);
+
+        if (!servicesError) {
+          setServices(servicesData || []);
+        }
+
+        // Fetch professionals for this company
+        const { data: professionalsData, error: profError } = await supabase
+          .from('professionals')
+          .select('*')
+          .eq('company_id', foundCompany.id)
+          .eq('is_available', true);
+
+        if (!profError) {
+          setProfessionals(professionalsData || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching company data:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados da barbearia.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAvailableSlots = async (professionalId: string, date: string) => {
+    try {
+      // Fetch existing appointments for the professional on the selected date
+      const { data: appointments, error } = await supabase
+        .from('appointments')
+        .select('appointment_time')
+        .eq('professional_id', professionalId)
+        .eq('appointment_date', date)
+        .in('status', ['scheduled', 'confirmed']);
+
+      if (error) throw error;
+
+      // Generate all possible time slots (08:00 to 18:00, 30min intervals)
+      const allSlots = [];
+      for (let hour = 8; hour < 18; hour++) {
+        allSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+        allSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+      }
+
+      // Filter out booked slots
+      const bookedTimes = appointments?.map(a => a.appointment_time) || [];
+      const available = allSlots.filter(slot => !bookedTimes.includes(slot));
+      
+      setAvailableSlots(available);
+    } catch (error) {
+      console.error('Error fetching available slots:', error);
+      setAvailableSlots([]);
+    }
+  };
+
+  useEffect(() => {
+    if (formData.professionalId && formData.data) {
+      fetchAvailableSlots(formData.professionalId, formData.data);
+    } else {
+      setAvailableSlots([]);
+    }
+  }, [formData.professionalId, formData.data]);
+
+  const servicoSelecionado = services.find(s => s.id === formData.servicoId);
+  const professionalSelecionado = professionals.find(p => p.id === formData.professionalId);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -85,7 +197,7 @@ const AgendarServico = () => {
     setIsLoading(true);
     
     // Validações
-    if (!formData.nome || !formData.telefone || !formData.servicoId || !formData.data || !formData.horario) {
+    if (!formData.nome || !formData.telefone || !formData.servicoId || !formData.professionalId || !formData.data || !formData.horario) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos obrigatórios.",
@@ -95,39 +207,138 @@ const AgendarServico = () => {
       return;
     }
 
-    // Simular envio do agendamento
-    setTimeout(() => {
-      setIsLoading(false);
+    // Save client data if checkbox is checked
+    if (saveData) {
+      saveClientData({
+        nome: formData.nome,
+        telefone: formData.telefone,
+        email: formData.email
+      });
+    }
+
+    try {
+      // Create or get client
+      let clientId = null;
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Check if client exists
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (existingClient) {
+          clientId = existingClient.id;
+        } else {
+          // Create new client
+          const { data: newClient, error: clientError } = await supabase
+            .from('clients')
+            .insert({
+              user_id: user.id,
+              name: formData.nome,
+              phone: formData.telefone,
+              email: formData.email
+            })
+            .select('id')
+            .single();
+
+          if (clientError) throw clientError;
+          clientId = newClient.id;
+        }
+      } else {
+        // Create client without user_id for guests
+        const { data: newClient, error: clientError } = await supabase
+          .from('clients')
+          .insert({
+            name: formData.nome,
+            phone: formData.telefone,
+            email: formData.email
+          })
+          .select('id')
+          .single();
+
+        if (clientError) throw clientError;
+        clientId = newClient.id;
+      }
+
+      // Create appointment
+      const { error: appointmentError } = await supabase
+        .from('appointments')
+        .insert({
+          client_id: clientId,
+          company_id: company.id,
+          service_id: formData.servicoId,
+          professional_id: formData.professionalId,
+          appointment_date: formData.data,
+          appointment_time: formData.horario,
+          total_price: servicoSelecionado?.price,
+          status: 'scheduled'
+        });
+
+      if (appointmentError) throw appointmentError;
+
       toast({
-        title: "Agendamento Enviado!",
-        description: "A barbearia entrará em contato para confirmar seu horário.",
+        title: "Agendamento Realizado!",
+        description: "Seu agendamento foi confirmado com sucesso.",
       });
       
-      // Redirecionar para confirmação
-      setTimeout(() => {
-        navigate(`/agendamento-confirmado/${slug}`);
-      }, 2000);
-    }, 1500);
+      navigate(`/agendamento-confirmado/${slug}`);
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      toast({
+        title: "Erro no agendamento",
+        description: "Não foi possível realizar o agendamento. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="animate-pulse">
+            <div className="h-32 bg-muted rounded-lg mb-6"></div>
+            <div className="h-96 bg-muted rounded-lg"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-6">
+        {/* Back Button */}
+        <div className="flex items-center justify-between">
+          <Link 
+            to={`/barbearia/${slug}`} 
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar ao perfil da barbearia
+          </Link>
+        </div>
+
         {/* Header */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <img
-                src={barbearia.logo}
-                alt={barbearia.nome}
-                className="h-16 w-16 rounded-full object-cover"
-              />
+              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <span className="text-2xl font-bold text-primary">
+                  {company?.name?.charAt(0) || 'B'}
+                </span>
+              </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">
-                  Agendar em {barbearia.nome}
+                  Agendar em {company?.name || 'Barbearia'}
                 </h1>
                 <p className="text-muted-foreground">
-                  Preencha os dados para solicitar seu agendamento
+                  Preencha os dados para confirmar seu agendamento
                 </p>
               </div>
             </div>
@@ -198,9 +409,9 @@ const AgendarServico = () => {
                       <SelectValue placeholder="Selecione um serviço" />
                     </SelectTrigger>
                     <SelectContent>
-                      {barbearia.servicos.map((servico) => (
-                        <SelectItem key={servico.id} value={servico.id.toString()}>
-                          {servico.nome} - R$ {servico.valor.toFixed(2)} ({servico.duracao} min)
+                      {services.map((servico) => (
+                        <SelectItem key={servico.id} value={servico.id}>
+                          {servico.name} - R$ {servico.price.toFixed(2)} ({servico.duration} min)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -210,9 +421,45 @@ const AgendarServico = () => {
                 {servicoSelecionado && (
                   <div className="p-3 bg-muted rounded-lg">
                     <p className="text-sm">
-                      <strong>{servicoSelecionado.nome}</strong><br />
-                      Duração: {servicoSelecionado.duracao} minutos<br />
-                      Valor: R$ {servicoSelecionado.valor.toFixed(2)}
+                      <strong>{servicoSelecionado.name}</strong><br />
+                      Duração: {servicoSelecionado.duration} minutos<br />
+                      Valor: R$ {servicoSelecionado.price.toFixed(2)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Profissional */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Quem você quer que realize o serviço?</h3>
+                
+                <div className="space-y-2">
+                  <Label>Profissional *</Label>
+                  <Select value={formData.professionalId} onValueChange={(value) => handleInputChange("professionalId", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um profissional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {professionals.map((professional) => (
+                        <SelectItem key={professional.id} value={professional.id}>
+                          {professional.name}
+                          {professional.specialty && ` - ${professional.specialty}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {professionalSelecionado && (
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-sm">
+                      <strong>{professionalSelecionado.name}</strong>
+                      {professionalSelecionado.specialty && (
+                        <>
+                          <br />
+                          Especialidade: {professionalSelecionado.specialty}
+                        </>
+                      )}
                     </p>
                   </div>
                 )}
@@ -244,12 +491,22 @@ const AgendarServico = () => {
                   
                   <div className="space-y-2">
                     <Label>Horário *</Label>
-                    <Select value={formData.horario} onValueChange={(value) => handleInputChange("horario", value)}>
+                    <Select 
+                      value={formData.horario} 
+                      onValueChange={(value) => handleInputChange("horario", value)}
+                      disabled={!formData.professionalId || !formData.data}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione um horário" />
+                        <SelectValue placeholder={
+                          !formData.professionalId || !formData.data 
+                            ? "Selecione profissional e data primeiro" 
+                            : availableSlots.length === 0 
+                            ? "Nenhum horário disponível"
+                            : "Selecione um horário"
+                        } />
                       </SelectTrigger>
                       <SelectContent>
-                        {barbearia.horarios.map((horario) => (
+                        {availableSlots.map((horario) => (
                           <SelectItem key={horario} value={horario}>
                             {horario}
                           </SelectItem>
@@ -258,6 +515,31 @@ const AgendarServico = () => {
                     </Select>
                   </div>
                 </div>
+                
+                {formData.professionalId && formData.data && availableSlots.length === 0 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      Não há horários disponíveis para esta data. Tente outra data ou profissional.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Salvar Dados */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="saveData" 
+                    checked={saveData}
+                    onCheckedChange={(checked) => setSaveData(checked === true)}
+                  />
+                  <Label htmlFor="saveData" className="text-sm cursor-pointer">
+                    Salvar minhas informações para agendamentos futuros
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Seus dados serão salvos localmente para facilitar próximos agendamentos.
+                </p>
               </div>
 
               {/* Botão de Confirmação */}
@@ -278,12 +560,6 @@ const AgendarServico = () => {
           </CardContent>
         </Card>
 
-        {/* Voltar */}
-        <div className="text-center">
-          <Link to={`/barbearia/${slug}`} className="text-muted-foreground hover:text-foreground">
-            ← Voltar ao perfil da barbearia
-          </Link>
-        </div>
       </div>
     </div>
   );

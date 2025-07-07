@@ -72,8 +72,7 @@ const Agendamentos = () => {
 
       toast({
         title: "Agendamento cancelado",
-        description: "Seu agendamento foi cancelado com sucesso.",
-        variant: "destructive"
+        description: "A barbearia foi notificada automaticamente e a vaga foi reaberta.",
       });
       
       fetchAgendamentos();
