@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -15,6 +15,7 @@ import {
 import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const menuItems = [
   { title: "Agenda", url: "/dashboard/agenda", icon: Calendar },
@@ -92,6 +93,30 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+  const [companyName, setCompanyName] = useState<string>("");
+
+  useEffect(() => {
+    loadCompanyName();
+  }, []);
+
+  const loadCompanyName = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (companies?.name) {
+          setCompanyName(companies.name);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading company name:', error);
+    }
+  };
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -101,7 +126,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <SidebarTrigger />
             <div className="flex items-center space-x-4">
               <div className="text-sm text-muted-foreground">
-                Bem-vindo, {localStorage.getItem('nomeBarbearia') || 'Administrador'}
+                Bem-vindo, {companyName || 'Administrador'}
               </div>
             </div>
           </div>
