@@ -121,19 +121,52 @@ const Configuracoes = () => {
         return;
       }
 
-      if (!companies || companies.length === 0) {
-        console.log('No company found for user');
-        toast({
-          title: "Empresa não encontrada",
-          description: "Nenhuma empresa está vinculada a este usuário.",
-          variant: "destructive",
-        });
-        return;
-      }
+      let company: any;
 
-      const company = companies[0];
-      console.log('Setting company ID:', company.id);
-      setCompanyId(company.id);
+      if (!companies || companies.length === 0) {
+        console.log('No company found for user, creating one...');
+        
+        // Create a default company for the user
+        const { data: newCompany, error: createError } = await supabase
+          .from('companies')
+          .insert({
+            user_id: user.id,
+            name: 'Minha Barbearia',
+            email: user.email || '',
+            phone: '',
+            address: '',
+            city: '',
+            state: '',
+            neighborhood: '',
+            number: '',
+            zip_code: ''
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating company:', createError);
+          toast({
+            title: "Erro ao criar empresa",
+            description: "Não foi possível criar uma empresa para este usuário.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        console.log('Company created:', newCompany);
+        setCompanyId(newCompany.id);
+        company = newCompany;
+        
+        toast({
+          title: "Empresa criada",
+          description: "Uma nova empresa foi criada para você! Complete seus dados nas configurações.",
+        });
+      } else {
+        company = companies[0];
+        console.log('Setting company ID:', company.id);
+        setCompanyId(company.id);
+      }
       
       // Load company settings
       const { data: settings, error: settingsError } = await supabase
