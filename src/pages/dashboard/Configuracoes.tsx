@@ -196,7 +196,8 @@ const Configuracoes = () => {
             corPrimaria: s.primary_color,
             corSecundaria: s.secondary_color,
             emailContato: company.email,
-            telefone: company.phone
+            telefone: company.phone,
+            logoUrl: company.logo_url || ""
           },
           sistema: {
             agendamentoOnline: s.online_booking_enabled,
@@ -548,6 +549,7 @@ const Configuracoes = () => {
             <PersonalizacaoSection
               configuracoes={configuracoes.personalizacao}
               onInputChange={(campo, valor) => handleInputChange("personalizacao", campo, valor)}
+              companyId={companyId}
             />
           </TabsContent>
 

@@ -11,6 +11,7 @@ export interface PersonalizacaoConfig {
   corSecundaria: string;
   emailContato: string;
   telefone: string;
+  logoUrl?: string;
 }
 
 export interface SistemaConfig {
