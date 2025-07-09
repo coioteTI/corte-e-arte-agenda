@@ -64,6 +64,7 @@ const BuscarBarbearias = () => {
       const { data: companies, error } = await supabase
         .from('companies')
         .select('*')
+        .or('state.neq.,city.neq.') // Only show companies with some location data
         .order('likes_count', { ascending: false });
 
       if (error) throw error;
@@ -140,14 +141,19 @@ const BuscarBarbearias = () => {
     try {
       let query = supabase.from('companies').select('*');
       
-      // Apply filters - need to filter only records that have data
+      // Apply filters properly
       if (estado.trim()) {
-        query = query.ilike('state', `%${estado.trim()}%`).neq('state', '');
+        // Search for exact match or partial match for state
+        query = query.or(`state.ilike.%${estado.trim()}%,state.eq.${estado.trim().toUpperCase()}`);
       }
       
       if (cidade.trim()) {
-        query = query.ilike('city', `%${cidade.trim()}%`).neq('city', '');
+        // Search for partial match in city, handling case insensitive
+        query = query.ilike('city', `%${cidade.trim()}%`);
       }
+      
+      // Only get companies that have at least some location data
+      query = query.or('state.neq.,city.neq.');
       
       const { data: companies, error } = await query.order('likes_count', { ascending: false });
       
@@ -417,7 +423,8 @@ const BuscarBarbearias = () => {
                   id="estado"
                   placeholder="Ex: SP, RJ, MG..."
                   value={estado}
-                  onChange={(e) => setEstado(e.target.value)}
+                  onChange={(e) => setEstado(e.target.value.toUpperCase())}
+                  maxLength={2}
                 />
               </div>
               
@@ -425,7 +432,7 @@ const BuscarBarbearias = () => {
                 <Label htmlFor="cidade">Cidade</Label>
                 <Input
                   id="cidade"
-                  placeholder="Ex: São Paulo, Rio de Janeiro..."
+                  placeholder="Ex: São Paulo, Jandira..."
                   value={cidade}
                   onChange={(e) => setCidade(e.target.value)}
                 />
@@ -496,10 +503,15 @@ const BuscarBarbearias = () => {
                       
                       <div>
                         <h3 className="font-semibold text-lg">{barbearia.name}</h3>
-                        <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-2">
-                          <MapPin className="h-4 w-4" />
-                          {barbearia.city}, {barbearia.state}
-                        </div>
+                        {(barbearia.city || barbearia.state) && (
+                          <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm mb-2">
+                            <MapPin className="h-4 w-4" />
+                            {barbearia.city && barbearia.state 
+                              ? `${barbearia.city}, ${barbearia.state}`
+                              : barbearia.city || barbearia.state || 'Localização não informada'
+                            }
+                          </div>
+                        )}
                         <div className="flex items-center justify-center gap-4 mb-3">
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 text-yellow-500 fill-current" />
