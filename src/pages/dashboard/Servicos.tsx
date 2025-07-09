@@ -10,44 +10,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { Tag } from "lucide-react";
 
-const servicosExemplo = [
-  {
-    id: 1,
-    nome: "Corte Masculino",
-    descricao: "Corte moderno e estilizado",
-    duracao: 30,
-    valor: 25.00,
-    profissional: "Pedro",
-    isPromocao: false,
-    valorPromocional: null,
-    validadePromocao: null
-  },
-  {
-    id: 2,
-    nome: "Barba",
-    descricao: "Aparar e modelar barba",
-    duracao: 20,
-    valor: 15.00,
-    profissional: "Pedro",
-    isPromocao: true,
-    valorPromocional: 12.00,
-    validadePromocao: "2024-12-31"
-  },
-  {
-    id: 3,
-    nome: "Corte + Barba",
-    descricao: "Pacote completo",
-    duracao: 45,
-    valor: 35.00,
-    profissional: "Pedro",
-    isPromocao: false,
-    valorPromocional: null,
-    validadePromocao: null
-  },
-];
-
 const Servicos = () => {
-  const [servicos, setServicos] = useState(servicosExemplo);
+  const [servicos, setServicos] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedServico, setSelectedServico] = useState<any>(null);

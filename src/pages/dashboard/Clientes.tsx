@@ -11,54 +11,11 @@ import { Calendar, Edit, History } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 
-const clientesExemplo = [
-  {
-    id: 1,
-    nome: "João Silva",
-    telefone: "(11) 99999-9999",
-    email: "joao@email.com",
-    ultimoAtendimento: "2024-01-15",
-    totalAtendimentos: 8
-  },
-  {
-    id: 2,
-    nome: "Maria Santos",
-    telefone: "(11) 88888-8888",
-    email: "maria@email.com",
-    ultimoAtendimento: "2024-01-10",
-    totalAtendimentos: 12
-  },
-  {
-    id: 3,
-    nome: "Carlos Oliveira",
-    telefone: "(11) 77777-7777",
-    email: "carlos@email.com",
-    ultimoAtendimento: "2024-01-12",
-    totalAtendimentos: 5
-  },
-];
-
-const historicoExemplo = {
-  1: [
-    { data: "2024-01-15", servico: "Corte + Barba", profissional: "Pedro", status: "Concluído" },
-    { data: "2024-01-05", servico: "Corte Masculino", profissional: "Ana", status: "Concluído" },
-    { data: "2023-12-20", servico: "Barba", profissional: "Pedro", status: "Concluído" },
-  ],
-  2: [
-    { data: "2024-01-10", servico: "Corte Feminino", profissional: "Ana", status: "Concluído" },
-    { data: "2023-12-28", servico: "Corte + Tratamento", profissional: "Ana", status: "Concluído" },
-    { data: "2023-12-15", servico: "Corte Feminino", profissional: "Ana", status: "Concluído" },
-  ],
-  3: [
-    { data: "2024-01-12", servico: "Corte Masculino", profissional: "Carlos", status: "Concluído" },
-    { data: "2023-12-22", servico: "Barba", profissional: "Pedro", status: "Concluído" },
-  ]
-};
-
 const Clientes = () => {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [clientes, setClientes] = useState(clientesExemplo);
+  const [clientes, setClientes] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isHistoricoDialogOpen, setIsHistoricoDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -73,7 +30,6 @@ const Clientes = () => {
     telefone: "",
     email: ""
   });
-  const { toast } = useToast();
 
   const handleNovoCliente = () => {
     if (!novoCliente.nome || !novoCliente.telefone) {
@@ -158,7 +114,7 @@ const Clientes = () => {
     });
   };
   
-  const filteredClientes = clientesExemplo.filter(cliente =>
+  const filteredClientes = clientes.filter(cliente =>
     cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cliente.telefone.includes(searchTerm) ||
     cliente.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -227,7 +183,7 @@ const Clientes = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold">{clientesExemplo.length}</div>
+              <div className="text-2xl font-bold">{clientes.length}</div>
               <p className="text-sm text-muted-foreground">Total de Clientes</p>
             </CardContent>
           </Card>
@@ -332,29 +288,14 @@ const Clientes = () => {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {selectedCliente && historicoExemplo[selectedCliente.id as keyof typeof historicoExemplo] ? (
+              {selectedCliente ? (
                 <>
                   <div className="text-sm text-muted-foreground">
-                    Total de atendimentos: {selectedCliente.totalAtendimentos}
+                    Cliente: <strong>{selectedCliente.nome}</strong>
                   </div>
                   <Separator />
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {historicoExemplo[selectedCliente.id as keyof typeof historicoExemplo].map((atendimento, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <div className="font-medium">{atendimento.servico}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Profissional: {atendimento.profissional}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            Data: {new Date(atendimento.data).toLocaleDateString("pt-BR")}
-                          </div>
-                        </div>
-                        <Badge variant="secondary">
-                          {atendimento.status}
-                        </Badge>
-                      </div>
-                    ))}
+                    <p className="text-muted-foreground">Nenhum histórico disponível.</p>
                   </div>
                 </>
               ) : (

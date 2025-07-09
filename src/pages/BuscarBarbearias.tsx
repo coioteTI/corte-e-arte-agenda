@@ -23,8 +23,8 @@ interface Barbearia {
   [key: string]: any; // Allow additional properties from Supabase
 }
 
-// Mock rating data since we don't have reviews table yet
-const getMockRating = () => (4.5 + Math.random() * 0.5);
+// Generate random rating for display purposes  
+const getRandomRating = () => (4.0 + Math.random() * 1.0);
 
 const BuscarBarbearias = () => {
   const [estado, setEstado] = useState("");
@@ -389,7 +389,7 @@ const BuscarBarbearias = () => {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-1">
                       <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="text-sm font-medium">{getMockRating().toFixed(1)}</span>
+                      <span className="text-sm font-medium">{getRandomRating().toFixed(1)}</span>
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Heart className="h-3 w-3 text-red-500" />
@@ -515,7 +515,7 @@ const BuscarBarbearias = () => {
                         <div className="flex items-center justify-center gap-4 mb-3">
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                            <span className="text-sm font-medium">{getMockRating().toFixed(1)}</span>
+                            <span className="text-sm font-medium">{getRandomRating().toFixed(1)}</span>
                           </div>
                         </div>
                         

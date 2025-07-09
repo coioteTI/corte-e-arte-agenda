@@ -12,6 +12,7 @@ import { SistemaSection } from "@/components/configuracoes/SistemaSection";
 import { MensagensAutomaticasSection } from "@/components/configuracoes/MensagensAutomaticasSection";
 import { MessageEditDialog } from "@/components/configuracoes/MessageEditDialog";
 import { ContaEmpresaSection } from "@/components/configuracoes/ContaEmpresaSection";
+import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSection";
 
 import {
   ConfiguracoesState,
@@ -508,7 +509,7 @@ const Configuracoes = () => {
         </div>
 
         <Tabs defaultValue="notificacoes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="notificacoes" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
               Notificações
@@ -528,6 +529,10 @@ const Configuracoes = () => {
             <TabsTrigger value="conta" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Conta
+            </TabsTrigger>
+            <TabsTrigger value="excluir" className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-4 w-4" />
+              Excluir
             </TabsTrigger>
           </TabsList>
 
@@ -567,6 +572,10 @@ const Configuracoes = () => {
               onSalvar={handleSalvarConta}
               saving={saving}
             />
+          </TabsContent>
+
+          <TabsContent value="excluir">
+            <ExcluirContaSection companyId={companyId} />
           </TabsContent>
         </Tabs>
 

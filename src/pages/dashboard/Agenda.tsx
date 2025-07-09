@@ -13,33 +13,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { ptBR } from "date-fns/locale";
 import { startOfWeek, endOfWeek, isSameDay, isWithinInterval } from "date-fns";
 
-const agendamentosExemplo = [
-  {
-    id: 1,
-    cliente: "João Silva",
-    servico: "Corte + Barba",
-    horario: "09:00",
-    status: "agendado",
-    profissional: "Pedro"
-  },
-  {
-    id: 2,
-    cliente: "Maria Santos",
-    servico: "Corte Feminino",
-    horario: "10:30",
-    status: "concluido",
-    profissional: "Ana"
-  },
-  {
-    id: 3,
-    cliente: "Carlos Oliveira",
-    servico: "Barba",
-    horario: "14:00",
-    status: "agendado",
-    profissional: "Pedro"
-  },
-];
-
 const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedView, setSelectedView] = useState<"day" | "week">("day");
@@ -53,7 +26,7 @@ const Agenda = () => {
     data: "",
     horario: ""
   });
-  const [agendamentos, setAgendamentos] = useState(agendamentosExemplo);
+  const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const { toast } = useToast();
 
   const handleNovoAgendamento = () => {
