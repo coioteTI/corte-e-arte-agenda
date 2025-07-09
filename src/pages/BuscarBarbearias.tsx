@@ -8,6 +8,7 @@ import { Search, MapPin, Star, Navigation, Crown, Heart } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { LikeButton } from "@/components/LikeButton";
 
 // Interface para as barbearias - simplifciada para evitar conflitos
 interface Barbearia {
@@ -191,70 +192,6 @@ const BuscarBarbearias = () => {
     }
   };
 
-  const toggleFavorite = async (companyId: string, isFavorite: boolean) => {
-    if (!user) {
-      toast({
-        title: "Login necessário",
-        description: "Faça login para favoritar barbearias.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      if (isFavorite) {
-        // Remove from favorites
-        const { error } = await supabase
-          .from('favorites')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('company_id', companyId);
-
-        if (error) throw error;
-
-        // Decrement likes count
-        const { error: updateError } = await supabase
-          .from('companies')
-          .update({ 
-            likes_count: Math.max(0, (resultados.find(r => r.id === companyId)?.likes_count || 1) - 1)
-          })
-          .eq('id', companyId);
-
-        if (updateError) console.error('Error updating likes:', updateError);
-
-        toast({
-          title: "Removido dos favoritos",
-          description: "Barbearia removida dos seus favoritos.",
-        });
-      } else {
-        // Add to favorites
-        const { error } = await supabase
-          .from('favorites')
-          .insert({ user_id: user.id, company_id: companyId });
-
-        if (error) throw error;
-
-        // Increment likes count
-        await supabase.rpc('increment_likes', { company_id: companyId });
-
-        toast({
-          title: "Adicionado aos favoritos",
-          description: "Barbearia adicionada aos seus favoritos!",
-        });
-      }
-
-      // Refresh data
-      await fetchCompanies();
-      await fetchTopRankings();
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar os favoritos.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const solicitarLocalizacao = () => {
     setCarregandoLocalizacao(true);
@@ -479,18 +416,6 @@ const BuscarBarbearias = () => {
                             {barbearia.name?.charAt(0) || 'B'}
                           </span>
                         </div>
-                        <button
-                          onClick={() => toggleFavorite(barbearia.id, barbearia.is_favorite || false)}
-                          className="absolute -top-2 -right-2 p-1 rounded-full bg-white shadow-md hover:scale-110 transition-transform duration-200"
-                        >
-                          <Heart 
-                            className={`h-4 w-4 ${
-                              barbearia.is_favorite 
-                                ? 'text-red-500 fill-current' 
-                                : 'text-gray-400 hover:text-red-500'
-                            }`}
-                          />
-                        </button>
                         {barbearia.likes_count >= 5000 && (
                           <div className="absolute -top-3 -left-3 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
                             <Crown className="h-3 w-3" />
@@ -505,18 +430,27 @@ const BuscarBarbearias = () => {
                           <MapPin className="h-4 w-4" />
                           {barbearia.city}, {barbearia.state}
                         </div>
-                        <div className="flex items-center justify-center gap-4">
+                        <div className="flex items-center justify-center gap-4 mb-3">
                           <div className="flex items-center gap-1">
                             <Star className="h-4 w-4 text-yellow-500 fill-current" />
                             <span className="text-sm font-medium">{getMockRating().toFixed(1)}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Heart className="h-4 w-4 text-red-500" />
-                            <span className="text-xs text-muted-foreground">
-                              {barbearia.likes_count} curtidas
-                            </span>
-                          </div>
                         </div>
+                        
+                        <LikeButton
+                          companyId={barbearia.id}
+                          initialLikesCount={barbearia.likes_count}
+                          isLiked={barbearia.is_favorite}
+                          size="sm"
+                          variant="outline"
+                          onLikeChange={(newCount) => {
+                            setResultados(prev => prev.map(b => 
+                              b.id === barbearia.id 
+                                ? { ...b, likes_count: newCount, is_favorite: !b.is_favorite }
+                                : b
+                            ));
+                          }}
+                        />
                       </div>
                       
                       <Button asChild className="w-full group-hover:scale-105 transition-transform duration-200">

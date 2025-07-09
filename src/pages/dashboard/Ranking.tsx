@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 interface RankingData {
   id: string;
   name: string;
-  appointments_count: number;
+  likes_count: number;
   ranking: number;
 }
 
@@ -37,9 +37,9 @@ const Ranking = () => {
 
       if (!company) return;
 
-      // Get rankings
+      // Get rankings by likes
       const { data: rankingsData, error } = await supabase
-        .rpc('get_company_rankings_by_appointments');
+        .rpc('get_company_rankings');
 
       if (error) throw error;
 
@@ -91,7 +91,7 @@ const Ranking = () => {
     return (
       <DashboardLayout>
         <div className="space-y-6">
-          <h1 className="text-2xl font-semibold">Ranking</h1>
+          <h1 className="text-2xl font-semibold">Ranking de Curtidas</h1>
           <div className="grid gap-4">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="animate-pulse">
@@ -115,9 +115,9 @@ const Ranking = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Ranking de Empresas</h1>
-          <Badge variant="outline">
-            Mês Atual
+          <h1 className="text-2xl font-semibold">Ranking de Curtidas</h1>
+          <Badge variant="outline" className="flex items-center gap-1">
+            ❤ Baseado em Curtidas
           </Badge>
         </div>
 
@@ -131,9 +131,9 @@ const Ranking = () => {
                   <p className="text-muted-foreground">
                     Você está em <span className="font-semibold text-primary">
                       {currentCompanyRanking.ranking}º lugar
-                    </span> no ranking deste mês com{" "}
+                    </span> no ranking de curtidas com{" "}
                     <span className="font-semibold">
-                      {currentCompanyRanking.appointments_count} agendamentos
+                      {currentCompanyRanking.likes_count} curtidas
                     </span>.
                   </p>
                 </div>
@@ -150,14 +150,14 @@ const Ranking = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5" />
-              Top 3 Empresas do Mês
+              Top 3 Empresas Mais Curtidas
             </CardTitle>
           </CardHeader>
           <CardContent>
             {top3.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
-                  Nenhum dado de ranking disponível ainda.
+                  Nenhum dado de curtidas disponível ainda.
                 </p>
               </div>
             ) : (
@@ -175,9 +175,9 @@ const Ranking = () => {
                         </Badge>
                       </div>
                       <div>
-                        <h4 className="font-medium">{company.name}</h4>
+                        <h4 className="font-medium">💈 {company.name}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {company.appointments_count} agendamentos
+                          ❤ {company.likes_count} curtidas
                         </p>
                       </div>
                     </div>
@@ -205,10 +205,10 @@ const Ranking = () => {
                       <Badge variant="secondary" className="w-8 justify-center">
                         {company.ranking}º
                       </Badge>
-                      <span className="font-medium">{company.name}</span>
+                      <span className="font-medium">💈 {company.name}</span>
                     </div>
                     <span className="text-muted-foreground">
-                      {company.appointments_count} agendamentos
+                      ❤ {company.likes_count} curtidas
                     </span>
                   </div>
                 ))}
