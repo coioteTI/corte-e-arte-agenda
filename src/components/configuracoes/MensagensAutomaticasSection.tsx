@@ -82,14 +82,32 @@ export const MensagensAutomaticasSection = ({
           })}
         </div>
 
-        {/* Regras e Informações */}
+        {/* Variáveis Disponíveis */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-          <h4 className="font-medium text-blue-900 mb-2">📌 Regras importantes:</h4>
-          <ul className="text-sm text-blue-800 space-y-1">
+          <h4 className="font-medium text-blue-900 mb-2">🔧 Variáveis disponíveis:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-blue-800 mb-3">
+            <code className="bg-blue-100 px-2 py-1 rounded">{"{nome}"}</code>
+            <code className="bg-blue-100 px-2 py-1 rounded">{"{data}"}</code>
+            <code className="bg-blue-100 px-2 py-1 rounded">{"{horario}"}</code>
+            <code className="bg-blue-100 px-2 py-1 rounded">{"{barbearia}"}</code>
+          </div>
+          <p className="text-xs text-blue-700 mb-2">
+            <strong>Exemplo de pré-visualização:</strong>
+          </p>
+          <div className="bg-white border border-blue-200 rounded p-2 text-xs text-gray-700">
+            "Olá <strong>João Silva</strong>, você tem um agendamento às <strong>14:30</strong> no dia <strong>15/01/2024</strong> na <strong>Barbearia do João</strong>."
+          </div>
+        </div>
+
+        {/* Regras e Informações */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4">
+          <h4 className="font-medium text-amber-900 mb-2">📌 Regras importantes:</h4>
+          <ul className="text-sm text-amber-800 space-y-1">
             <li>• Mensagens são enviadas apenas para agendamentos confirmados</li>
             <li>• Botão "Cancelar" redireciona para [Meus Agendamentos]</li>
             <li>• Lembretes são enviados 1 hora antes do agendamento</li>
-            <li>• Use as variáveis disponíveis para personalizar as mensagens</li>
+            <li>• Mensagens funcionam via e-mail e WhatsApp (se habilitados)</li>
+            <li>• Configure as notificações na aba "Notificações" para ativar o envio</li>
           </ul>
         </div>
       </CardContent>

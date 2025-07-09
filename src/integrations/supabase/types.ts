@@ -184,6 +184,65 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          advanced_reports_enabled: boolean | null
+          company_id: string
+          confirmations_enabled: boolean | null
+          created_at: string
+          email_notifications: boolean | null
+          id: string
+          online_booking_enabled: boolean | null
+          online_payment_enabled: boolean | null
+          primary_color: string | null
+          reminders_enabled: boolean | null
+          secondary_color: string | null
+          updated_at: string
+          whatsapp_integration_enabled: boolean | null
+          whatsapp_notifications: boolean | null
+        }
+        Insert: {
+          advanced_reports_enabled?: boolean | null
+          company_id: string
+          confirmations_enabled?: boolean | null
+          created_at?: string
+          email_notifications?: boolean | null
+          id?: string
+          online_booking_enabled?: boolean | null
+          online_payment_enabled?: boolean | null
+          primary_color?: string | null
+          reminders_enabled?: boolean | null
+          secondary_color?: string | null
+          updated_at?: string
+          whatsapp_integration_enabled?: boolean | null
+          whatsapp_notifications?: boolean | null
+        }
+        Update: {
+          advanced_reports_enabled?: boolean | null
+          company_id?: string
+          confirmations_enabled?: boolean | null
+          created_at?: string
+          email_notifications?: boolean | null
+          id?: string
+          online_booking_enabled?: boolean | null
+          online_payment_enabled?: boolean | null
+          primary_color?: string | null
+          reminders_enabled?: boolean | null
+          secondary_color?: string | null
+          updated_at?: string
+          whatsapp_integration_enabled?: boolean | null
+          whatsapp_notifications?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       favorites: {
         Row: {
           company_id: string | null
@@ -431,6 +490,25 @@ export type Database = {
           name: string
           appointments_count: number
           ranking: number
+        }[]
+      }
+      get_or_create_company_settings: {
+        Args: { company_uuid: string }
+        Returns: {
+          id: string
+          company_id: string
+          email_notifications: boolean
+          whatsapp_notifications: boolean
+          reminders_enabled: boolean
+          confirmations_enabled: boolean
+          online_booking_enabled: boolean
+          online_payment_enabled: boolean
+          advanced_reports_enabled: boolean
+          whatsapp_integration_enabled: boolean
+          primary_color: string
+          secondary_color: string
+          created_at: string
+          updated_at: string
         }[]
       }
       increment_likes: {

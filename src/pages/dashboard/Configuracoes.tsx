@@ -1,22 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, MessageSquare } from "lucide-react";
+import { Bell, MessageSquare, User, Settings, Palette, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 import { NotificacoesSection } from "@/components/configuracoes/NotificacoesSection";
 import { PersonalizacaoSection } from "@/components/configuracoes/PersonalizacaoSection";
 import { SistemaSection } from "@/components/configuracoes/SistemaSection";
 import { MensagensAutomaticasSection } from "@/components/configuracoes/MensagensAutomaticasSection";
 import { MessageEditDialog } from "@/components/configuracoes/MessageEditDialog";
+import { ContaEmpresaSection } from "@/components/configuracoes/ContaEmpresaSection";
 
 import {
   ConfiguracoesState,
   MensagensAutomaticasConfig,
   MessageType,
+  CompanySettings,
+  ContaEmpresaConfig,
 } from "@/types/configuracoes";
 
 const Configuracoes = () => {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [companyId, setCompanyId] = useState<string>("");
+  const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+  
   const [configuracoes, setConfiguracoes] = useState<ConfiguracoesState>({
     notificacoes: {
       email: true,
@@ -25,11 +35,11 @@ const Configuracoes = () => {
       confirmacoes: true
     },
     personalizacao: {
-      nomeBarbearia: "Barbearia do João",
-      corPrimaria: "#000000",
+      nomeBarbearia: "",
+      corPrimaria: "#8B5CF6",
       corSecundaria: "#ffffff",
-      emailContato: "contato@barbearia.com",
-      telefone: "(11) 99999-9999"
+      emailContato: "",
+      telefone: ""
     },
     sistema: {
       agendamentoOnline: true,
@@ -37,6 +47,17 @@ const Configuracoes = () => {
       relatoriosAvancados: true,
       integracaoWhatsApp: false
     }
+  });
+
+  const [contaEmpresa, setContaEmpresa] = useState<ContaEmpresaConfig>({
+    nome: "",
+    email: "",
+    telefone: "",
+    endereco: "",
+    cidade: "",
+    estado: "",
+    cep: "",
+    logoUrl: ""
   });
 
   const [mensagensAutomaticas, setMensagensAutomaticas] = useState<MensagensAutomaticasConfig>({
@@ -51,6 +72,99 @@ const Configuracoes = () => {
   const [tempMessage, setTempMessage] = useState('');
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    loadCompanyData();
+  }, []);
+
+  const loadCompanyData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get company data
+      const { data: company } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!company) return;
+
+      setCompanyId(company.id);
+      
+      // Load company settings
+      const { data: settings } = await supabase
+        .rpc('get_or_create_company_settings', { company_uuid: company.id });
+
+      if (settings && settings[0]) {
+        const s = settings[0];
+        setCompanySettings(s);
+        
+        setConfiguracoes({
+          notificacoes: {
+            email: s.email_notifications,
+            whatsapp: s.whatsapp_notifications,
+            lembretes: s.reminders_enabled,
+            confirmacoes: s.confirmations_enabled
+          },
+          personalizacao: {
+            nomeBarbearia: company.name,
+            corPrimaria: s.primary_color,
+            corSecundaria: s.secondary_color,
+            emailContato: company.email,
+            telefone: company.phone
+          },
+          sistema: {
+            agendamentoOnline: s.online_booking_enabled,
+            pagamentoOnline: s.online_payment_enabled,
+            relatoriosAvancados: s.advanced_reports_enabled,
+            integracaoWhatsApp: s.whatsapp_integration_enabled
+          }
+        });
+      }
+
+      // Load company account data
+      setContaEmpresa({
+        nome: company.name,
+        email: company.email,
+        telefone: company.phone,
+        endereco: company.address,
+        cidade: company.city,
+        estado: company.state,
+        cep: company.zip_code,
+        logoUrl: company.logo_url || ""
+      });
+
+      // Load notification templates
+      const { data: templates } = await supabase
+        .from('notification_templates')
+        .select('*')
+        .eq('company_id', company.id);
+
+      if (templates && templates.length > 0) {
+        const templatesMap: Record<string, string> = {};
+        templates.forEach(template => {
+          templatesMap[template.template_type] = template.message_template;
+        });
+        
+        setMensagensAutomaticas(prev => ({
+          ...prev,
+          ...templatesMap
+        }));
+      }
+
+    } catch (error) {
+      console.error('Error loading company data:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar as configurações.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSwitchChange = (categoria: string, campo: string, valor: boolean) => {
     setConfiguracoes(prev => ({
@@ -72,11 +186,104 @@ const Configuracoes = () => {
     }));
   };
 
-  const handleSalvarConfiguracoes = () => {
-    toast({
-      title: "Configurações salvas",
-      description: "Suas configurações foram atualizadas com sucesso!"
-    });
+  const handleContaChange = (campo: string, valor: string) => {
+    setContaEmpresa(prev => ({
+      ...prev,
+      [campo]: valor
+    }));
+  };
+
+  const handleSalvarConfiguracoes = async () => {
+    if (!companyId) return;
+    
+    setSaving(true);
+    try {
+      // Update company settings
+      const { error: settingsError } = await supabase
+        .from('company_settings')
+        .upsert({
+          company_id: companyId,
+          email_notifications: configuracoes.notificacoes.email,
+          whatsapp_notifications: configuracoes.notificacoes.whatsapp,
+          reminders_enabled: configuracoes.notificacoes.lembretes,
+          confirmations_enabled: configuracoes.notificacoes.confirmacoes,
+          online_booking_enabled: configuracoes.sistema.agendamentoOnline,
+          online_payment_enabled: configuracoes.sistema.pagamentoOnline,
+          advanced_reports_enabled: configuracoes.sistema.relatoriosAvancados,
+          whatsapp_integration_enabled: configuracoes.sistema.integracaoWhatsApp,
+          primary_color: configuracoes.personalizacao.corPrimaria,
+          secondary_color: configuracoes.personalizacao.corSecundaria,
+        });
+
+      if (settingsError) throw settingsError;
+
+      // Update company basic data
+      const { error: companyError } = await supabase
+        .from('companies')
+        .update({
+          name: configuracoes.personalizacao.nomeBarbearia,
+          email: configuracoes.personalizacao.emailContato,
+          phone: configuracoes.personalizacao.telefone,
+          primary_color: configuracoes.personalizacao.corPrimaria,
+        })
+        .eq('id', companyId);
+
+      if (companyError) throw companyError;
+
+      // Apply primary color to CSS variables
+      document.documentElement.style.setProperty('--primary', configuracoes.personalizacao.corPrimaria);
+
+      toast({
+        title: "Configurações salvas",
+        description: "Suas configurações foram atualizadas com sucesso!"
+      });
+    } catch (error) {
+      console.error('Error saving configurations:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar as configurações.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSalvarConta = async () => {
+    if (!companyId) return;
+    
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('companies')
+        .update({
+          name: contaEmpresa.nome,
+          email: contaEmpresa.email,
+          phone: contaEmpresa.telefone,
+          address: contaEmpresa.endereco,
+          city: contaEmpresa.cidade,
+          state: contaEmpresa.estado,
+          zip_code: contaEmpresa.cep,
+          logo_url: contaEmpresa.logoUrl,
+        })
+        .eq('id', companyId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Dados salvos",
+        description: "Os dados da sua empresa foram atualizados com sucesso!"
+      });
+    } catch (error) {
+      console.error('Error saving company data:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar os dados da empresa.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEditMessage = (tipo: string) => {
@@ -85,16 +292,39 @@ const Configuracoes = () => {
     setIsMessageDialogOpen(true);
   };
 
-  const handleSaveMessage = () => {
-    setMensagensAutomaticas(prev => ({
-      ...prev,
-      [editingMessageType]: tempMessage
-    }));
-    setIsMessageDialogOpen(false);
-    toast({
-      title: "Mensagem atualizada",
-      description: "Sua mensagem personalizada foi salva com sucesso!"
-    });
+  const handleSaveMessage = async () => {
+    if (!companyId) return;
+
+    try {
+      const { error } = await supabase
+        .from('notification_templates')
+        .upsert({
+          company_id: companyId,
+          template_type: editingMessageType,
+          message_template: tempMessage,
+          is_active: true
+        });
+
+      if (error) throw error;
+
+      setMensagensAutomaticas(prev => ({
+        ...prev,
+        [editingMessageType]: tempMessage
+      }));
+      
+      setIsMessageDialogOpen(false);
+      toast({
+        title: "Mensagem atualizada",
+        description: "Sua mensagem personalizada foi salva com sucesso!"
+      });
+    } catch (error) {
+      console.error('Error saving message template:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar a mensagem.",
+        variant: "destructive",
+      });
+    }
   };
 
   const messageTypes: MessageType[] = [
@@ -124,20 +354,13 @@ const Configuracoes = () => {
     }
   ];
 
-  const temConfiguracoes = true;
-
-  if (!temConfiguracoes) {
+  if (loading) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
           <h1 className="text-2xl font-semibold">Configurações</h1>
           <div className="text-center p-12">
-            <p className="text-muted-foreground text-lg">
-              Configure seu sistema aqui
-            </p>
-            <p className="text-muted-foreground text-sm mt-2">
-              Personalize notificações, aparência e funcionalidades
-            </p>
+            <p className="text-muted-foreground">Carregando configurações...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -149,30 +372,75 @@ const Configuracoes = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Configurações</h1>
-          <Button onClick={handleSalvarConfiguracoes}>
-            Salvar Configurações
+          <Button 
+            onClick={handleSalvarConfiguracoes}
+            disabled={saving}
+          >
+            {saving ? "Salvando..." : "Salvar Configurações"}
           </Button>
         </div>
 
-        <NotificacoesSection
-          configuracoes={configuracoes.notificacoes}
-          onSwitchChange={(campo, valor) => handleSwitchChange("notificacoes", campo, valor)}
-        />
+        <Tabs defaultValue="notificacoes" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="notificacoes" className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              Notificações
+            </TabsTrigger>
+            <TabsTrigger value="sistema" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Sistema
+            </TabsTrigger>
+            <TabsTrigger value="personalizacao" className="flex items-center gap-2">
+              <Palette className="h-4 w-4" />
+              Personalização
+            </TabsTrigger>
+            <TabsTrigger value="mensagens" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Mensagens
+            </TabsTrigger>
+            <TabsTrigger value="conta" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Conta
+            </TabsTrigger>
+          </TabsList>
 
-        <PersonalizacaoSection
-          configuracoes={configuracoes.personalizacao}
-          onInputChange={(campo, valor) => handleInputChange("personalizacao", campo, valor)}
-        />
+          <TabsContent value="notificacoes">
+            <NotificacoesSection
+              configuracoes={configuracoes.notificacoes}
+              onSwitchChange={(campo, valor) => handleSwitchChange("notificacoes", campo, valor)}
+            />
+          </TabsContent>
 
-        <SistemaSection
-          configuracoes={configuracoes.sistema}
-          onSwitchChange={(campo, valor) => handleSwitchChange("sistema", campo, valor)}
-        />
+          <TabsContent value="sistema">
+            <SistemaSection
+              configuracoes={configuracoes.sistema}
+              onSwitchChange={(campo, valor) => handleSwitchChange("sistema", campo, valor)}
+            />
+          </TabsContent>
 
-        <MensagensAutomaticasSection
-          mensagensAutomaticas={mensagensAutomaticas}
-          onEditMessage={handleEditMessage}
-        />
+          <TabsContent value="personalizacao">
+            <PersonalizacaoSection
+              configuracoes={configuracoes.personalizacao}
+              onInputChange={(campo, valor) => handleInputChange("personalizacao", campo, valor)}
+            />
+          </TabsContent>
+
+          <TabsContent value="mensagens">
+            <MensagensAutomaticasSection
+              mensagensAutomaticas={mensagensAutomaticas}
+              onEditMessage={handleEditMessage}
+            />
+          </TabsContent>
+
+          <TabsContent value="conta">
+            <ContaEmpresaSection
+              contaEmpresa={contaEmpresa}
+              onInputChange={handleContaChange}
+              onSalvar={handleSalvarConta}
+              saving={saving}
+            />
+          </TabsContent>
+        </Tabs>
 
         <MessageEditDialog
           isOpen={isMessageDialogOpen}
