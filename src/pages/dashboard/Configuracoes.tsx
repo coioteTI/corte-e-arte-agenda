@@ -126,12 +126,12 @@ const Configuracoes = () => {
       if (!companies || companies.length === 0) {
         console.log('No company found for user, creating one...');
         
-        // Create a default company for the user
+        // Create a default company for the user with minimal data
         const { data: newCompany, error: createError } = await supabase
           .from('companies')
           .insert({
             user_id: user.id,
-            name: 'Minha Barbearia',
+            name: '',
             email: user.email || '',
             phone: '',
             address: '',
