@@ -190,14 +190,14 @@ const Clientes = () => {
           
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold">15</div>
+              <div className="text-2xl font-bold">0</div>
               <p className="text-sm text-muted-foreground">Novos este mês</p>
             </CardContent>
           </Card>
           
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold">8.3</div>
+              <div className="text-2xl font-bold">0</div>
               <p className="text-sm text-muted-foreground">Atendimentos por cliente</p>
             </CardContent>
           </Card>
@@ -226,56 +226,67 @@ const Clientes = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {filteredClientes.map((cliente) => (
-                <div
-                  key={cliente.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
-                >
-                  <div className="flex-1">
-                    <div className="font-medium">{cliente.nome}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {cliente.telefone} • {cliente.email}
+            {filteredClientes.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  Nenhum cliente cadastrado ainda.
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Cadastre seus primeiros clientes para começar a gerenciar agendamentos.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredClientes.map((cliente) => (
+                  <div
+                    key={cliente.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium">{cliente.nome}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {cliente.telefone} • {cliente.email}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Último atendimento: {new Date(cliente.ultimoAtendimento).toLocaleDateString("pt-BR")}
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      Último atendimento: {new Date(cliente.ultimoAtendimento).toLocaleDateString("pt-BR")}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <Badge variant="secondary">
-                      {cliente.totalAtendimentos} atendimentos
-                    </Badge>
                     
-                    <div className="flex space-x-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleVerHistorico(cliente)}
-                      >
-                        <History className="h-4 w-4 mr-2" />
-                        Ver Histórico
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleEditarCliente(cliente)}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Editar
-                      </Button>
-                      <Button 
-                        size="sm"
-                        onClick={() => handleAgendar(cliente)}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Agendar
-                      </Button>
+                    <div className="flex items-center space-x-4">
+                      <Badge variant="secondary">
+                        {cliente.totalAtendimentos} atendimentos
+                      </Badge>
+                      
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleVerHistorico(cliente)}
+                        >
+                          <History className="h-4 w-4 mr-2" />
+                          Ver Histórico
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleEditarCliente(cliente)}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Editar
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => handleAgendar(cliente)}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Agendar
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

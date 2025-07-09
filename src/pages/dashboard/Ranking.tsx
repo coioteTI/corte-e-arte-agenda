@@ -110,6 +110,7 @@ const Ranking = () => {
   }
 
   const top3 = rankings.slice(0, 3);
+  const hasData = rankings.length > 0;
 
   return (
     <DashboardLayout>
@@ -121,8 +122,22 @@ const Ranking = () => {
           </Badge>
         </div>
 
+        {/* No data message */}
+        {!hasData && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-muted-foreground text-lg">
+                Nenhum dado de ranking ainda.
+              </p>
+              <p className="text-muted-foreground text-sm mt-2">
+                O ranking aparecerá quando houver curtidas de clientes.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Current Company Position */}
-        {currentCompanyRanking && (
+        {currentCompanyRanking && hasData && (
           <Card className="border-primary/20 bg-primary/5">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -146,21 +161,15 @@ const Ranking = () => {
         )}
 
         {/* Top 3 Companies */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5" />
-              Top 3 Empresas Mais Curtidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {top3.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
-                  Nenhum dado de curtidas disponível ainda.
-                </p>
-              </div>
-            ) : (
+        {hasData && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                Top 3 Empresas Mais Curtidas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
                 {top3.map((company) => (
                   <div
@@ -184,9 +193,9 @@ const Ranking = () => {
                   </div>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* All Rankings */}
         {rankings.length > 3 && (

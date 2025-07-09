@@ -7,44 +7,9 @@ import { Separator } from "@/components/ui/separator";
 import { Clock, User, Scissors } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 
-const agendamentosHoje = [
-  {
-    id: 1,
-    cliente: "João Silva",
-    servico: "Corte + Barba",
-    horario: "09:00",
-    profissional: "Pedro",
-    status: "agendado"
-  },
-  {
-    id: 2,
-    cliente: "Maria Santos",
-    servico: "Corte Feminino",
-    horario: "10:30",
-    profissional: "Ana",
-    status: "em_andamento"
-  },
-  {
-    id: 3,
-    cliente: "Carlos Oliveira",
-    servico: "Barba",
-    horario: "14:00",
-    profissional: "Pedro",
-    status: "agendado"
-  },
-  {
-    id: 4,
-    cliente: "Ana Costa",
-    servico: "Corte Masculino",
-    horario: "16:30",
-    profissional: "Pedro",
-    status: "agendado"
-  },
-];
-
-const horariosDisponiveis = [
-  "11:00", "11:30", "12:00", "13:00", "13:30", "15:00", "15:30", "17:00", "17:30", "18:00"
-];
+// Start with empty data for new companies
+const agendamentosHoje: any[] = [];
+const horariosDisponiveis: string[] = [];
 
 const Horarios = () => {
   const [selectedProfessional, setSelectedProfessional] = useState<string>("Todos");
@@ -233,18 +198,13 @@ const Horarios = () => {
             <CardTitle>Filtrar por Profissional</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex space-x-2 flex-wrap gap-2">
-              {["Todos", "Pedro", "Ana", "Carlos"].map((professional) => (
-                <Button 
-                  key={professional}
-                  variant={selectedProfessional === professional ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => handleProfessionalFilter(professional)}
-                  className="transition-all duration-200"
-                >
-                  {professional}
-                </Button>
-              ))}
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                Nenhum profissional cadastrado ainda.
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Cadastre profissionais na seção de Configurações para começar.
+              </p>
             </div>
           </CardContent>
         </Card>
