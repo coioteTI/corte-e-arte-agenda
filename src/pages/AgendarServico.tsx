@@ -206,19 +206,34 @@ const AgendarServico = () => {
       
       // Usar horários de funcionamento para gerar slots disponíveis
       const selectedDate = new Date(date);
-      let availableTimeslots: string[] = [];
+      let allTimeslots: string[] = [];
       
       if (getAvailableTimeSlotsForDate) {
-        availableTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30);
+        allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30);
       } else {
         // Fallback: gerar horários padrão se não houver horários de funcionamento definidos
         for (let hour = 8; hour < 18; hour++) {
-          availableTimeslots.push(`${hour.toString().padStart(2, '0')}:00`);
-          availableTimeslots.push(`${hour.toString().padStart(2, '0')}:30`);
+          allTimeslots.push(`${hour.toString().padStart(2, '0')}:00`);
+          allTimeslots.push(`${hour.toString().padStart(2, '0')}:30`);
         }
       }
 
-      // TODO: Filtrar horários já agendados (implementar depois)
+      // Buscar agendamentos existentes para filtrar horários ocupados
+      const { data: existingAppointments, error } = await supabase
+        .from('appointments')
+        .select('appointment_time')
+        .eq('professional_id', professionalId)
+        .eq('appointment_date', date)
+        .in('status', ['scheduled', 'confirmed', 'in_progress']);
+
+      if (error) {
+        console.error('Error fetching existing appointments:', error);
+      }
+
+      // Filtrar horários ocupados
+      const occupiedSlots = existingAppointments?.map(apt => apt.appointment_time) || [];
+      const availableTimeslots = allTimeslots.filter(slot => !occupiedSlots.includes(slot));
+
       console.log('Available slots:', availableTimeslots);
       setAvailableSlots(availableTimeslots);
     } catch (error) {
@@ -417,12 +432,37 @@ const AgendarServico = () => {
                 <p className="text-muted-foreground">
                   Preencha os dados para confirmar seu agendamento
                 </p>
-                {company && (company.address || company.city || company.state) && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                    <MapPin className="h-4 w-4" />
-                    {[company.address, company.city, company.state].filter(Boolean).join(', ')}
-                  </div>
-                )}
+                
+                {/* Informações da Barbearia */}
+                <div className="mt-3 space-y-1">
+                  {company && (company.address || company.city || company.state) && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      {[company.address, company.number, company.neighborhood, company.city, company.state].filter(Boolean).join(', ')}
+                    </div>
+                  )}
+                  
+                  {company?.phone && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Phone className="h-4 w-4" />
+                      {company.phone}
+                    </div>
+                  )}
+                  
+                  {company?.instagram && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <MessageSquare className="h-4 w-4" />
+                      @{company.instagram}
+                    </div>
+                  )}
+                  
+                  {company?.email && (
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Mail className="h-4 w-4" />
+                      {company.email}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -485,30 +525,46 @@ const AgendarServico = () => {
               <div className="space-y-4">
                 <h3 className="font-medium">Escolha o Serviço</h3>
                 
-                <div className="space-y-2">
-                  <Label>Serviço *</Label>
-                  <Select value={formData.servicoId} onValueChange={(value) => handleInputChange("servicoId", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um serviço" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {services.map((servico) => (
-                        <SelectItem key={servico.id} value={servico.id}>
-                          {servico.name} - R$ {servico.price.toFixed(2)} ({servico.duration} min)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {servicoSelecionado && (
-                  <div className="p-3 bg-muted rounded-lg">
-                    <p className="text-sm">
-                      <strong>{servicoSelecionado.name}</strong><br />
-                      Duração: {servicoSelecionado.duration} minutos<br />
-                      Valor: R$ {servicoSelecionado.price.toFixed(2)}
+                {services.length === 0 ? (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Esta barbearia ainda não cadastrou serviços disponíveis.</strong><br />
+                      Entre em contato diretamente para agendar seu atendimento.
                     </p>
+                    {company?.phone && (
+                      <p className="text-sm text-yellow-800 mt-2">
+                        📞 Telefone: {company.phone}
+                      </p>
+                    )}
                   </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Serviço *</Label>
+                      <Select value={formData.servicoId} onValueChange={(value) => handleInputChange("servicoId", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um serviço" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {services.map((servico) => (
+                            <SelectItem key={servico.id} value={servico.id}>
+                              {servico.name} - R$ {servico.price.toFixed(2)} ({servico.duration} min)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {servicoSelecionado && (
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-sm">
+                          <strong>{servicoSelecionado.name}</strong><br />
+                          Duração: {servicoSelecionado.duration} minutos<br />
+                          Valor: R$ {servicoSelecionado.price.toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -516,35 +572,51 @@ const AgendarServico = () => {
               <div className="space-y-4">
                 <h3 className="font-medium">Quem você quer que realize o serviço?</h3>
                 
-                <div className="space-y-2">
-                  <Label>Profissional *</Label>
-                  <Select value={formData.professionalId} onValueChange={(value) => handleInputChange("professionalId", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um profissional" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {professionals.map((professional) => (
-                        <SelectItem key={professional.id} value={professional.id}>
-                          {professional.name}
-                          {professional.specialty && ` - ${professional.specialty}`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {professionalSelecionado && (
-                  <div className="p-3 bg-muted rounded-lg">
-                    <p className="text-sm">
-                      <strong>{professionalSelecionado.name}</strong>
-                      {professionalSelecionado.specialty && (
-                        <>
-                          <br />
-                          Especialidade: {professionalSelecionado.specialty}
-                        </>
-                      )}
+                {professionals.length === 0 ? (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Esta barbearia ainda não cadastrou profissionais disponíveis.</strong><br />
+                      Entre em contato diretamente para agendar seu atendimento.
                     </p>
+                    {company?.phone && (
+                      <p className="text-sm text-yellow-800 mt-2">
+                        📞 Telefone: {company.phone}
+                      </p>
+                    )}
                   </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Profissional *</Label>
+                      <Select value={formData.professionalId} onValueChange={(value) => handleInputChange("professionalId", value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um profissional" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {professionals.map((professional) => (
+                            <SelectItem key={professional.id} value={professional.id}>
+                              {professional.name}
+                              {professional.specialty && ` - ${professional.specialty}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {professionalSelecionado && (
+                      <div className="p-3 bg-muted rounded-lg">
+                        <p className="text-sm">
+                          <strong>{professionalSelecionado.name}</strong>
+                          {professionalSelecionado.specialty && (
+                            <>
+                              <br />
+                              Especialidade: {professionalSelecionado.specialty}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -590,12 +662,29 @@ const AgendarServico = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {availableSlots.map((horario) => (
-                          <SelectItem key={horario} value={horario}>
-                            {horario}
+                          <SelectItem key={horario} value={horario} className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              {horario}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    
+                    {/* Legenda de cores */}
+                    {formData.professionalId && formData.data && (
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          Disponível
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                          Ocupado
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
