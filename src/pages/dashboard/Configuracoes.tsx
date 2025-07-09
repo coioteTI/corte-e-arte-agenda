@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, MessageSquare, User, Settings, Palette, Trash2 } from "lucide-react";
+import { Bell, MessageSquare, User, Settings, Palette } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { NotificacoesSection } from "@/components/configuracoes/NotificacoesSection";
@@ -14,7 +14,6 @@ import { MensagensAutomaticasSection } from "@/components/configuracoes/Mensagen
 import { MessageEditDialog } from "@/components/configuracoes/MessageEditDialog";
 import { ContaEmpresaSection } from "@/components/configuracoes/ContaEmpresaSection";
 import { EditarDadosClienteSection } from "@/components/configuracoes/EditarDadosClienteSection";
-import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSection";
 
 import {
   ConfiguracoesState,
@@ -511,7 +510,7 @@ const Configuracoes = () => {
         </div>
 
         <Tabs defaultValue="notificacoes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="notificacoes" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
               Notificações
@@ -531,10 +530,6 @@ const Configuracoes = () => {
             <TabsTrigger value="conta" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Conta
-            </TabsTrigger>
-            <TabsTrigger value="excluir" className="flex items-center gap-2 text-red-600">
-              <Trash2 className="h-4 w-4" />
-              Excluir
             </TabsTrigger>
           </TabsList>
 
@@ -577,14 +572,12 @@ const Configuracoes = () => {
                 onInputChange={handleContaChange}
                 onSalvar={handleSalvarConta}
                 saving={saving}
+                companyId={companyId}
               />
               <EditarDadosClienteSection />
             </div>
           </TabsContent>
 
-          <TabsContent value="excluir">
-            <ExcluirContaSection companyId={companyId} />
-          </TabsContent>
         </Tabs>
 
         <MessageEditDialog
