@@ -22,11 +22,15 @@ const Login = () => {
   useEffect(() => {
     // Carregar dados salvos se existirem
     const emailSalvo = localStorage.getItem('email_salvo');
+    const senhaSalva = localStorage.getItem('senha_salva');
     const lembrarLogin = localStorage.getItem('lembrar_login');
     
     if (emailSalvo && lembrarLogin === 'true') {
       setEmail(emailSalvo);
       setLembrarSenha(true);
+      if (senhaSalva) {
+        setSenha(senhaSalva);
+      }
     }
   }, []);
 
@@ -52,9 +56,11 @@ const Login = () => {
       if (lembrarSenha) {
         localStorage.setItem('lembrar_login', 'true');
         localStorage.setItem('email_salvo', email);
+        localStorage.setItem('senha_salva', senha);
       } else {
         localStorage.removeItem('lembrar_login');
         localStorage.removeItem('email_salvo');
+        localStorage.removeItem('senha_salva');
       }
       
       toast({

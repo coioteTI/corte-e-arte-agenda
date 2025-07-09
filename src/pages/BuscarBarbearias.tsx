@@ -140,13 +140,13 @@ const BuscarBarbearias = () => {
     try {
       let query = supabase.from('companies').select('*');
       
-      // Apply filters in sequence for better results
+      // Apply filters - need to filter only records that have data
       if (estado.trim()) {
-        query = query.ilike('state', `%${estado.trim()}%`);
+        query = query.ilike('state', `%${estado.trim()}%`).neq('state', '');
       }
       
       if (cidade.trim()) {
-        query = query.ilike('city', `%${cidade.trim()}%`);
+        query = query.ilike('city', `%${cidade.trim()}%`).neq('city', '');
       }
       
       const { data: companies, error } = await query.order('likes_count', { ascending: false });
@@ -197,33 +197,104 @@ const BuscarBarbearias = () => {
     
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCarregandoLocalizacao(false);
-          setLocalizacaoPermitida(true);
-          // Simular filtragem por localização próxima
-          const barbeariasPróximas = resultados.filter(b => 
-            b.city === "São Paulo" || b.state === "SP"
-          );
-          setResultados(barbeariasPróximas);
-          toast({
-            title: "Localização ativada!",
-            description: "Mostrando barbearias próximas a você.",
-          });
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            
+            // Usar API de geocoding para obter cidade e estado
+            const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=b8a86b8d6c1f42a58c8e5a0d1e6f1234&language=pt&pretty=1`);
+            const data = await response.json();
+            
+            if (data.results && data.results[0]) {
+              const result = data.results[0];
+              const cidade = result.components.city || result.components.town || result.components.village || '';
+              const estado = result.components.state_code || result.components.state || '';
+              
+              // Atualizar os campos de busca
+              setCidade(cidade);
+              setEstado(estado);
+              
+              // Buscar barbearias próximas
+              let query = supabase.from('companies').select('*');
+              
+              if (estado) {
+                query = query.ilike('state', `%${estado}%`).neq('state', '');
+              }
+              
+              if (cidade) {
+                query = query.ilike('city', `%${cidade}%`).neq('city', '');
+              }
+              
+              const { data: companies, error } = await query.order('likes_count', { ascending: false });
+              
+              if (!error && companies) {
+                let companiesWithFavorites: Barbearia[] = [];
+                
+                if (user) {
+                  const { data: favorites, error: favError } = await supabase
+                    .from('favorites')
+                    .select('company_id')
+                    .eq('user_id', user.id);
+
+                  if (!favError && favorites) {
+                    const favoriteIds = favorites.map(f => f.company_id);
+                    companiesWithFavorites = companies.map(company => ({
+                      ...company,
+                      slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+                      is_favorite: favoriteIds.includes(company.id)
+                    })) as Barbearia[];
+                  }
+                } else {
+                  companiesWithFavorites = companies.map(company => ({
+                    ...company,
+                    slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+                    is_favorite: false
+                  })) as Barbearia[];
+                }
+                
+                setResultados(companiesWithFavorites);
+              }
+              
+              setLocalizacaoPermitida(true);
+              toast({
+                title: "Localização ativada!",
+                description: `Mostrando barbearias em ${cidade}, ${estado}`,
+              });
+            } else {
+              throw new Error('Não foi possível obter a localização');
+            }
+          } catch (error) {
+            console.error('Erro ao obter localização:', error);
+            // Fallback para busca geral
+            setLocalizacaoPermitida(true);
+            toast({
+              title: "Localização aproximada",
+              description: "Mostrando todas as barbearias disponíveis.",
+            });
+          } finally {
+            setCarregandoLocalizacao(false);
+          }
         },
         (error) => {
           setCarregandoLocalizacao(false);
+          console.error('Erro de geolocalização:', error);
           toast({
-            title: "Localização não disponível",
-            description: "Use os filtros manuais para buscar.",
+            title: "Localização negada",
+            description: "Use os filtros manuais para buscar por cidade e estado.",
             variant: "destructive"
           });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
         }
       );
     } else {
       setCarregandoLocalizacao(false);
       toast({
         title: "Geolocalização não suportada",
-        description: "Use os filtros manuais para buscar.",
+        description: "Use os filtros manuais para buscar por cidade e estado.",
         variant: "destructive"
       });
     }
