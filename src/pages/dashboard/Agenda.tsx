@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -11,7 +11,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ptBR } from "date-fns/locale";
-import { startOfWeek, endOfWeek, isSameDay, isWithinInterval } from "date-fns";
+import { startOfWeek, endOfWeek, isSameDay, isWithinInterval, format } from "date-fns";
 
 const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -20,17 +20,66 @@ const Agenda = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAgendamento, setEditingAgendamento] = useState<any>(null);
   const [novoAgendamento, setNovoAgendamento] = useState({
-    cliente: "",
-    servico: "",
-    profissional: "",
-    data: "",
-    horario: ""
+    client_id: "",
+    service_id: "",
+    professional_id: "",
+    appointment_date: "",
+    appointment_time: ""
   });
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [companyId, setCompanyId] = useState<string>("");
   const { toast } = useToast();
 
-  const handleNovoAgendamento = () => {
-    if (!novoAgendamento.cliente || !novoAgendamento.servico || !novoAgendamento.profissional || !novoAgendamento.data || !novoAgendamento.horario) {
+  useEffect(() => {
+    loadCompanyData();
+  }, []);
+
+  const loadCompanyData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get company ID
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!company) return;
+      
+      setCompanyId(company.id);
+
+      // Load services, professionals, clients and appointments
+      const [servicesData, professionalsData, clientsData, appointmentsData] = await Promise.all([
+        supabase.from('services').select('*').eq('company_id', company.id),
+        supabase.from('professionals').select('*').eq('company_id', company.id),
+        supabase.from('clients').select('*'),
+        supabase
+          .from('appointments')
+          .select(`
+            *,
+            clients(name),
+            services(name),
+            professionals(name)
+          `)
+          .eq('company_id', company.id)
+      ]);
+
+      setServices(servicesData.data || []);
+      setProfessionals(professionalsData.data || []);
+      setClients(clientsData.data || []);
+      setAgendamentos(appointmentsData.data || []);
+    } catch (error) {
+      console.error('Error loading company data:', error);
+    }
+  };
+
+  const handleNovoAgendamento = async () => {
+    if (!novoAgendamento.client_id || !novoAgendamento.service_id || !novoAgendamento.professional_id || !novoAgendamento.appointment_date || !novoAgendamento.appointment_time) {
       toast({
         title: "Erro",
         description: "Preencha todos os campos obrigatórios",
@@ -39,39 +88,67 @@ const Agenda = () => {
       return;
     }
 
-    const agendamento = {
-      id: Date.now(),
-      cliente: novoAgendamento.cliente,
-      servico: novoAgendamento.servico,
-      horario: novoAgendamento.horario,
-      status: "agendado" as const,
-      profissional: novoAgendamento.profissional
-    };
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .insert({
+          client_id: novoAgendamento.client_id,
+          service_id: novoAgendamento.service_id,
+          professional_id: novoAgendamento.professional_id,
+          appointment_date: novoAgendamento.appointment_date,
+          appointment_time: novoAgendamento.appointment_time,
+          company_id: companyId,
+          status: 'scheduled'
+        });
 
-    setAgendamentos([...agendamentos, agendamento]);
-    setNovoAgendamento({
-      cliente: "",
-      servico: "",
-      profissional: "",
-      data: "",
-      horario: ""
-    });
-    setIsDialogOpen(false);
-    
-    toast({
-      title: "Sucesso",
-      description: "Agendamento criado com sucesso!"
-    });
+      if (error) throw error;
+
+      setNovoAgendamento({
+        client_id: "",
+        service_id: "",
+        professional_id: "",
+        appointment_date: "",
+        appointment_time: ""
+      });
+      setIsDialogOpen(false);
+      loadCompanyData(); // Reload data
+      
+      toast({
+        title: "Sucesso",
+        description: "Agendamento criado com sucesso!"
+      });
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar o agendamento",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleConcluirAgendamento = (id: number) => {
-    setAgendamentos(agendamentos.map(ag => 
-      ag.id === id ? { ...ag, status: "concluido" as const } : ag
-    ));
-    toast({
-      title: "Agendamento concluído",
-      description: "Status atualizado com sucesso!"
-    });
+  const handleConcluirAgendamento = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'completed' })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      loadCompanyData(); // Reload data
+      toast({
+        title: "Agendamento concluído",
+        description: "Status atualizado com sucesso!"
+      });
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o agendamento",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleEditAgendamento = (agendamento: any) => {
@@ -79,33 +156,52 @@ const Agenda = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingAgendamento) return;
     
-    setAgendamentos(agendamentos.map(ag => 
-      ag.id === editingAgendamento.id ? editingAgendamento : ag
-    ));
-    setIsEditDialogOpen(false);
-    setEditingAgendamento(null);
-    
-    toast({
-      title: "Agendamento atualizado",
-      description: "As alterações foram salvas com sucesso!"
-    });
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({
+          appointment_time: editingAgendamento.appointment_time
+        })
+        .eq('id', editingAgendamento.id);
+
+      if (error) throw error;
+
+      setIsEditDialogOpen(false);
+      setEditingAgendamento(null);
+      loadCompanyData(); // Reload data
+      
+      toast({
+        title: "Agendamento atualizado",
+        description: "As alterações foram salvas com sucesso!"
+      });
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o agendamento",
+        variant: "destructive"
+      });
+    }
   };
 
   const getFilteredAgendamentos = () => {
     if (!selectedDate) return agendamentos;
     
+    const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
+    
     if (selectedView === "day") {
-      // Para simulação, mostrar todos os agendamentos no dia selecionado
-      return agendamentos;
+      return agendamentos.filter(ag => ag.appointment_date === selectedDateString);
     } else {
-      // Visualização semanal - mostrar agendamentos da semana
+      // Visualização semanal
       const weekStart = startOfWeek(selectedDate, { locale: ptBR });
       const weekEnd = endOfWeek(selectedDate, { locale: ptBR });
-      // Para simulação, mostrar todos os agendamentos
-      return agendamentos;
+      return agendamentos.filter(ag => {
+        const agDate = new Date(ag.appointment_date);
+        return isWithinInterval(agDate, { start: weekStart, end: weekEnd });
+      });
     }
   };
 
@@ -113,11 +209,11 @@ const Agenda = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "agendado":
+      case "scheduled":
         return "bg-blue-500";
-      case "concluido":
+      case "completed":
         return "bg-green-500";
-      case "cancelado":
+      case "cancelled":
         return "bg-red-500";
       default:
         return "bg-gray-500";
@@ -126,11 +222,11 @@ const Agenda = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "agendado":
+      case "scheduled":
         return "Agendado";
-      case "concluido":
+      case "completed":
         return "Concluído";
-      case "cancelado":
+      case "cancelled":
         return "Cancelado";
       default:
         return status;
@@ -192,40 +288,67 @@ const Agenda = () => {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="cliente">Nome do Cliente*</Label>
-                        <Input
-                          id="cliente"
-                          placeholder="Nome completo"
-                          value={novoAgendamento.cliente}
-                          onChange={(e) => setNovoAgendamento({...novoAgendamento, cliente: e.target.value})}
-                        />
+                        <Label htmlFor="cliente">Cliente*</Label>
+                        <Select value={novoAgendamento.client_id} onValueChange={(value) => setNovoAgendamento({...novoAgendamento, client_id: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o cliente" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clients.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">
+                                Nenhum cliente cadastrado ainda
+                              </div>
+                            ) : (
+                              clients.map((client) => (
+                                <SelectItem key={client.id} value={client.id}>
+                                  {client.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
                       
                       <div className="space-y-2">
                         <Label htmlFor="servico">Serviço*</Label>
-                        <Select value={novoAgendamento.servico} onValueChange={(value) => setNovoAgendamento({...novoAgendamento, servico: value})}>
+                        <Select value={novoAgendamento.service_id} onValueChange={(value) => setNovoAgendamento({...novoAgendamento, service_id: value})}>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o serviço" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Corte + Barba">Corte + Barba</SelectItem>
-                            <SelectItem value="Corte Masculino">Corte Masculino</SelectItem>
-                            <SelectItem value="Corte Feminino">Corte Feminino</SelectItem>
-                            <SelectItem value="Barba">Barba</SelectItem>
+                            {services.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">
+                                Nenhum serviço cadastrado ainda
+                              </div>
+                            ) : (
+                              services.map((service) => (
+                                <SelectItem key={service.id} value={service.id}>
+                                  {service.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
                       
                       <div className="space-y-2">
                         <Label htmlFor="profissional">Profissional*</Label>
-                        <Select value={novoAgendamento.profissional} onValueChange={(value) => setNovoAgendamento({...novoAgendamento, profissional: value})}>
+                        <Select value={novoAgendamento.professional_id} onValueChange={(value) => setNovoAgendamento({...novoAgendamento, professional_id: value})}>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o profissional" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Pedro">Pedro</SelectItem>
-                            <SelectItem value="Ana">Ana</SelectItem>
-                            <SelectItem value="Carlos">Carlos</SelectItem>
+                            {professionals.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">
+                                Nenhum profissional cadastrado ainda
+                              </div>
+                            ) : (
+                              professionals.map((professional) => (
+                                <SelectItem key={professional.id} value={professional.id}>
+                                  {professional.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -236,8 +359,8 @@ const Agenda = () => {
                           <Input
                             id="data"
                             type="date"
-                            value={novoAgendamento.data}
-                            onChange={(e) => setNovoAgendamento({...novoAgendamento, data: e.target.value})}
+                            value={novoAgendamento.appointment_date}
+                            onChange={(e) => setNovoAgendamento({...novoAgendamento, appointment_date: e.target.value})}
                           />
                         </div>
                         
@@ -246,8 +369,8 @@ const Agenda = () => {
                           <Input
                             id="horario"
                             type="time"
-                            value={novoAgendamento.horario}
-                            onChange={(e) => setNovoAgendamento({...novoAgendamento, horario: e.target.value})}
+                            value={novoAgendamento.appointment_time}
+                            onChange={(e) => setNovoAgendamento({...novoAgendamento, appointment_time: e.target.value})}
                           />
                         </div>
                       </div>
@@ -277,12 +400,12 @@ const Agenda = () => {
                     >
                       <div className="flex items-center space-x-4">
                         <div className="text-sm font-medium">
-                          {agendamento.horario}
+                          {agendamento.appointment_time}
                         </div>
                         <div>
-                          <div className="font-medium">{agendamento.cliente}</div>
+                          <div className="font-medium">{agendamento.clients?.name}</div>
                           <div className="text-sm text-muted-foreground">
-                            {agendamento.servico} • {agendamento.profissional}
+                            {agendamento.services?.name} • {agendamento.professionals?.name}
                           </div>
                         </div>
                       </div>
@@ -301,7 +424,7 @@ const Agenda = () => {
                           >
                             Editar
                           </Button>
-                          {agendamento.status === "agendado" && (
+                          {agendamento.status === "scheduled" && (
                             <Button 
                               size="sm" 
                               variant="outline"
@@ -318,6 +441,9 @@ const Agenda = () => {
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">
                         Nenhum agendamento para esta data
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Cadastre clientes, serviços e profissionais para começar a agendar
                       </p>
                     </div>
                   )}
@@ -336,67 +462,14 @@ const Agenda = () => {
             {editingAgendamento && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-cliente">Nome do Cliente*</Label>
-                  <Input
-                    id="edit-cliente"
-                    value={editingAgendamento.cliente}
-                    onChange={(e) => setEditingAgendamento({
-                      ...editingAgendamento, 
-                      cliente: e.target.value
-                    })}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-servico">Serviço*</Label>
-                  <Select 
-                    value={editingAgendamento.servico} 
-                    onValueChange={(value) => setEditingAgendamento({
-                      ...editingAgendamento, 
-                      servico: value
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Corte + Barba">Corte + Barba</SelectItem>
-                      <SelectItem value="Corte Masculino">Corte Masculino</SelectItem>
-                      <SelectItem value="Corte Feminino">Corte Feminino</SelectItem>
-                      <SelectItem value="Barba">Barba</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="edit-profissional">Profissional*</Label>
-                  <Select 
-                    value={editingAgendamento.profissional} 
-                    onValueChange={(value) => setEditingAgendamento({
-                      ...editingAgendamento, 
-                      profissional: value
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pedro">Pedro</SelectItem>
-                      <SelectItem value="Ana">Ana</SelectItem>
-                      <SelectItem value="Carlos">Carlos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
                   <Label htmlFor="edit-horario">Horário*</Label>
                   <Input
                     id="edit-horario"
                     type="time"
-                    value={editingAgendamento.horario}
+                    value={editingAgendamento.appointment_time}
                     onChange={(e) => setEditingAgendamento({
                       ...editingAgendamento, 
-                      horario: e.target.value
+                      appointment_time: e.target.value
                     })}
                   />
                 </div>

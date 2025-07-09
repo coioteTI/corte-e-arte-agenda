@@ -53,16 +53,8 @@ export const ExcluirContaSection = ({ companyId }: ExcluirContaSectionProps) => 
       await supabase.from('professionals').delete().eq('company_id', companyId);
       console.log('Deleted professionals');
       
-      // 5. Delete clients (only those related to this company's appointments)
-      const { data: clientIds } = await supabase
-        .from('appointments')
-        .select('client_id')
-        .eq('company_id', companyId);
-      
-      if (clientIds && clientIds.length > 0) {
-        const uniqueClientIds = [...new Set(clientIds.map(a => a.client_id))];
-        await supabase.from('clients').delete().in('id', uniqueClientIds);
-      }
+      // 5. Delete all clients first (since appointments were already deleted)
+      await supabase.from('clients').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       console.log('Deleted clients');
       
       // 6. Delete favorites related to this company
@@ -172,10 +164,7 @@ export const ExcluirContaSection = ({ companyId }: ExcluirContaSectionProps) => 
               </AlertDialogTitle>
               <AlertDialogDescription className="space-y-2">
                 <p>
-                  <strong>Tem certeza que deseja excluir permanentemente sua barbearia, conta e todos os dados?</strong>
-                </p>
-                <p className="text-red-600">
-                  Esta ação é irreversível e todos os seus dados serão perdidos para sempre.
+                  <strong>Tem certeza que deseja excluir permanentemente sua conta e todos os dados da barbearia? Esta ação é irreversível.</strong>
                 </p>
               </AlertDialogDescription>
             </AlertDialogHeader>
