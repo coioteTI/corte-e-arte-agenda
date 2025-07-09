@@ -446,7 +446,7 @@ const BuscarBarbearias = () => {
                           onLikeChange={(newCount) => {
                             setResultados(prev => prev.map(b => 
                               b.id === barbearia.id 
-                                ? { ...b, likes_count: newCount, is_favorite: !b.is_favorite }
+                                ? { ...b, likes_count: newCount }
                                 : b
                             ));
                           }}

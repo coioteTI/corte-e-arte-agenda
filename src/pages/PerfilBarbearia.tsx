@@ -1,130 +1,188 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link, useParams } from "react-router-dom";
-import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink } from "lucide-react";
+import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Heart, ArrowLeft } from "lucide-react";
+import { LikeButton } from "@/components/LikeButton";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
-
-const getBarbearia = (slug: string) => {
-  const barbearias = {
-    "barbearia-do-joao": {
-      nome: "Barbearia do João",
-      descricao: "Tradição e qualidade em cortes masculinos há mais de 20 anos. Atendimento personalizado e ambiente acolhedor.",
-      endereco: "Rua das Flores, 123 - Centro",
-      cidade: "São Paulo",
-      estado: "SP",
-      cep: "01234-567",
-      telefone: "(11) 99999-9999",
-      instagram: "@barbearia_do_joao",
-      logo: logo,
-      fotos: [logo, logo, logo, logo, logo],
-      avaliacoes: 4.8,
-      totalAvaliacoes: 156,
-      agendamentos: 1250,
-      destaque: true,
-      servicos: [
-        { nome: "Corte Masculino", duracao: "30 min", valor: 25.00 },
-        { nome: "Barba", duracao: "20 min", valor: 15.00 },
-        { nome: "Corte + Barba", duracao: "45 min", valor: 35.00 },
-        { nome: "Sobrancelha", duracao: "15 min", valor: 10.00 }
-      ],
-      horarios: [
-        { dia: "Segunda-feira", inicio: "08:00", fim: "18:00" },
-        { dia: "Terça-feira", inicio: "08:00", fim: "18:00" },
-        { dia: "Quarta-feira", inicio: "08:00", fim: "18:00" },
-        { dia: "Quinta-feira", inicio: "08:00", fim: "18:00" },
-        { dia: "Sexta-feira", inicio: "08:00", fim: "19:00" },
-        { dia: "Sábado", inicio: "08:00", fim: "16:00" },
-        { dia: "Domingo", inicio: "Fechado", fim: "" }
-      ]
-    },
-    "salao-elite": {
-      nome: "Salão Elite",
-      descricao: "Excelência em cortes e tratamentos capilares. Equipe especializada e produtos de qualidade.",
-      endereco: "Av. Copacabana, 456 - Copacabana",
-      cidade: "Rio de Janeiro",
-      estado: "RJ", 
-      cep: "22070-001",
-      telefone: "(21) 88888-8888",
-      instagram: "@salao_elite",
-      logo: logo,
-      fotos: [logo, logo, logo, logo],
-      avaliacoes: 4.9,
-      totalAvaliacoes: 98,
-      agendamentos: 980,
-      destaque: true,
-      servicos: [
-        { nome: "Corte Feminino", duracao: "45 min", valor: 40.00 },
-        { nome: "Corte Masculino", duracao: "30 min", valor: 30.00 },
-        { nome: "Escova", duracao: "40 min", valor: 25.00 },
-        { nome: "Hidratação", duracao: "60 min", valor: 50.00 }
-      ],
-      horarios: [
-        { dia: "Segunda-feira", inicio: "09:00", fim: "19:00" },
-        { dia: "Terça-feira", inicio: "09:00", fim: "19:00" },
-        { dia: "Quarta-feira", inicio: "09:00", fim: "19:00" },
-        { dia: "Quinta-feira", inicio: "09:00", fim: "19:00" },
-        { dia: "Sexta-feira", inicio: "09:00", fim: "20:00" },
-        { dia: "Sábado", inicio: "08:00", fim: "18:00" },
-        { dia: "Domingo", inicio: "Fechado", fim: "" }
-      ]
-    }
-  };
-  
-  return barbearias[slug as keyof typeof barbearias] || barbearias["barbearia-do-joao"];
-};
 
 const PerfilBarbearia = () => {
   const { slug } = useParams();
-  const barbearia = getBarbearia(slug || "barbearia-do-joao");
+  const { toast } = useToast();
+  const [company, setCompany] = useState<any>(null);
+  const [services, setServices] = useState<any[]>([]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isLiked, setIsLiked] = useState(false);
+
+  useEffect(() => {
+    fetchCompanyData();
+  }, [slug]);
+
+  const fetchCompanyData = async () => {
+    try {
+      // Get company by matching slug-like pattern
+      const { data: companies, error } = await supabase
+        .from('companies')
+        .select('*')
+        .limit(10);
+
+      if (error) throw error;
+
+      // Find company by slug match or use first one
+      const foundCompany = companies?.find(c => 
+        c.name.toLowerCase().replace(/\s+/g, '-') === slug
+      ) || companies?.[0];
+
+      if (foundCompany) {
+        setCompany(foundCompany);
+        
+        // Fetch services for this company
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('services')
+          .select('*')
+          .eq('company_id', foundCompany.id)
+          .order('price', { ascending: true });
+
+        if (!servicesError) {
+          setServices(servicesData || []);
+        }
+
+        // Fetch professionals for this company
+        const { data: professionalsData, error: profError } = await supabase
+          .from('professionals')
+          .select('*')
+          .eq('company_id', foundCompany.id)
+          .eq('is_available', true);
+
+        if (!profError) {
+          setProfessionals(professionalsData || []);
+        }
+
+        // Check if user already liked this company
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: favorite } = await supabase
+            .from('favorites')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('company_id', foundCompany.id)
+            .single();
+          
+          setIsLiked(!!favorite);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching company data:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados da barbearia.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const abrirWhatsApp = () => {
-    const numero = barbearia.telefone.replace(/\D/g, '');
-    const mensagem = `Olá! Gostaria de agendar um serviço na ${barbearia.nome}.`;
+    if (!company?.phone) return;
+    const numero = company.phone.replace(/\D/g, '');
+    const mensagem = `Olá! Gostaria de agendar um serviço na ${company.name}.`;
     window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(mensagem)}`, '_blank');
   };
 
   const abrirMaps = () => {
-    const endereco = `${barbearia.endereco}, ${barbearia.cidade}, ${barbearia.estado}`;
+    if (!company) return;
+    const endereco = `${company.address}, ${company.city}, ${company.state}`;
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
     window.open(url, '_blank');
   };
 
   const abrirInstagram = () => {
-    window.open(`https://instagram.com/${barbearia.instagram.replace('@', '')}`, '_blank');
+    if (!company?.instagram) return;
+    window.open(`https://instagram.com/${company.instagram.replace('@', '')}`, '_blank');
   };
+
+  const handleLikeChange = (newLikesCount: number) => {
+    setCompany(prev => ({ ...prev, likes_count: newLikesCount }));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="animate-pulse">
+            <div className="h-32 bg-muted rounded-lg mb-6"></div>
+            <div className="h-96 bg-muted rounded-lg mb-6"></div>
+            <div className="h-48 bg-muted rounded-lg"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!company) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-2xl font-bold mb-4">Barbearia não encontrada</h1>
+          <Link to="/buscar-barbearias" className="text-primary hover:underline">
+            ← Voltar à busca
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Back Button */}
+        <div className="flex items-center justify-between">
+          <Link 
+            to="/buscar-barbearias" 
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar à busca
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in">
           <div className="relative inline-block mb-4">
-            <img 
-              src={barbearia.logo} 
-              alt={barbearia.nome} 
-              className="h-20 w-20 mx-auto rounded-full object-cover border-4 border-white shadow-lg"
-            />
-            {barbearia.destaque && (
-              <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-2 py-1">
-                TOP
-              </Badge>
-            )}
+            <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border-4 border-white shadow-lg">
+              <span className="text-2xl font-bold text-primary">
+                {company.name.charAt(0)}
+              </span>
+            </div>
+            <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-2 py-1">
+              TOP
+            </Badge>
           </div>
           <h1 className="text-2xl font-bold text-foreground mb-2">
-            {barbearia.nome}
+            {company.name}
           </h1>
           <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-            {barbearia.descricao}
+            Tradição e qualidade em cortes masculinos. Atendimento personalizado e ambiente acolhedor.
           </p>
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <div className="flex items-center gap-1">
-              <Star className="h-5 w-5 text-yellow-500 fill-current" />
-              <span className="font-semibold">{barbearia.avaliacoes}</span>
-              <span className="text-muted-foreground">({barbearia.totalAvaliacoes} avaliações)</span>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {barbearia.agendamentos}+ agendamentos
+          
+          {/* Likes and Ranking Info */}
+          <div className="flex flex-col items-center gap-3 mb-4">
+            <LikeButton
+              companyId={company.id}
+              initialLikesCount={company.likes_count || 0}
+              isLiked={isLiked}
+              size="lg"
+              variant="outline"
+              showCount={true}
+              onLikeChange={handleLikeChange}
+            />
+            <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
+              ❤️ {company.likes_count || 0} curtidas no total
             </div>
           </div>
         </div>
@@ -141,10 +199,13 @@ const PerfilBarbearia = () => {
             <div>
               <h4 className="font-medium mb-1">Endereço</h4>
               <p className="text-muted-foreground text-sm">
-                {barbearia.endereco}
+                {company.address}, {company.number}
               </p>
               <p className="text-muted-foreground text-sm">
-                {barbearia.cidade}, {barbearia.estado} - CEP: {barbearia.cep}
+                {company.neighborhood} - {company.city}, {company.state}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                CEP: {company.zip_code}
               </p>
               <Button 
                 variant="link" 
@@ -164,42 +225,51 @@ const PerfilBarbearia = () => {
                 style={{ backgroundColor: '#25D366' }}
               >
                 <MessageCircle className="h-4 w-4 mr-2" />
-                WhatsApp: {barbearia.telefone}
+                WhatsApp: {company.phone}
               </Button>
               
-              <Button 
-                variant="outline" 
-                className="w-full hover:scale-105 transition-transform duration-200" 
-                size="lg"
-                onClick={abrirInstagram}
-              >
-                <Instagram className="h-4 w-4 mr-2" />
-                {barbearia.instagram}
-              </Button>
+              {company.instagram && (
+                <Button 
+                  variant="outline" 
+                  className="w-full hover:scale-105 transition-transform duration-200" 
+                  size="lg"
+                  onClick={abrirInstagram}
+                >
+                  <Instagram className="h-4 w-4 mr-2" />
+                  {company.instagram}
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Galeria de Fotos */}
-        <Card className="mb-6 animate-fade-in">
-          <CardHeader>
-            <CardTitle>Galeria</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {barbearia.fotos.map((foto, index) => (
-                <div key={index} className="relative group">
-                  <img
-                    src={foto}
-                    alt={`${barbearia.nome} - Foto ${index + 1}`}
-                    className="w-full h-32 object-cover rounded-lg transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Profissionais */}
+        {professionals.length > 0 && (
+          <Card className="mb-6 animate-fade-in">
+            <CardHeader>
+              <CardTitle>Nossa Equipe</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {professionals.map((professional) => (
+                  <div key={professional.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                      <span className="text-lg font-bold text-primary">
+                        {professional.name.charAt(0)}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">{professional.name}</h3>
+                      {professional.specialty && (
+                        <p className="text-sm text-muted-foreground">{professional.specialty}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Serviços e Preços */}
         <Card className="mb-6">
@@ -207,22 +277,53 @@ const PerfilBarbearia = () => {
             <CardTitle>Serviços e Preços</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {barbearia.servicos.map((servico, index) => (
-                <div key={index} className="flex justify-between items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
-                  <div>
-                    <h3 className="font-medium">{servico.nome}</h3>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {servico.duracao}
-                    </p>
+            {services.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                Nenhum serviço cadastrado ainda.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {services.map((service) => (
+                  <div key={service.id} className="flex justify-between items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
+                    <div>
+                      <h3 className="font-medium flex items-center gap-2">
+                        {service.name}
+                        {service.is_promotion && (
+                          <Badge variant="destructive" className="text-xs">
+                            PROMOÇÃO
+                          </Badge>
+                        )}
+                      </h3>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {service.duration} min
+                      </p>
+                      {service.description && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {service.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      {service.is_promotion && service.promotional_price ? (
+                        <div>
+                          <Badge variant="destructive" className="text-base font-semibold">
+                            R$ {service.promotional_price.toFixed(2)}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground line-through">
+                            R$ {service.price.toFixed(2)}
+                          </p>
+                        </div>
+                      ) : (
+                        <Badge variant="secondary" className="text-base font-semibold">
+                          R$ {service.price.toFixed(2)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant="secondary" className="text-base font-semibold">
-                    R$ {servico.valor.toFixed(2)}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -236,34 +337,33 @@ const PerfilBarbearia = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {barbearia.horarios.map((horario, index) => (
-                <div key={index} className="flex justify-between items-center py-2 border-b border-muted/50 last:border-0">
-                  <span className="font-medium">{horario.dia}</span>
-                  <span className={`${horario.inicio === "Fechado" ? "text-muted-foreground" : "text-foreground"}`}>
-                    {horario.inicio === "Fechado" ? "Fechado" : `${horario.inicio} - ${horario.fim}`}
-                  </span>
-                </div>
-              ))}
+              <div className="flex justify-between items-center py-2 border-b border-muted/50">
+                <span className="font-medium">Segunda a Sexta</span>
+                <span>08:00 - 18:00</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-muted/50">
+                <span className="font-medium">Sábado</span>
+                <span>08:00 - 16:00</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="font-medium">Domingo</span>
+                <span className="text-muted-foreground">Fechado</span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Botão de Agendamento */}
         <div className="text-center space-y-4">
-          <Button asChild className="w-full animate-pulse-glow hover:scale-105 transition-transform duration-200" size="lg">
+          <Button 
+            asChild 
+            className="w-full animate-pulse hover:scale-105 transition-transform duration-200" 
+            size="lg"
+          >
             <Link to={`/agendar/${slug}`}>
               Agendar Agora
             </Link>
           </Button>
-          
-          <div>
-            <Link 
-              to="/buscar-barbearias" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              ← Voltar à busca
-            </Link>
-          </div>
         </div>
       </div>
     </div>

@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { Calendar, Clock, User, Phone, Mail, ArrowLeft } from "lucide-react";
+import { Calendar, Clock, User, Phone, Mail, ArrowLeft, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
@@ -74,7 +75,8 @@ const AgendarServico = () => {
     servicoId: "",
     professionalId: "",
     data: "",
-    horario: ""
+    horario: "",
+    observacoes: ""
   });
   const [saveData, setSaveData] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -196,11 +198,30 @@ const AgendarServico = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Validações
-    if (!formData.nome || !formData.telefone || !formData.servicoId || !formData.professionalId || !formData.data || !formData.horario) {
+    // Validações melhoradas
+    const errors = [];
+    
+    if (!formData.nome.trim()) errors.push("Nome é obrigatório");
+    if (!formData.telefone.trim()) errors.push("Telefone é obrigatório");
+    if (!formData.servicoId) errors.push("Selecione um serviço");
+    if (!formData.professionalId) errors.push("Selecione um profissional");
+    if (!formData.data) errors.push("Selecione uma data");
+    if (!formData.horario) errors.push("Selecione um horário");
+    
+    // Validar formato do telefone (básico)
+    if (formData.telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(formData.telefone) && !/^\d{10,11}$/.test(formData.telefone.replace(/\D/g, ''))) {
+      errors.push("Formato de telefone inválido");
+    }
+    
+    // Validar email se preenchido
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.push("Email inválido");
+    }
+    
+    if (errors.length > 0) {
       toast({
-        title: "Erro",
-        description: "Por favor, preencha todos os campos obrigatórios.",
+        title: "Erro na validação",
+        description: errors.join(", "),
         variant: "destructive",
       });
       setIsLoading(false);
@@ -274,6 +295,7 @@ const AgendarServico = () => {
           appointment_date: formData.data,
           appointment_time: formData.horario,
           total_price: servicoSelecionado?.price,
+          notes: formData.observacoes || null,
           status: 'scheduled'
         });
 
@@ -523,6 +545,25 @@ const AgendarServico = () => {
                     </p>
                   </div>
                 )}
+              </div>
+
+              {/* Observações */}
+              <div className="space-y-4">
+                <h3 className="font-medium flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Observações (opcional)
+                </h3>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="observacoes">Alguma observação especial?</Label>
+                  <Textarea
+                    id="observacoes"
+                    placeholder="Ex: Preferência de estilo, alguma observação especial..."
+                    value={formData.observacoes}
+                    onChange={(e) => handleInputChange("observacoes", e.target.value)}
+                    className="min-h-[80px]"
+                  />
+                </div>
               </div>
 
               {/* Salvar Dados */}
