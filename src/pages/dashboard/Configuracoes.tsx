@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import { NotificacoesSection } from "@/components/configuracoes/NotificacoesSection";
 import { PersonalizacaoSection } from "@/components/configuracoes/PersonalizacaoSection";
+import { HorariosFuncionamentoSection } from "@/components/configuracoes/HorariosFuncionamentoSection";
 import { SistemaSection } from "@/components/configuracoes/SistemaSection";
 import { MensagensAutomaticasSection } from "@/components/configuracoes/MensagensAutomaticasSection";
 import { MessageEditDialog } from "@/components/configuracoes/MessageEditDialog";
@@ -552,11 +553,14 @@ const Configuracoes = () => {
           </TabsContent>
 
           <TabsContent value="personalizacao">
-            <PersonalizacaoSection
-              configuracoes={configuracoes.personalizacao}
-              onInputChange={(campo, valor) => handleInputChange("personalizacao", campo, valor)}
-              companyId={companyId}
-            />
+            <div className="space-y-6">
+              <PersonalizacaoSection
+                configuracoes={configuracoes.personalizacao}
+                onInputChange={(campo, valor) => handleInputChange("personalizacao", campo, valor)}
+                companyId={companyId}
+              />
+              <HorariosFuncionamentoSection companyId={companyId} />
+            </div>
           </TabsContent>
 
           <TabsContent value="mensagens">

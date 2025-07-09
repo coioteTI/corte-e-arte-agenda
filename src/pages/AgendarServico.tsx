@@ -10,6 +10,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { Calendar, Clock, User, Phone, Mail, ArrowLeft, MessageSquare, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusinessHours } from "@/hooks/useBusinessHours";
 import logo from "@/assets/logo.png";
 
 // Load saved client data from localStorage
@@ -51,8 +52,8 @@ const saveClientData = async (data: any, userId?: string) => {
   }
 };
 
-// Gerar próximos 14 dias úteis
-const gerarProximosDias = () => {
+// Gerar próximos 14 dias úteis com base nos horários de funcionamento
+const gerarProximosDias = (isDateAvailable?: (date: Date) => boolean) => {
   const dias = [];
   const hoje = new Date();
   
@@ -60,8 +61,8 @@ const gerarProximosDias = () => {
     const data = new Date(hoje);
     data.setDate(hoje.getDate() + i);
     
-    // Pular domingos (0)
-    if (data.getDay() !== 0) {
+    // Verificar se a data está disponível baseado nos horários de funcionamento
+    if (isDateAvailable ? isDateAvailable(data) : data.getDay() !== 0) {
       dias.push({
         data: data.toISOString().split('T')[0],
         texto: data.toLocaleDateString('pt-BR', { 
@@ -80,13 +81,18 @@ const AgendarServico = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const diasDisponiveis = gerarProximosDias();
   
   const [company, setCompany] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Hook para horários de funcionamento
+  const { isDateAvailable, getAvailableTimeSlotsForDate } = useBusinessHours(company?.id || "");
+  
+  // Gerar dias disponíveis após ter o hook de horários
+  const diasDisponiveis = gerarProximosDias(isDateAvailable);
   
   const [formData, setFormData] = useState({
     nome: "",
@@ -198,16 +204,23 @@ const AgendarServico = () => {
     try {
       console.log('Fetching slots for:', { professionalId, date });
       
-      // Generate all possible time slots (08:00 to 18:00, 30min intervals)
-      const allSlots = [];
-      for (let hour = 8; hour < 18; hour++) {
-        allSlots.push(`${hour.toString().padStart(2, '0')}:00`);
-        allSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+      // Usar horários de funcionamento para gerar slots disponíveis
+      const selectedDate = new Date(date);
+      let availableTimeslots: string[] = [];
+      
+      if (getAvailableTimeSlotsForDate) {
+        availableTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30);
+      } else {
+        // Fallback: gerar horários padrão se não houver horários de funcionamento definidos
+        for (let hour = 8; hour < 18; hour++) {
+          availableTimeslots.push(`${hour.toString().padStart(2, '0')}:00`);
+          availableTimeslots.push(`${hour.toString().padStart(2, '0')}:30`);
+        }
       }
 
-      // For now, return all slots as available (we'll improve this later)
-      console.log('Available slots:', allSlots);
-      setAvailableSlots(allSlots);
+      // TODO: Filtrar horários já agendados (implementar depois)
+      console.log('Available slots:', availableTimeslots);
+      setAvailableSlots(availableTimeslots);
     } catch (error) {
       console.error('Error fetching available slots:', error);
       setAvailableSlots([]);
