@@ -23,9 +23,29 @@ const loadSavedClientData = () => {
 };
 
 // Save client data to localStorage
-const saveClientData = (data: any) => {
+const saveClientData = async (data: any, userId?: string) => {
   try {
     localStorage.setItem('clientData', JSON.stringify(data));
+    
+    // Also save to database if user is logged in
+    if (userId) {
+      const { data: existingClient } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+      if (existingClient) {
+        await supabase
+          .from('clients')
+          .update({
+            name: data.nome,
+            phone: data.telefone,
+            email: data.email
+          })
+          .eq('user_id', userId);
+      }
+    }
   } catch (error) {
     console.error('Error saving client data:', error);
   }
@@ -86,7 +106,7 @@ const AgendarServico = () => {
     loadSavedData();
   }, [slug]);
 
-  const loadSavedData = () => {
+  const loadSavedData = async () => {
     const saved = loadSavedClientData();
     if (saved) {
       setFormData(prev => ({
@@ -95,6 +115,31 @@ const AgendarServico = () => {
         telefone: saved.telefone || "",
         email: saved.email || ""
       }));
+      setSaveData(true); // Pre-check the checkbox if data exists
+    }
+
+    // Also try to load from database if user is logged in
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('name, phone, email')
+          .eq('user_id', user.id)
+          .single();
+
+        if (clientData) {
+          setFormData(prev => ({
+            ...prev,
+            nome: clientData.name || prev.nome,
+            telefone: clientData.phone || prev.telefone,
+            email: clientData.email || prev.email
+          }));
+          setSaveData(true);
+        }
+      }
+    } catch (error) {
+      console.log('No saved client data in database');
     }
   };
 
@@ -223,19 +268,21 @@ const AgendarServico = () => {
       return;
     }
 
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
     // Save client data if checkbox is checked
     if (saveData) {
-      saveClientData({
+      await saveClientData({
         nome: formData.nome,
         telefone: formData.telefone,
         email: formData.email
-      });
+      }, user?.id);
     }
 
     try {
       // Create or get client
       let clientId = null;
-      const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
         // Check if client exists

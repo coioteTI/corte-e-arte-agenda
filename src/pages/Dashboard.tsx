@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Card, CardContent } from "@/components/ui/card";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -13,7 +14,16 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Redirecionando...</p>
+        <Card>
+          <CardContent className="p-12 text-center">
+            <p className="text-muted-foreground text-lg">
+              Bem-vindo ao seu dashboard!
+            </p>
+            <p className="text-muted-foreground text-sm mt-2">
+              Cadastre serviços e receba agendamentos para começar.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

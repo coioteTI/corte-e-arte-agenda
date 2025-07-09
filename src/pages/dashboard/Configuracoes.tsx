@@ -12,6 +12,7 @@ import { SistemaSection } from "@/components/configuracoes/SistemaSection";
 import { MensagensAutomaticasSection } from "@/components/configuracoes/MensagensAutomaticasSection";
 import { MessageEditDialog } from "@/components/configuracoes/MessageEditDialog";
 import { ContaEmpresaSection } from "@/components/configuracoes/ContaEmpresaSection";
+import { EditarDadosClienteSection } from "@/components/configuracoes/EditarDadosClienteSection";
 import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSection";
 
 import {
@@ -566,12 +567,15 @@ const Configuracoes = () => {
           </TabsContent>
 
           <TabsContent value="conta">
-            <ContaEmpresaSection
-              contaEmpresa={contaEmpresa}
-              onInputChange={handleContaChange}
-              onSalvar={handleSalvarConta}
-              saving={saving}
-            />
+            <div className="space-y-6">
+              <ContaEmpresaSection
+                contaEmpresa={contaEmpresa}
+                onInputChange={handleContaChange}
+                onSalvar={handleSalvarConta}
+                saving={saving}
+              />
+              <EditarDadosClienteSection />
+            </div>
           </TabsContent>
 
           <TabsContent value="excluir">

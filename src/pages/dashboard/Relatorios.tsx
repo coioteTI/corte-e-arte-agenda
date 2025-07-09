@@ -19,32 +19,15 @@ import {
   AreaChart
 } from "recharts";
 
-const dadosLucro = [
-  { mes: "Jan", lucro: 2400, agendamentos: 32, crescimento: 12 },
-  { mes: "Fev", lucro: 1800, agendamentos: 24, crescimento: -8 },
-  { mes: "Mar", lucro: 3200, agendamentos: 42, crescimento: 25 },
-  { mes: "Abr", lucro: 2800, agendamentos: 38, crescimento: 15 },
-  { mes: "Mai", lucro: 3600, agendamentos: 48, crescimento: 28 },
-  { mes: "Jun", lucro: 4200, agendamentos: 56, crescimento: 35 },
-];
-
-const servicosPopulares = [
-  { nome: "Corte + Barba", quantidade: 45, percentual: 35, valor: "#1f2937" },
-  { nome: "Corte Masculino", quantidade: 38, percentual: 30, valor: "#374151" },
-  { nome: "Barba", quantidade: 28, percentual: 22, valor: "#4b5563" },
-  { nome: "Corte Feminino", quantidade: 17, percentual: 13, valor: "#6b7280" },
-];
-
-const profissionaisPerformance = [
-  { nome: "Pedro", atendimentos: 48, faturamento: 1680 },
-  { nome: "Ana", atendimentos: 42, faturamento: 1470 },
-  { nome: "Carlos", atendimentos: 38, faturamento: 1330 },
-];
-
 const Relatorios = () => {
-  const totalFaturado = dadosLucro.reduce((acc, curr) => acc + curr.lucro, 0);
-  const ticketMedio = totalFaturado / 128; // exemplo: 128 atendimentos
-  const temDados = dadosLucro.length > 0;
+  // Remove mock data - start with empty arrays for new companies
+  const dadosLucro: any[] = [];
+  const servicosPopulares: any[] = [];
+  const profissionaisPerformance: any[] = [];
+  
+  const totalFaturado = 0;
+  const ticketMedio = 0;
+  const temDados = false; // New companies should have no data initially
 
   return (
     <DashboardLayout>
@@ -55,10 +38,10 @@ const Relatorios = () => {
           <Card>
             <CardContent className="p-12 text-center">
               <p className="text-muted-foreground text-lg">
-                Nenhum dado para exibir
+                Nenhum dado ainda. Cadastre serviços ou receba agendamentos para gerar seus relatórios.
               </p>
               <p className="text-muted-foreground text-sm mt-2">
-                Os relatórios aparecerão quando houver movimentação
+                Os relatórios aparecerão com base em dados reais da sua barbearia.
               </p>
             </CardContent>
           </Card>
