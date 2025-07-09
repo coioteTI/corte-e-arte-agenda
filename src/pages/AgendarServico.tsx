@@ -151,6 +151,8 @@ const AgendarServico = () => {
 
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
     try {
+      console.log('Fetching slots for:', { professionalId, date });
+      
       // Fetch existing appointments for the professional on the selected date
       const { data: appointments, error } = await supabase
         .from('appointments')
@@ -159,7 +161,12 @@ const AgendarServico = () => {
         .eq('appointment_date', date)
         .in('status', ['scheduled', 'confirmed']);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching appointments:', error);
+        throw error;
+      }
+
+      console.log('Existing appointments:', appointments);
 
       // Generate all possible time slots (08:00 to 18:00, 30min intervals)
       const allSlots = [];
@@ -172,10 +179,16 @@ const AgendarServico = () => {
       const bookedTimes = appointments?.map(a => a.appointment_time) || [];
       const available = allSlots.filter(slot => !bookedTimes.includes(slot));
       
+      console.log('Available slots:', available);
       setAvailableSlots(available);
     } catch (error) {
       console.error('Error fetching available slots:', error);
       setAvailableSlots([]);
+      toast({
+        title: "Erro ao carregar horários",
+        description: "Não foi possível carregar os horários disponíveis.",
+        variant: "destructive",
+      });
     }
   };
 

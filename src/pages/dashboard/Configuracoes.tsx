@@ -206,9 +206,10 @@ const Configuracoes = () => {
     setSaving(true);
     try {
       console.log('Salvando configurações para empresa:', companyId);
+      console.log('Dados a serem salvos:', configuracoes);
       
       // Update company settings
-      const { error: settingsError } = await supabase
+      const { data: settingsData, error: settingsError } = await supabase
         .from('company_settings')
         .upsert({
           company_id: companyId,
@@ -222,34 +223,41 @@ const Configuracoes = () => {
           whatsapp_integration_enabled: configuracoes.sistema.integracaoWhatsApp,
           primary_color: '#8B5CF6', // Cor fixa
           secondary_color: '#ffffff',
-        });
+        }, {
+          onConflict: 'company_id'
+        })
+        .select();
 
       if (settingsError) {
         console.error('Erro ao salvar configurações:', settingsError);
         throw settingsError;
       }
+      
+      console.log('Settings salvos:', settingsData);
 
       // Update company basic data
-      const { error: companyError } = await supabase
+      const { data: companyData, error: companyError } = await supabase
         .from('companies')
         .update({
           name: configuracoes.personalizacao.nomeBarbearia,
           email: configuracoes.personalizacao.emailContato,
           phone: configuracoes.personalizacao.telefone,
         })
-        .eq('id', companyId);
+        .eq('id', companyId)
+        .select();
 
       if (companyError) {
         console.error('Erro ao atualizar empresa:', companyError);
         throw companyError;
       }
+      
+      console.log('Company data atualizada:', companyData);
 
       console.log('Configurações salvas com sucesso');
       
       toast({
         title: "✅ Configurações salvas com sucesso!",
         description: "Todas as suas preferências foram atualizadas e estão ativas.",
-        duration: 4000,
       });
     } catch (error: any) {
       console.error('Error saving configurations:', error);
@@ -257,7 +265,6 @@ const Configuracoes = () => {
         title: "❌ Erro ao salvar configurações",
         description: error.message || "Não foi possível salvar as configurações. Tente novamente.",
         variant: "destructive",
-        duration: 5000,
       });
     } finally {
       setSaving(false);
