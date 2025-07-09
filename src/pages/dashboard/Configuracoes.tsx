@@ -403,7 +403,7 @@ const Configuracoes = () => {
             )}
             <Button 
               onClick={handleSalvarConfiguracoes}
-              disabled={saving || !companyId}
+              disabled={saving}
               size="lg"
               className="min-w-[180px] hover:scale-105 transition-transform duration-200"
             >
