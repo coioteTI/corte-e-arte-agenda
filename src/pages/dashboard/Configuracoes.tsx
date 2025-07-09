@@ -79,23 +79,73 @@ const Configuracoes = () => {
 
   const loadCompanyData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('User data:', user);
+      
+      if (userError) {
+        console.error('Error getting user:', userError);
+        toast({
+          title: "Erro de autenticação",
+          description: "Não foi possível obter dados do usuário. Faça login novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!user) {
+        console.log('No user found');
+        toast({
+          title: "Usuário não encontrado",
+          description: "Faça login para acessar as configurações.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Get company data
-      const { data: company } = await supabase
+      const { data: companies, error: companyError } = await supabase
         .from('companies')
         .select('*')
-        .eq('user_id', user.id)
-        .single();
+        .eq('user_id', user.id);
 
-      if (!company) return;
+      console.log('Companies data:', companies);
+      console.log('Company error:', companyError);
 
+      if (companyError) {
+        console.error('Error fetching company:', companyError);
+        toast({
+          title: "Erro ao buscar empresa",
+          description: "Não foi possível carregar os dados da empresa.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!companies || companies.length === 0) {
+        console.log('No company found for user');
+        toast({
+          title: "Empresa não encontrada",
+          description: "Nenhuma empresa está vinculada a este usuário.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const company = companies[0];
+      console.log('Setting company ID:', company.id);
       setCompanyId(company.id);
       
       // Load company settings
-      const { data: settings } = await supabase
+      const { data: settings, error: settingsError } = await supabase
         .rpc('get_or_create_company_settings', { company_uuid: company.id });
+
+      console.log('Settings data:', settings);
+      console.log('Settings error:', settingsError);
+
+      if (settingsError) {
+        console.error('Error loading settings:', settingsError);
+        // Continue even if settings fail, we still have company ID
+      }
 
       if (settings && settings[0]) {
         const s = settings[0];
@@ -137,10 +187,14 @@ const Configuracoes = () => {
       });
 
       // Load notification templates
-      const { data: templates } = await supabase
+      const { data: templates, error: templatesError } = await supabase
         .from('notification_templates')
         .select('*')
         .eq('company_id', company.id);
+
+      if (templatesError) {
+        console.error('Error loading templates:', templatesError);
+      }
 
       if (templates && templates.length > 0) {
         const templatesMap: Record<string, string> = {};
@@ -194,13 +248,20 @@ const Configuracoes = () => {
   };
 
   const handleSalvarConfiguracoes = async () => {
+    // Tentar recarregar o companyId se não estiver presente
     if (!companyId) {
-      toast({
-        title: "Erro",
-        description: "ID da empresa não encontrado. Recarregue a página.",
-        variant: "destructive",
-      });
-      return;
+      console.log('Company ID not found, attempting to reload...');
+      await loadCompanyData();
+      
+      // Se ainda não houver companyId após recarregar, mostrar erro
+      if (!companyId) {
+        toast({
+          title: "Erro",
+          description: "ID da empresa não encontrado. Faça login novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     setSaving(true);
