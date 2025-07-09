@@ -196,26 +196,38 @@ const PerfilBarbearia = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-medium mb-1">Endereço</h4>
-              <p className="text-muted-foreground text-sm">
-                {company.address}, {company.number}
-              </p>
-              <p className="text-muted-foreground text-sm">
-                {company.neighborhood} - {company.city}, {company.state}
-              </p>
-              <p className="text-muted-foreground text-sm">
-                CEP: {company.zip_code}
-              </p>
-              <Button 
-                variant="link" 
-                onClick={abrirMaps}
-                className="p-0 h-auto text-primary hover:underline"
-              >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                Ver no Google Maps
-              </Button>
-            </div>
+            {(company.address || company.city || company.state) ? (
+              <div>
+                <h4 className="font-medium mb-1">Endereço</h4>
+                {company.address && (
+                  <p className="text-muted-foreground text-sm">
+                    {company.address}{company.number && `, ${company.number}`}
+                  </p>
+                )}
+                {(company.neighborhood || company.city || company.state) && (
+                  <p className="text-muted-foreground text-sm">
+                    {[company.neighborhood, company.city, company.state].filter(Boolean).join(' - ')}
+                  </p>
+                )}
+                {company.zip_code && (
+                  <p className="text-muted-foreground text-sm">
+                    CEP: {company.zip_code}
+                  </p>
+                )}
+                <Button 
+                  variant="link" 
+                  onClick={abrirMaps}
+                  className="p-0 h-auto text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  Ver no Google Maps
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground">Endereço não informado</p>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Button 

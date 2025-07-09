@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { Calendar, Clock, User, Phone, Mail, ArrowLeft, MessageSquare } from "lucide-react";
+import { Calendar, Clock, User, Phone, Mail, ArrowLeft, MessageSquare, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
@@ -368,13 +368,19 @@ const AgendarServico = () => {
                   {company?.name?.charAt(0) || 'B'}
                 </span>
               </div>
-              <div>
+              <div className="flex-1">
                 <h1 className="text-xl font-bold text-foreground">
                   Agendar em {company?.name || 'Barbearia'}
                 </h1>
                 <p className="text-muted-foreground">
                   Preencha os dados para confirmar seu agendamento
                 </p>
+                {company && (company.address || company.city || company.state) && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                    <MapPin className="h-4 w-4" />
+                    {[company.address, company.city, company.state].filter(Boolean).join(', ')}
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
