@@ -83,32 +83,73 @@ export const MensagensAutomaticasSection = ({
         </div>
 
         {/* Variáveis Disponíveis */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-          <h4 className="font-medium text-blue-900 mb-2">🔧 Variáveis disponíveis:</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-blue-800 mb-3">
-            <code className="bg-blue-100 px-2 py-1 rounded">{"{nome}"}</code>
-            <code className="bg-blue-100 px-2 py-1 rounded">{"{data}"}</code>
-            <code className="bg-blue-100 px-2 py-1 rounded">{"{horario}"}</code>
-            <code className="bg-blue-100 px-2 py-1 rounded">{"{barbearia}"}</code>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+          <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+            🔧 <span>Variáveis Disponíveis para Personalização</span>
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="bg-white border border-blue-200 rounded p-2 text-center">
+              <code className="text-blue-800 font-medium text-sm">{"{nome}"}</code>
+              <p className="text-xs text-blue-600 mt-1">Nome do cliente</p>
+            </div>
+            <div className="bg-white border border-blue-200 rounded p-2 text-center">
+              <code className="text-blue-800 font-medium text-sm">{"{data}"}</code>
+              <p className="text-xs text-blue-600 mt-1">Data do agendamento</p>
+            </div>
+            <div className="bg-white border border-blue-200 rounded p-2 text-center">
+              <code className="text-blue-800 font-medium text-sm">{"{horario}"}</code>
+              <p className="text-xs text-blue-600 mt-1">Horário marcado</p>
+            </div>
+            <div className="bg-white border border-blue-200 rounded p-2 text-center">
+              <code className="text-blue-800 font-medium text-sm">{"{barbearia}"}</code>
+              <p className="text-xs text-blue-600 mt-1">Nome da barbearia</p>
+            </div>
           </div>
-          <p className="text-xs text-blue-700 mb-2">
-            <strong>Exemplo de pré-visualização:</strong>
-          </p>
-          <div className="bg-white border border-blue-200 rounded p-2 text-xs text-gray-700">
-            "Olá <strong>João Silva</strong>, você tem um agendamento às <strong>14:30</strong> no dia <strong>15/01/2024</strong> na <strong>Barbearia do João</strong>."
+          <div className="bg-white border border-blue-200 rounded p-3">
+            <p className="text-sm text-blue-700 mb-2">
+              <strong>💡 Exemplo de mensagem personalizada:</strong>
+            </p>
+            <div className="text-sm text-gray-700 italic bg-gray-50 p-2 rounded">
+              "Olá <strong className="text-blue-600">João Silva</strong>, você tem um agendamento às <strong className="text-blue-600">14:30</strong> no dia <strong className="text-blue-600">15/01/2024</strong> na <strong className="text-blue-600">Barbearia do João</strong>."
+            </div>
           </div>
         </div>
 
-        {/* Regras e Informações */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4">
-          <h4 className="font-medium text-amber-900 mb-2">📌 Regras importantes:</h4>
-          <ul className="text-sm text-amber-800 space-y-1">
-            <li>• Mensagens são enviadas apenas para agendamentos confirmados</li>
-            <li>• Botão "Cancelar" redireciona para [Meus Agendamentos]</li>
-            <li>• Lembretes são enviados 1 hora antes do agendamento</li>
-            <li>• Mensagens funcionam via e-mail e WhatsApp (se habilitados)</li>
-            <li>• Configure as notificações na aba "Notificações" para ativar o envio</li>
-          </ul>
+        {/* Regras Importantes - Destaque especial */}
+        <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-6 mt-6">
+          <h4 className="font-bold text-amber-900 mb-4 text-lg flex items-center gap-2">
+            📌 <span>Regras Importantes do Sistema</span>
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 bg-white rounded border border-amber-200">
+              <div className="w-2 h-2 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div>
+                <p className="font-medium text-amber-900">Mensagens são enviadas apenas para agendamentos confirmados</p>
+                <p className="text-sm text-amber-700 mt-1">O sistema só dispara notificações após a confirmação do agendamento</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-white rounded border border-amber-200">
+              <div className="w-2 h-2 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div>
+                <p className="font-medium text-amber-900">Botão "Cancelar" redireciona para [Meus Agendamentos]</p>
+                <p className="text-sm text-amber-700 mt-1">Facilita o cancelamento pelo próprio cliente</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-white rounded border border-amber-200">
+              <div className="w-2 h-2 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div>
+                <p className="font-medium text-amber-900">Lembretes são enviados 1 hora antes do agendamento</p>
+                <p className="text-sm text-amber-700 mt-1">Timing automático para reduzir faltas</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 bg-white rounded border border-amber-200">
+              <div className="w-2 h-2 bg-amber-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div>
+                <p className="font-medium text-amber-900">Mensagens funcionam via e-mail e WhatsApp (se habilitados)</p>
+                <p className="text-sm text-amber-700 mt-1">Configure as notificações na aba "Notificações" para ativar o envio</p>
+              </div>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

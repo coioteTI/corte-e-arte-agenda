@@ -36,7 +36,7 @@ const Configuracoes = () => {
     },
     personalizacao: {
       nomeBarbearia: "",
-      corPrimaria: "#8B5CF6",
+      corPrimaria: "#8B5CF6", // Mantido internamente mas removido da UI
       corSecundaria: "#ffffff",
       emailContato: "",
       telefone: ""
@@ -194,10 +194,19 @@ const Configuracoes = () => {
   };
 
   const handleSalvarConfiguracoes = async () => {
-    if (!companyId) return;
+    if (!companyId) {
+      toast({
+        title: "Erro",
+        description: "ID da empresa não encontrado. Recarregue a página.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setSaving(true);
     try {
+      console.log('Salvando configurações para empresa:', companyId);
+      
       // Update company settings
       const { error: settingsError } = await supabase
         .from('company_settings')
@@ -211,11 +220,14 @@ const Configuracoes = () => {
           online_payment_enabled: configuracoes.sistema.pagamentoOnline,
           advanced_reports_enabled: configuracoes.sistema.relatoriosAvancados,
           whatsapp_integration_enabled: configuracoes.sistema.integracaoWhatsApp,
-          primary_color: configuracoes.personalizacao.corPrimaria,
-          secondary_color: configuracoes.personalizacao.corSecundaria,
+          primary_color: '#8B5CF6', // Cor fixa
+          secondary_color: '#ffffff',
         });
 
-      if (settingsError) throw settingsError;
+      if (settingsError) {
+        console.error('Erro ao salvar configurações:', settingsError);
+        throw settingsError;
+      }
 
       // Update company basic data
       const { error: companyError } = await supabase
@@ -224,25 +236,28 @@ const Configuracoes = () => {
           name: configuracoes.personalizacao.nomeBarbearia,
           email: configuracoes.personalizacao.emailContato,
           phone: configuracoes.personalizacao.telefone,
-          primary_color: configuracoes.personalizacao.corPrimaria,
         })
         .eq('id', companyId);
 
-      if (companyError) throw companyError;
+      if (companyError) {
+        console.error('Erro ao atualizar empresa:', companyError);
+        throw companyError;
+      }
 
-      // Apply primary color to CSS variables
-      document.documentElement.style.setProperty('--primary', configuracoes.personalizacao.corPrimaria);
-
+      console.log('Configurações salvas com sucesso');
+      
       toast({
-        title: "Configurações salvas",
-        description: "Suas configurações foram atualizadas com sucesso!"
+        title: "✅ Configurações salvas com sucesso!",
+        description: "Todas as suas preferências foram atualizadas e estão ativas.",
+        duration: 4000,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving configurations:', error);
       toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar as configurações.",
+        title: "❌ Erro ao salvar configurações",
+        description: error.message || "Não foi possível salvar as configurações. Tente novamente.",
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setSaving(false);
@@ -370,14 +385,24 @@ const Configuracoes = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between sticky top-0 bg-background border-b pb-4 z-10">
           <h1 className="text-2xl font-semibold">Configurações</h1>
-          <Button 
-            onClick={handleSalvarConfiguracoes}
-            disabled={saving}
-          >
-            {saving ? "Salvando..." : "Salvar Configurações"}
-          </Button>
+          <div className="flex items-center gap-3">
+            {saving && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                <span>Salvando...</span>
+              </div>
+            )}
+            <Button 
+              onClick={handleSalvarConfiguracoes}
+              disabled={saving || !companyId}
+              size="lg"
+              className="min-w-[180px] hover:scale-105 transition-transform duration-200"
+            >
+              {saving ? "Salvando..." : "✅ Salvar Configurações"}
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="notificacoes" className="space-y-6">

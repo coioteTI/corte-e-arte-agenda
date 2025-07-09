@@ -37,54 +37,14 @@ export const PersonalizacaoSection = ({ configuracoes, onInputChange }: Personal
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="telefone">Telefone</Label>
-            <Input
-              id="telefone"
-              value={configuracoes.telefone}
-              onChange={(e) => onInputChange("telefone", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cor-primaria">Cor Primária</Label>
-            <p className="text-xs text-muted-foreground mb-2">
-              Esta cor será aplicada em botões, links e destaques da interface
-            </p>
-            <div className="flex space-x-2">
-              <Input
-                id="cor-primaria"
-                type="color"
-                value={configuracoes.corPrimaria}
-                onChange={(e) => {
-                  onInputChange("corPrimaria", e.target.value);
-                  // Apply color immediately as preview
-                  document.documentElement.style.setProperty('--primary', `${e.target.value}`);
-                }}
-                className="w-16 h-10"
-              />
-              <Input
-                value={configuracoes.corPrimaria}
-                onChange={(e) => {
-                  onInputChange("corPrimaria", e.target.value);
-                  // Apply color immediately as preview
-                  document.documentElement.style.setProperty('--primary', `${e.target.value}`);
-                }}
-                className="flex-1"
-                placeholder="#8B5CF6"
-              />
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <div 
-                className="w-6 h-6 rounded border-2 border-muted"
-                style={{ backgroundColor: configuracoes.corPrimaria }}
-              />
-              <span className="text-sm text-muted-foreground">
-                Pré-visualização da cor selecionada
-              </span>
-            </div>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="telefone">Telefone</Label>
+          <Input
+            id="telefone"
+            value={configuracoes.telefone}
+            onChange={(e) => onInputChange("telefone", e.target.value)}
+            placeholder="(11) 99999-9999"
+          />
         </div>
 
         <div className="space-y-2">
