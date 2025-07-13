@@ -13,7 +13,7 @@ import { SistemaSection } from "@/components/configuracoes/SistemaSection";
 import { MensagensAutomaticasSection } from "@/components/configuracoes/MensagensAutomaticasSection";
 import { MessageEditDialog } from "@/components/configuracoes/MessageEditDialog";
 import { ContaEmpresaSection } from "@/components/configuracoes/ContaEmpresaSection";
-import { EditarDadosClienteSection } from "@/components/configuracoes/EditarDadosClienteSection";
+import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSection";
 
 import {
   ConfiguracoesState,
@@ -574,7 +574,7 @@ const Configuracoes = () => {
                 saving={saving}
                 companyId={companyId}
               />
-              <EditarDadosClienteSection />
+              <ExcluirContaSection companyId={companyId} />
             </div>
           </TabsContent>
 
