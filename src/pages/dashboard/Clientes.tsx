@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,14 +10,12 @@ import { Separator } from "@/components/ui/separator";
 import { Calendar, Edit, History } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 const Clientes = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [clientes, setClientes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isHistoricoDialogOpen, setIsHistoricoDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -33,26 +31,7 @@ const Clientes = () => {
     email: ""
   });
 
-  useEffect(() => {
-    loadClientes();
-  }, []);
-
-  const loadClientes = async () => {
-    try {
-      const { data: clientsData } = await supabase
-        .from('clients')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      setClientes(clientsData || []);
-    } catch (error) {
-      console.error('Error loading clients:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleNovoCliente = async () => {
+  const handleNovoCliente = () => {
     if (!novoCliente.nome || !novoCliente.telefone) {
       toast({
         title: "Erro",
@@ -62,35 +41,23 @@ const Clientes = () => {
       return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .insert({
-          name: novoCliente.nome,
-          phone: novoCliente.telefone,
-          email: novoCliente.email
-        });
+    const cliente = {
+      id: Date.now(),
+      nome: novoCliente.nome,
+      telefone: novoCliente.telefone,
+      email: novoCliente.email,
+      ultimoAtendimento: new Date().toISOString().split('T')[0],
+      totalAtendimentos: 0
+    };
 
-      if (error) throw error;
-
-      setNovoCliente({ nome: "", telefone: "", email: "" });
-      setIsDialogOpen(false);
-      
-      // Reload clients
-      loadClientes();
-      
-      toast({
-        title: "Cliente cadastrado com sucesso!",
-        description: "O cliente foi adicionado à sua lista."
-      });
-    } catch (error) {
-      console.error('Error creating client:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível cadastrar o cliente.",
-        variant: "destructive"
-      });
-    }
+    setClientes([...clientes, cliente]);
+    setNovoCliente({ nome: "", telefone: "", email: "" });
+    setIsDialogOpen(false);
+    
+    toast({
+      title: "Sucesso",
+      description: "Cliente cadastrado com sucesso!"
+    });
   };
 
   const handleVerHistorico = (cliente: any) => {
@@ -101,14 +68,14 @@ const Clientes = () => {
   const handleEditarCliente = (cliente: any) => {
     setSelectedCliente(cliente);
     setEditingCliente({
-      nome: cliente.name,
-      telefone: cliente.phone,
+      nome: cliente.nome,
+      telefone: cliente.telefone,
       email: cliente.email
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleSalvarEdicao = async () => {
+  const handleSalvarEdicao = () => {
     if (!editingCliente.nome || !editingCliente.telefone) {
       toast({
         title: "Erro",
@@ -118,36 +85,19 @@ const Clientes = () => {
       return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .update({
-          name: editingCliente.nome,
-          phone: editingCliente.telefone,
-          email: editingCliente.email
-        })
-        .eq('id', selectedCliente.id);
-
-      if (error) throw error;
-      
-      setIsEditDialogOpen(false);
-      setSelectedCliente(null);
-      
-      // Reload clients
-      loadClientes();
-      
-      toast({
-        title: "Cliente atualizado com sucesso!",
-        description: "As alterações foram salvas."
-      });
-    } catch (error) {
-      console.error('Error updating client:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível atualizar o cliente.",
-        variant: "destructive"
-      });
-    }
+    setClientes(clientes.map(cliente => 
+      cliente.id === selectedCliente.id 
+        ? { ...cliente, ...editingCliente }
+        : cliente
+    ));
+    
+    setIsEditDialogOpen(false);
+    setSelectedCliente(null);
+    
+    toast({
+      title: "Sucesso",
+      description: "Cliente atualizado com sucesso!"
+    });
   };
 
   const handleAgendar = (cliente: any) => {
@@ -160,14 +110,14 @@ const Clientes = () => {
     
     toast({
       title: "Redirecionando",
-      description: `Agendamento para ${cliente.name}`
+      description: `Agendamento para ${cliente.nome}`
     });
   };
   
   const filteredClientes = clientes.filter(cliente =>
-    cliente.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.phone.includes(searchTerm) ||
-    cliente.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    cliente.telefone.includes(searchTerm) ||
+    cliente.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -276,11 +226,7 @@ const Clientes = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Carregando clientes...</p>
-              </div>
-            ) : filteredClientes.length === 0 ? (
+            {filteredClientes.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
                   Nenhum cliente cadastrado ainda.
@@ -292,52 +238,52 @@ const Clientes = () => {
             ) : (
               <div className="space-y-4">
                 {filteredClientes.map((cliente) => (
-                   <div
-                     key={cliente.id}
-                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
-                   >
-                     <div className="flex-1">
-                       <div className="font-medium">{cliente.name}</div>
-                       <div className="text-sm text-muted-foreground">
-                         {cliente.phone} • {cliente.email}
-                       </div>
-                       <div className="text-sm text-muted-foreground">
-                         Cadastrado em: {new Date(cliente.created_at).toLocaleDateString("pt-BR")}
-                       </div>
-                     </div>
-                     
-                     <div className="flex items-center space-x-4">
-                       <Badge variant="secondary">
-                         Cliente ativo
-                       </Badge>
-                       
-                       <div className="flex space-x-2">
-                         <Button 
-                           size="sm" 
-                           variant="outline"
-                           onClick={() => handleVerHistorico(cliente)}
-                         >
-                           <History className="h-4 w-4 mr-2" />
-                           Ver Histórico
-                         </Button>
-                         <Button 
-                           size="sm" 
-                           variant="outline"
-                           onClick={() => handleEditarCliente(cliente)}
-                         >
-                           <Edit className="h-4 w-4 mr-2" />
-                           Editar
-                         </Button>
-                         <Button 
-                           size="sm"
-                           onClick={() => handleAgendar(cliente)}
-                         >
-                           <Calendar className="h-4 w-4 mr-2" />
-                           Agendar
-                         </Button>
-                       </div>
-                     </div>
-                   </div>
+                  <div
+                    key={cliente.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium">{cliente.nome}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {cliente.telefone} • {cliente.email}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Último atendimento: {new Date(cliente.ultimoAtendimento).toLocaleDateString("pt-BR")}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-4">
+                      <Badge variant="secondary">
+                        {cliente.totalAtendimentos} atendimentos
+                      </Badge>
+                      
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleVerHistorico(cliente)}
+                        >
+                          <History className="h-4 w-4 mr-2" />
+                          Ver Histórico
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleEditarCliente(cliente)}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Editar
+                        </Button>
+                        <Button 
+                          size="sm"
+                          onClick={() => handleAgendar(cliente)}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Agendar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -349,20 +295,20 @@ const Clientes = () => {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
-                Histórico de Atendimentos - {selectedCliente?.name}
+                Histórico de Atendimentos - {selectedCliente?.nome}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               {selectedCliente ? (
-              <>
-                <div className="text-sm text-muted-foreground">
-                  Cliente: <strong>{selectedCliente.name}</strong>
-                </div>
-                <Separator />
-                <div className="space-y-3 max-h-96 overflow-y-auto">
-                  <p className="text-muted-foreground">Nenhum histórico disponível.</p>
-                </div>
-              </>
+                <>
+                  <div className="text-sm text-muted-foreground">
+                    Cliente: <strong>{selectedCliente.nome}</strong>
+                  </div>
+                  <Separator />
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    <p className="text-muted-foreground">Nenhum histórico disponível.</p>
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">
@@ -379,7 +325,7 @@ const Clientes = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                Editar Cliente - {selectedCliente?.name}
+                Editar Cliente - {selectedCliente?.nome}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">

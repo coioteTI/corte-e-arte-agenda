@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Tag } from "lucide-react";
 
 const Servicos = () => {
@@ -16,8 +15,6 @@ const Servicos = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedServico, setSelectedServico] = useState<any>(null);
-  const [companyId, setCompanyId] = useState<string>("");
-  const [loading, setLoading] = useState(true);
   const [editingServico, setEditingServico] = useState({
     nome: "",
     descricao: "",
@@ -40,41 +37,7 @@ const Servicos = () => {
   });
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadCompanyData();
-  }, []);
-
-  const loadCompanyData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get company ID
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!company) return;
-      
-      setCompanyId(company.id);
-
-      // Load services
-      const { data: servicesData } = await supabase
-        .from('services')
-        .select('*')
-        .eq('company_id', company.id);
-
-      setServicos(servicesData || []);
-    } catch (error) {
-      console.error('Error loading company data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddServico = async () => {
+  const handleAddServico = () => {
     if (!novoServico.nome || !novoServico.duracao || !novoServico.valor) {
       toast({
         title: "Erro",
@@ -84,67 +47,53 @@ const Servicos = () => {
       return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('services')
-        .insert({
-          name: novoServico.nome,
-          description: novoServico.descricao,
-          duration: parseInt(novoServico.duracao),
-          price: parseFloat(novoServico.valor),
-          company_id: companyId,
-          is_promotion: novoServico.isPromocao,
-          promotional_price: novoServico.valorPromocional ? parseFloat(novoServico.valorPromocional) : null,
-          promotion_valid_until: novoServico.validadePromocao || null
-        });
+    const servico = {
+      id: Date.now(),
+      nome: novoServico.nome,
+      descricao: novoServico.descricao,
+      duracao: parseInt(novoServico.duracao),
+      valor: parseFloat(novoServico.valor),
+      profissional: novoServico.profissional || "Não definido",
+      isPromocao: novoServico.isPromocao,
+      valorPromocional: novoServico.valorPromocional ? parseFloat(novoServico.valorPromocional) : null,
+      validadePromocao: novoServico.validadePromocao || null
+    };
 
-      if (error) throw error;
-
-      setNovoServico({
-        nome: "",
-        descricao: "",
-        duracao: "",
-        valor: "",
-        profissional: "",
-        isPromocao: false,
-        valorPromocional: "",
-        validadePromocao: ""
-      });
-      setIsDialogOpen(false);
-      
-      // Reload services
-      loadCompanyData();
-      
-      toast({
-        title: "Serviço cadastrado com sucesso!",
-        description: "O serviço foi adicionado à sua lista."
-      });
-    } catch (error) {
-      console.error('Error creating service:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível cadastrar o serviço.",
-        variant: "destructive"
-      });
-    }
+    setServicos([...servicos, servico]);
+    setNovoServico({
+      nome: "",
+      descricao: "",
+      duracao: "",
+      valor: "",
+      profissional: "",
+      isPromocao: false,
+      valorPromocional: "",
+      validadePromocao: ""
+    });
+    setIsDialogOpen(false);
+    
+    toast({
+      title: "Sucesso",
+      description: "Serviço adicionado com sucesso!"
+    });
   };
 
   const handleEditServico = (servico: any) => {
     setSelectedServico(servico);
     setEditingServico({
-      nome: servico.name,
-      descricao: servico.description,
-      duracao: servico.duration.toString(),
-      valor: servico.price.toString(),
-      profissional: servico.professional || "",
-      isPromocao: servico.is_promotion || false,
-      valorPromocional: servico.promotional_price ? servico.promotional_price.toString() : "",
-      validadePromocao: servico.promotion_valid_until || ""
+      nome: servico.nome,
+      descricao: servico.descricao,
+      duracao: servico.duracao.toString(),
+      valor: servico.valor.toString(),
+      profissional: servico.profissional,
+      isPromocao: servico.isPromocao || false,
+      valorPromocional: servico.valorPromocional ? servico.valorPromocional.toString() : "",
+      validadePromocao: servico.validadePromocao || ""
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = () => {
     if (!editingServico.nome || !editingServico.duracao || !editingServico.valor) {
       toast({
         title: "Erro",
@@ -154,66 +103,37 @@ const Servicos = () => {
       return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('services')
-        .update({
-          name: editingServico.nome,
-          description: editingServico.descricao,
-          duration: parseInt(editingServico.duracao),
-          price: parseFloat(editingServico.valor),
-          is_promotion: editingServico.isPromocao,
-          promotional_price: editingServico.valorPromocional ? parseFloat(editingServico.valorPromocional) : null,
-          promotion_valid_until: editingServico.validadePromocao || null
-        })
-        .eq('id', selectedServico.id);
+    const updatedServico = {
+      ...selectedServico,
+      nome: editingServico.nome,
+      descricao: editingServico.descricao,
+      duracao: parseInt(editingServico.duracao),
+      valor: parseFloat(editingServico.valor),
+      profissional: editingServico.profissional || "Não definido",
+      isPromocao: editingServico.isPromocao,
+      valorPromocional: editingServico.valorPromocional ? parseFloat(editingServico.valorPromocional) : null,
+      validadePromocao: editingServico.validadePromocao || null
+    };
 
-      if (error) throw error;
-      
-      setIsEditDialogOpen(false);
-      setSelectedServico(null);
-      
-      // Reload services
-      loadCompanyData();
-      
-      toast({
-        title: "Serviço atualizado com sucesso!",
-        description: "As alterações foram salvas."
-      });
-    } catch (error) {
-      console.error('Error updating service:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível atualizar o serviço.",
-        variant: "destructive"
-      });
-    }
+    setServicos(servicos.map(s => 
+      s.id === selectedServico.id ? updatedServico : s
+    ));
+    
+    setIsEditDialogOpen(false);
+    setSelectedServico(null);
+    
+    toast({
+      title: "Sucesso",
+      description: "Serviço atualizado com sucesso!"
+    });
   };
 
-  const handleRemoveServico = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('services')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      // Reload services
-      loadCompanyData();
-      
-      toast({
-        title: "Serviço removido",
-        description: "O serviço foi removido da lista"
-      });
-    } catch (error) {
-      console.error('Error deleting service:', error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível remover o serviço.",
-        variant: "destructive"
-      });
-    }
+  const handleRemoveServico = (id: number) => {
+    setServicos(servicos.filter(s => s.id !== id));
+    toast({
+      title: "Serviço removido",
+      description: "O serviço foi removido da lista"
+    });
   };
 
   return (
@@ -467,13 +387,7 @@ const Servicos = () => {
         </Dialog>
 
         {/* Lista de Serviços */}
-        {loading ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">Carregando serviços...</p>
-            </CardContent>
-          </Card>
-        ) : servicos.length === 0 ? (
+        {servicos.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
               <p className="text-muted-foreground text-lg">
@@ -489,20 +403,20 @@ const Servicos = () => {
             {servicos.map((servico) => (
               <Card key={servico.id}>
                 <CardHeader>
-                  <CardTitle className="text-lg">{servico.name}</CardTitle>
+                  <CardTitle className="text-lg">{servico.nome}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      {servico.description}
+                      {servico.descricao}
                     </p>
                     
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">
-                          {servico.duration} min
+                          {servico.duracao} min
                         </Badge>
-                        {servico.is_promotion && (
+                        {servico.isPromocao && (
                           <Badge variant="default" className="bg-red-500 text-white">
                             <Tag className="h-3 w-3 mr-1" />
                             PROMOÇÃO
@@ -510,21 +424,25 @@ const Servicos = () => {
                         )}
                       </div>
                       <div className="text-right">
-                        {servico.is_promotion && servico.promotional_price ? (
+                        {servico.isPromocao && servico.valorPromocional ? (
                           <div className="flex flex-col items-end">
                             <span className="text-sm text-muted-foreground line-through">
-                              R$ {servico.price.toFixed(2)}
+                              R$ {servico.valor.toFixed(2)}
                             </span>
                             <span className="font-semibold text-lg text-red-600">
-                              R$ {servico.promotional_price.toFixed(2)}
+                              R$ {servico.valorPromocional.toFixed(2)}
                             </span>
                           </div>
                         ) : (
                           <span className="font-semibold text-lg">
-                            R$ {servico.price.toFixed(2)}
+                            R$ {servico.valor.toFixed(2)}
                           </span>
                         )}
                       </div>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground">
+                      Profissional: {servico.profissional}
                     </div>
                     
                     <div className="flex space-x-2 pt-2">
