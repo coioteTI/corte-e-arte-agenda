@@ -39,9 +39,26 @@ const Clientes = () => {
 
   const loadClientes = async () => {
     try {
+    const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get company ID
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!company) return;
+
+      // Load clients that have appointments with this company
       const { data: clientsData } = await supabase
         .from('clients')
-        .select('*')
+        .select(`
+          *,
+          appointments!inner(company_id)
+        `)
+        .eq('appointments.company_id', company.id)
         .order('created_at', { ascending: false });
 
       setClientes(clientsData || []);

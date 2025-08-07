@@ -468,6 +468,42 @@ const AgendarServico = () => {
           </CardContent>
         </Card>
 
+        {/* Horários de Funcionamento */}
+        {company?.business_hours && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Horários de Funcionamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Object.entries(company.business_hours).map(([day, hours]: [string, any]) => {
+                  const dayNames: { [key: string]: string } = {
+                    'monday': 'Segunda-feira',
+                    'tuesday': 'Terça-feira', 
+                    'wednesday': 'Quarta-feira',
+                    'thursday': 'Quinta-feira',
+                    'friday': 'Sexta-feira',
+                    'saturday': 'Sábado',
+                    'sunday': 'Domingo'
+                  };
+                  
+                  return (
+                    <div key={day} className="flex justify-between items-center py-1">
+                      <span className="text-sm font-medium">{dayNames[day]}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {hours.isOpen ? `${hours.start} - ${hours.end}` : 'Fechado'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Formulário de Agendamento */}
         <Card>
           <CardHeader>
@@ -561,6 +597,12 @@ const AgendarServico = () => {
                           <strong>{servicoSelecionado.name}</strong><br />
                           Duração: {servicoSelecionado.duration} minutos<br />
                           Valor: R$ {servicoSelecionado.price.toFixed(2)}
+                          {servicoSelecionado.professional_responsible && (
+                            <>
+                              <br />
+                              Profissional responsável: {servicoSelecionado.professional_responsible}
+                            </>
+                          )}
                         </p>
                       </div>
                     )}

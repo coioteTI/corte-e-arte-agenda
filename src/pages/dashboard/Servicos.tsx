@@ -93,6 +93,7 @@ const Servicos = () => {
           duration: parseInt(novoServico.duracao),
           price: parseFloat(novoServico.valor),
           company_id: companyId,
+          professional_responsible: novoServico.profissional,
           is_promotion: novoServico.isPromocao,
           promotional_price: novoServico.valorPromocional ? parseFloat(novoServico.valorPromocional) : null,
           promotion_valid_until: novoServico.validadePromocao || null
@@ -136,7 +137,7 @@ const Servicos = () => {
       descricao: servico.description,
       duracao: servico.duration.toString(),
       valor: servico.price.toString(),
-      profissional: servico.professional || "",
+      profissional: servico.professional_responsible || "",
       isPromocao: servico.is_promotion || false,
       valorPromocional: servico.promotional_price ? servico.promotional_price.toString() : "",
       validadePromocao: servico.promotion_valid_until || ""
@@ -162,6 +163,7 @@ const Servicos = () => {
           description: editingServico.descricao,
           duration: parseInt(editingServico.duracao),
           price: parseFloat(editingServico.valor),
+          professional_responsible: editingServico.profissional,
           is_promotion: editingServico.isPromocao,
           promotional_price: editingServico.valorPromocional ? parseFloat(editingServico.valorPromocional) : null,
           promotion_valid_until: editingServico.validadePromocao || null
@@ -492,12 +494,18 @@ const Servicos = () => {
                   <CardTitle className="text-lg">{servico.name}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      {servico.description}
-                    </p>
-                    
-                    <div className="flex justify-between items-center">
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {servico.description}
+                      </p>
+                      
+                      {servico.professional_responsible && (
+                        <p className="text-sm text-foreground">
+                          <strong>Profissional:</strong> {servico.professional_responsible}
+                        </p>
+                      )}
+                      
+                      <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">
                           {servico.duration} min
