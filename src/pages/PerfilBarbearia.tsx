@@ -154,11 +154,19 @@ const PerfilBarbearia = () => {
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in">
           <div className="relative inline-block mb-4">
-            <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border-4 border-white shadow-lg">
-              <span className="text-2xl font-bold text-primary">
-                {company.name.charAt(0)}
-              </span>
-            </div>
+            {company.logo_url ? (
+              <img
+                src={company.logo_url}
+                alt={`Logo da ${company.name}`}
+                className="h-20 w-20 mx-auto rounded-full object-cover border-4 border-white shadow-lg"
+              />
+            ) : (
+              <div className="h-20 w-20 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border-4 border-white shadow-lg">
+                <span className="text-2xl font-bold text-primary">
+                  {company.name.charAt(0)}
+                </span>
+              </div>
+            )}
             <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs px-2 py-1">
               TOP
             </Badge>
