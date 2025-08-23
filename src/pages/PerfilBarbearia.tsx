@@ -7,6 +7,7 @@ import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Hea
 import { LikeButton } from "@/components/LikeButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getLogoUrl } from "@/utils/imageUtils";
 import logo from "@/assets/logo.png";
 
 const PerfilBarbearia = () => {
@@ -154,9 +155,9 @@ const PerfilBarbearia = () => {
         {/* Header */}
         <div className="text-center mb-8 animate-fade-in">
           <div className="relative inline-block mb-4">
-            {company.logo_url ? (
+            {getLogoUrl(company.logo_url) ? (
               <img
-                src={company.logo_url}
+                src={getLogoUrl(company.logo_url)!}
                 alt={`Logo da ${company.name}`}
                 className="h-20 w-20 mx-auto rounded-full object-cover border-4 border-white shadow-lg"
               />

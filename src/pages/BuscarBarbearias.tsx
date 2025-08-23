@@ -9,6 +9,7 @@ import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LikeButton } from "@/components/LikeButton";
+import { getLogoUrl } from "@/utils/imageUtils";
 
 // Interface para as barbearias - simplifciada para evitar conflitos
 interface Barbearia {
@@ -366,9 +367,9 @@ const BuscarBarbearias = () => {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="relative">
-                      {barbearia.logo_url ? (
+                      {getLogoUrl(barbearia.logo_url) ? (
                         <img
-                          src={barbearia.logo_url}
+                          src={getLogoUrl(barbearia.logo_url)!}
                           alt={`Logo da ${barbearia.name}`}
                           className="h-12 w-12 rounded-full object-cover border-2 border-primary/20"
                         />
@@ -495,20 +496,20 @@ const BuscarBarbearias = () => {
                 <Card key={barbearia.id} className="hover:shadow-lg transition-all duration-300 animate-fade-in group">
                   <CardContent className="p-6">
                     <div className="text-center space-y-4">
-                      <div className="relative">
-                        {barbearia.logo_url ? (
-                          <img
-                            src={barbearia.logo_url}
-                            alt={`Logo da ${barbearia.name}`}
-                            className="h-16 w-16 mx-auto rounded-full object-cover border-2 border-primary/20 group-hover:scale-110 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                            <span className="text-2xl font-bold text-primary">
-                              {barbearia.name?.charAt(0) || 'B'}
-                            </span>
-                          </div>
-                        )}
+                       <div className="relative">
+                         {getLogoUrl(barbearia.logo_url) ? (
+                           <img
+                             src={getLogoUrl(barbearia.logo_url)!}
+                             alt={`Logo da ${barbearia.name}`}
+                             className="h-16 w-16 mx-auto rounded-full object-cover border-2 border-primary/20 group-hover:scale-110 transition-transform duration-300"
+                           />
+                         ) : (
+                           <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                             <span className="text-2xl font-bold text-primary">
+                               {barbearia.name?.charAt(0) || 'B'}
+                             </span>
+                           </div>
+                         )}
                         {barbearia.likes_count >= 5000 && (
                           <div className="absolute -top-3 -left-3 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
                             <Crown className="h-3 w-3" />
