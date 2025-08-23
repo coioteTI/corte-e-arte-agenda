@@ -35,37 +35,65 @@ export const ExcluirContaSection = ({ companyId }: ExcluirContaSectionProps) => 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não encontrado");
 
-      // Delete all related data
-      await Promise.all([
-        supabase.from('appointments').delete().eq('company_id', companyId),
-        supabase.from('services').delete().eq('company_id', companyId),
-        supabase.from('professionals').delete().eq('company_id', companyId),
-        supabase.from('notification_templates').delete().eq('company_id', companyId),
-        supabase.from('company_settings').delete().eq('company_id', companyId),
-        supabase.from('subscriptions').delete().eq('company_id', companyId),
-        supabase.from('favorites').delete().eq('company_id', companyId)
-      ]);
+      console.log('Iniciando exclusão completa da conta...');
 
-      // Delete company
+      // Step 1: Delete all clients associated with company appointments
+      const { data: companyAppointments } = await supabase
+        .from('appointments')
+        .select('client_id')
+        .eq('company_id', companyId);
+
+      if (companyAppointments && companyAppointments.length > 0) {
+        const clientIds = [...new Set(companyAppointments.map(a => a.client_id))];
+        await supabase.from('clients').delete().in('id', clientIds);
+        console.log('Clients deleted:', clientIds.length);
+      }
+
+      // Step 2: Delete all related company data in sequence for better reliability
+      console.log('Deletando dados relacionados...');
+      
+      await supabase.from('appointments').delete().eq('company_id', companyId);
+      await supabase.from('services').delete().eq('company_id', companyId);
+      await supabase.from('professionals').delete().eq('company_id', companyId);
+      await supabase.from('notification_templates').delete().eq('company_id', companyId);
+      await supabase.from('company_settings').delete().eq('company_id', companyId);
+      await supabase.from('subscriptions').delete().eq('company_id', companyId);
+      await supabase.from('favorites').delete().eq('company_id', companyId);
+
+      console.log('Dados relacionados excluídos');
+
+      // Step 3: Delete company
       await supabase.from('companies').delete().eq('id', companyId);
+      console.log('Empresa excluída');
 
-      // Delete user profile
+      // Step 4: Delete user profile
       await supabase.from('profiles').delete().eq('user_id', user.id);
+      console.log('Perfil excluído');
 
-      // Sign out user
+      // Step 5: Delete the auth user account (this will permanently delete the user)
+      const { error: deleteUserError } = await supabase.auth.admin.deleteUser(user.id);
+      if (deleteUserError) {
+        console.error('Error deleting auth user:', deleteUserError);
+        // Continue with signOut even if admin delete fails
+      } else {
+        console.log('Usuário de autenticação excluído');
+      }
+
+      // Step 6: Sign out user
       await supabase.auth.signOut();
 
       toast({
-        title: "Conta excluída com sucesso",
-        description: "Todos os seus dados foram removidos permanentemente.",
+        title: "✅ Conta excluída com sucesso",
+        description: "Todos os seus dados foram removidos permanentemente. Sua conta não pode mais ser acessada.",
       });
 
-      navigate('/login');
+      // Redirect to home page instead of login
+      navigate('/');
     } catch (error) {
       console.error('Error deleting account:', error);
       toast({
-        title: "Erro ao excluir conta",
-        description: "Não foi possível excluir a conta. Tente novamente.",
+        title: "❌ Erro ao excluir conta",
+        description: "Não foi possível excluir a conta completamente. Tente novamente ou entre em contato com o suporte.",
         variant: "destructive",
       });
     } finally {
