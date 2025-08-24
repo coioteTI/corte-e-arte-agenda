@@ -285,6 +285,12 @@ const AgendarServico = () => {
     e.preventDefault();
     setIsLoading(true);
     
+    console.log('=== STARTING APPOINTMENT BOOKING ===');
+    console.log('Form data:', formData);
+    console.log('Company data:', company);
+    console.log('Services available:', services);
+    console.log('Professionals available:', professionals);
+    
     // Validações melhoradas
     const errors = [];
     
@@ -294,6 +300,8 @@ const AgendarServico = () => {
     if (!formData.professionalId) errors.push("Selecione um profissional");
     if (!formData.data) errors.push("Selecione uma data");
     if (!formData.horario) errors.push("Selecione um horário");
+    
+    console.log('Validation errors found:', errors);
     
     // Validar formato do telefone (básico)
     if (formData.telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(formData.telefone) && !/^\d{10,11}$/.test(formData.telefone.replace(/\D/g, ''))) {
@@ -307,6 +315,7 @@ const AgendarServico = () => {
 
     // Validar se a data não é um domingo ou dia não disponível
     const selectedDate = new Date(formData.data);
+    console.log('Selected date:', selectedDate, 'isDateAvailable:', isDateAvailable);
     if (!isDateAvailable || !isDateAvailable(selectedDate)) {
       errors.push("Data selecionada não está disponível para agendamentos");
     }
@@ -314,6 +323,8 @@ const AgendarServico = () => {
     // Validar se o horário está dentro do expediente
     if (getAvailableTimeSlotsForDate && formData.data) {
       const availableSlots = getAvailableTimeSlotsForDate(selectedDate, 30);
+      console.log('Available slots for selected date:', availableSlots);
+      console.log('Selected time slot:', formData.horario);
       if (!availableSlots.includes(formData.horario)) {
         errors.push("Horário selecionado não está disponível");
       }
@@ -323,12 +334,18 @@ const AgendarServico = () => {
     const selectedService = services.find(s => s.id === formData.servicoId);
     const selectedProfessional = professionals.find(p => p.id === formData.professionalId);
     
+    console.log('Selected service:', selectedService);
+    console.log('Selected professional:', selectedProfessional);
+    
     if (selectedService?.professional_responsible && 
         selectedProfessional?.name !== selectedService.professional_responsible) {
       errors.push(`O serviço "${selectedService.name}" deve ser realizado por ${selectedService.professional_responsible}`);
     }
     
+    console.log('Final validation errors:', errors);
+    
     if (errors.length > 0) {
+      console.log('Validation failed, stopping submission');
       toast({
         title: "Erro na validação",
         description: errors.join(", "),
@@ -340,9 +357,11 @@ const AgendarServico = () => {
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('Current user:', user ? 'logged in' : 'guest');
     
     // Save client data if checkbox is checked
     if (saveData) {
+      console.log('Saving client data...');
       await saveClientData({
         nome: formData.nome,
         telefone: formData.telefone,
@@ -351,13 +370,11 @@ const AgendarServico = () => {
     }
 
     try {
-      console.log('Starting appointment creation process');
-      console.log('Form data:', formData);
-      console.log('Company:', company);
-      console.log('Selected service:', servicoSelecionado);
+      console.log('=== STARTING CLIENT CREATION/RETRIEVAL ===');
       
       // Validar se company.id existe
       if (!company?.id) {
+        console.error('Company ID not found!');
         throw new Error('ID da empresa não encontrado');
       }
       
@@ -367,11 +384,16 @@ const AgendarServico = () => {
       if (user) {
         console.log('User logged in, checking for existing client');
         // Check if client exists
-        const { data: existingClient } = await supabase
+        const { data: existingClient, error: existingClientError } = await supabase
           .from('clients')
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
+
+        if (existingClientError) {
+          console.error('Error checking existing client:', existingClientError);
+          throw existingClientError;
+        }
 
         if (existingClient) {
           console.log('Existing client found:', existingClient.id);
@@ -391,10 +413,10 @@ const AgendarServico = () => {
             .single();
 
           if (clientError) {
-            console.error('Error creating client:', clientError);
+            console.error('Error creating client for logged user:', clientError);
             throw clientError;
           }
-          console.log('New client created:', newClient.id);
+          console.log('New client created for logged user:', newClient.id);
           clientId = newClient.id;
         }
       } else {
@@ -412,6 +434,7 @@ const AgendarServico = () => {
 
         if (clientError) {
           console.error('Error creating guest client:', clientError);
+          console.error('Client error details:', clientError);
           throw clientError;
         }
         console.log('Guest client created:', newClient.id);
@@ -419,34 +442,83 @@ const AgendarServico = () => {
       }
 
       if (!clientId) {
+        console.error('Client ID is null after creation/retrieval');
         throw new Error('Não foi possível criar o cliente');
       }
 
-      // Create appointment
-      const appointmentData = {
+      console.log('=== STARTING APPOINTMENT CREATION ===');
+      console.log('Client ID:', clientId);
+
+      // Validate all required data is present
+      const requiredFields = {
         client_id: clientId,
         company_id: company.id,
         service_id: formData.servicoId,
         professional_id: formData.professionalId,
         appointment_date: formData.data,
-        appointment_time: formData.horario,
-        total_price: servicoSelecionado?.price,
+        appointment_time: formData.horario
+      };
+
+      console.log('Required fields check:');
+      Object.entries(requiredFields).forEach(([key, value]) => {
+        console.log(`${key}: ${value} (${typeof value})`);
+        if (!value) {
+          throw new Error(`Campo obrigatório ausente: ${key}`);
+        }
+      });
+
+      // Create appointment data with proper types and formatting
+      const appointmentData = {
+        client_id: clientId,
+        company_id: company.id,
+        service_id: formData.servicoId,
+        professional_id: formData.professionalId,
+        appointment_date: formData.data, // Format: YYYY-MM-DD
+        appointment_time: formData.horario + ':00', // Ensure time has seconds
+        total_price: selectedService?.price ? Number(selectedService.price) : null,
         notes: formData.observacoes || null,
         status: 'scheduled'
       };
       
-      console.log('Creating appointment with data:', appointmentData);
+      console.log('Final appointment data to insert:', appointmentData);
       
-      const { error: appointmentError } = await supabase
+      const { data: insertedAppointment, error: appointmentError } = await supabase
         .from('appointments')
-        .insert(appointmentData);
+        .insert(appointmentData)
+        .select('*')
+        .single();
 
       if (appointmentError) {
-        console.error('Error creating appointment:', appointmentError);
+        console.error('=== APPOINTMENT INSERT ERROR ===');
+        console.error('Error code:', appointmentError.code);
+        console.error('Error message:', appointmentError.message);
+        console.error('Error details:', appointmentError.details);
+        console.error('Error hint:', appointmentError.hint);
+        console.error('Full error object:', appointmentError);
+        
+        // More specific error messages
+        let userMessage = "Não foi possível realizar o agendamento. ";
+        if (appointmentError.message.includes('violates row-level security policy')) {
+          userMessage += "Erro de permissão de acesso.";
+        } else if (appointmentError.message.includes('foreign key')) {
+          userMessage += "Dados inválidos selecionados.";
+        } else if (appointmentError.message.includes('duplicate key')) {
+          userMessage += "Já existe um agendamento para este horário.";
+        } else {
+          userMessage += `Erro: ${appointmentError.message}`;
+        }
+        
+        toast({
+          title: "Erro no agendamento",
+          description: userMessage,
+          variant: "destructive",
+        });
+        
         throw appointmentError;
       }
       
-      console.log('Appointment created successfully');
+      console.log('=== APPOINTMENT CREATED SUCCESSFULLY ===');
+      console.log('Inserted appointment:', insertedAppointment);
 
       toast({
         title: "Agendamento Realizado!",
@@ -454,13 +526,24 @@ const AgendarServico = () => {
       });
       
       navigate(`/agendamento-confirmado/${slug}`);
-    } catch (error) {
-      console.error('Error creating appointment:', error);
-      toast({
-        title: "Erro no agendamento",
-        description: "Não foi possível realizar o agendamento. Tente novamente.",
-        variant: "destructive",
-      });
+    } catch (error: any) {
+      console.error('=== GENERAL ERROR IN APPOINTMENT CREATION ===');
+      console.error('Error type:', typeof error);
+      console.error('Error name:', error?.name);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      console.error('Full error object:', error);
+      
+      // Only show toast if not already shown
+      if (!error?.message?.includes('row-level security') && 
+          !error?.message?.includes('foreign key') && 
+          !error?.message?.includes('duplicate key')) {
+        toast({
+          title: "Erro no agendamento",
+          description: error?.message || "Não foi possível realizar o agendamento. Tente novamente.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
