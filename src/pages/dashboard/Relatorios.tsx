@@ -475,19 +475,36 @@ const Relatorios = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Melhor mês:</span>
-                      <span className="font-medium">Junho (R$ 4.200)</span>
+                      <span className="font-medium">
+                        {dadosLucro.length > 0 
+                          ? `${dadosLucro.reduce((max, month) => month.lucro > max.lucro ? month : max).mes} (R$ ${dadosLucro.reduce((max, month) => month.lucro > max.lucro ? month : max).lucro.toLocaleString("pt-BR", { minimumFractionDigits: 2 })})`
+                          : 'N/A'
+                        }
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Crescimento:</span>
-                      <span className="font-medium text-green-600">+75%</span>
+                      <span className="text-muted-foreground">Total faturado:</span>
+                      <span className="font-medium text-green-600">
+                        R$ {totalFaturado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Média mensal:</span>
-                      <span className="font-medium">R$ 3.000</span>
+                      <span className="text-muted-foreground">Média por atendimento:</span>
+                      <span className="font-medium">
+                        R$ {ticketMedio.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Clientes ativos:</span>
-                      <span className="font-medium">78</span>
+                      <span className="text-muted-foreground">Clientes únicos:</span>
+                      <span className="font-medium">
+                        {new Set(companyData.appointments.map(apt => apt.client_id)).size}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total de agendamentos:</span>
+                      <span className="font-medium">
+                        {companyData.appointments.length}
+                      </span>
                     </div>
                   </div>
                 </CardContent>
