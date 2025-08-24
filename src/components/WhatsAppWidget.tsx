@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { MessageCircle, X } from "lucide-react";
 
 const WhatsAppWidget = () => {
@@ -27,6 +27,9 @@ const WhatsAppWidget = () => {
               <MessageCircle className="h-5 w-5 text-green-600" />
               Contato WhatsApp
             </DialogTitle>
+            <DialogDescription>
+              Envie uma mensagem via WhatsApp para entrar em contato.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="flex-1 p-4">

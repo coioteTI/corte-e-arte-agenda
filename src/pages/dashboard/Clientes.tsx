@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, Edit, History } from "lucide-react";
@@ -39,22 +39,14 @@ const Clientes = () => {
 
   const loadClientes = async () => {
     try {
-    const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get company ID
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!company) return;
-
-      // Load ALL clients (not just those with appointments)
+      // Load only clients belonging to the current user
       const { data: clientsData } = await supabase
         .from('clients')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       setClientes(clientsData || []);
@@ -77,12 +69,24 @@ const Clientes = () => {
 
     try {
       console.log('Adding client'); // Debug log
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para cadastrar clientes",
+          variant: "destructive"
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('clients')
         .insert({
           name: novoCliente.nome,
           phone: novoCliente.telefone,
-          email: novoCliente.email
+          email: novoCliente.email,
+          user_id: user.id  // Add user_id to link client to current user
         });
 
       if (error) throw error;
@@ -196,6 +200,9 @@ const Clientes = () => {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Novo Cliente</DialogTitle>
+                <DialogDescription>
+                  Preencha os dados do cliente para cadastrá-lo no sistema.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -365,6 +372,9 @@ const Clientes = () => {
               <DialogTitle>
                 Histórico de Atendimentos - {selectedCliente?.name}
               </DialogTitle>
+              <DialogDescription>
+                Visualize o histórico completo de atendimentos deste cliente.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               {selectedCliente ? (
@@ -395,6 +405,9 @@ const Clientes = () => {
               <DialogTitle>
                 Editar Cliente - {selectedCliente?.name}
               </DialogTitle>
+              <DialogDescription>
+                Atualize as informações do cliente.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">

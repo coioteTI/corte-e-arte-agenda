@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Clock, User, Scissors, Calendar, Users, Phone, DollarSign } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -321,6 +321,9 @@ const Horarios = () => {
                 <Clock className="h-5 w-5" />
                 Detalhes do Agendamento
               </DialogTitle>
+              <DialogDescription>
+                Visualize as informações completas deste agendamento.
+              </DialogDescription>
             </DialogHeader>
             {selectedAgendamento && (
               <div className="space-y-4">
