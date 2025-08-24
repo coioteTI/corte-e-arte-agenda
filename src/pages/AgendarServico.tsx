@@ -635,8 +635,7 @@ const AgendarServico = () => {
                         size="sm"
                         onClick={() => {
                           const phone = company.phone.replace(/\D/g, '');
-                          const message = "Olá! Gostaria de agendar um horário.";
-                          window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                          window.open(`https://wa.me/55${phone}`, '_blank');
                         }}
                         className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
                       >
@@ -650,7 +649,7 @@ const AgendarServico = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          window.open(`https://instagram.com/${company.instagram}`, '_blank');
+                          window.open(`https://instagram.com/${company.instagram.replace("@", "")}`, '_blank');
                         }}
                         className="flex items-center gap-1 text-pink-600 border-pink-600 hover:bg-pink-50"
                       >
