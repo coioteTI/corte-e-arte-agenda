@@ -173,7 +173,8 @@ const Agenda = () => {
       const { error } = await supabase
         .from('appointments')
         .update({
-          appointment_time: editingAgendamento.appointment_time
+          appointment_time: editingAgendamento.appointment_time,
+          appointment_date: editingAgendamento.appointment_date
         })
         .eq('id', editingAgendamento.id);
 
@@ -192,6 +193,33 @@ const Agenda = () => {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o agendamento",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCancelAgendamento = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'cancelled' })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setIsEditDialogOpen(false);
+      setEditingAgendamento(null);
+      loadCompanyData(); // Reload data
+      
+      toast({
+        title: "Agendamento cancelado",
+        description: "O agendamento foi cancelado com sucesso!"
+      });
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível cancelar o agendamento",
         variant: "destructive"
       });
     }
@@ -472,6 +500,19 @@ const Agenda = () => {
             {editingAgendamento && (
               <div className="space-y-4">
                 <div className="space-y-2">
+                  <Label htmlFor="edit-data">Data*</Label>
+                  <Input
+                    id="edit-data"
+                    type="date"
+                    value={editingAgendamento.appointment_date}
+                    onChange={(e) => setEditingAgendamento({
+                      ...editingAgendamento, 
+                      appointment_date: e.target.value
+                    })}
+                  />
+                </div>
+                
+                <div className="space-y-2">
                   <Label htmlFor="edit-horario">Horário*</Label>
                   <Input
                     id="edit-horario"
@@ -489,11 +530,18 @@ const Agenda = () => {
                     Salvar Alterações
                   </Button>
                   <Button 
+                    variant="destructive"
+                    onClick={() => handleCancelAgendamento(editingAgendamento.id)}
+                    className="flex-1"
+                  >
+                    Cancelar Agendamento
+                  </Button>
+                  <Button 
                     variant="outline" 
                     onClick={() => setIsEditDialogOpen(false)}
                     className="flex-1"
                   >
-                    Cancelar
+                    Fechar
                   </Button>
                 </div>
               </div>

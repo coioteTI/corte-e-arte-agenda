@@ -151,10 +151,10 @@ const AgendarServico = () => {
 
   const fetchCompanyData = async () => {
     try {
-      // Get company by matching slug-like pattern
+      // Get company by matching slug-like pattern from companies table
       const { data: companies, error } = await supabase
-        .from('companies_public')
-        .select('*')
+        .from('companies')
+        .select('id, name, phone, instagram, email, address, number, neighborhood, city, state, zip_code, primary_color, business_hours')
         .limit(10);
 
       if (error) throw error;
