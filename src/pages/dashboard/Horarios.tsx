@@ -14,6 +14,7 @@ const Horarios = () => {
   const [selectedAgendamento, setSelectedAgendamento] = useState<any>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [professionals, setProfessionals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   
@@ -26,7 +27,33 @@ const Horarios = () => {
 
   useEffect(() => {
     fetchTodayAppointments();
+    fetchProfessionals();
   }, []);
+
+  const fetchProfessionals = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!company) return;
+
+      const { data: professionalsData } = await supabase
+        .from('professionals')
+        .select('*')
+        .eq('company_id', company.id)
+        .order('name');
+
+      setProfessionals(professionalsData || []);
+    } catch (error) {
+      console.error('Error fetching professionals:', error);
+    }
+  };
 
   const fetchTodayAppointments = async () => {
     try {
@@ -96,6 +123,46 @@ const Horarios = () => {
 
   const handleProfessionalFilter = (professional: string) => {
     setSelectedProfessional(professional);
+  };
+
+  const handleIniciarAtendimento = async (appointment: any) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'confirmed' })
+        .eq('id', appointment.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Atendimento iniciado!",
+        description: `Atendimento de ${appointment.cliente} foi iniciado.`
+      });
+
+      setIsDetailsDialogOpen(false);
+      fetchTodayAppointments(); // Reload appointments
+    } catch (error) {
+      console.error('Error starting appointment:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível iniciar o atendimento.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRemarcar = (appointment: any) => {
+    // Navigate to agenda page with appointment data for rescheduling
+    toast({
+      title: "Remarcar agendamento",
+      description: "Redirecionando para reagendar o horário..."
+    });
+    
+    // Close dialog first
+    setIsDetailsDialogOpen(false);
+    
+    // You could navigate to agenda page with pre-filled data
+    // navigate('/dashboard/agenda', { state: { appointmentToReschedule: appointment } });
   };
 
   const filteredAgendamentos = selectedProfessional === "Todos" 
@@ -302,14 +369,39 @@ const Horarios = () => {
             <CardTitle>Filtrar por Profissional</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                Nenhum profissional cadastrado ainda.
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Cadastre profissionais na seção de Configurações para começar.
-              </p>
-            </div>
+            {professionals.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  Nenhum profissional cadastrado ainda.
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Cadastre profissionais na seção de Profissionais para começar.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={selectedProfessional === "Todos" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleProfessionalFilter("Todos")}
+                >
+                  Todos ({agendamentosHoje.length})
+                </Button>
+                {professionals.map((professional) => {
+                  const count = agendamentosHoje.filter(ag => ag.profissional === professional.name).length;
+                  return (
+                    <Button
+                      key={professional.id}
+                      variant={selectedProfessional === professional.name ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleProfessionalFilter(professional.name)}
+                    >
+                      {professional.name} ({count})
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -397,10 +489,17 @@ const Horarios = () => {
                 <Separator />
                 
                 <div className="flex space-x-2">
-                  <Button className="flex-1">
+                  <Button 
+                    className="flex-1"
+                    onClick={() => handleIniciarAtendimento(selectedAgendamento)}
+                  >
                     Iniciar Atendimento
                   </Button>
-                  <Button variant="outline" className="flex-1">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => handleRemarcar(selectedAgendamento)}
+                  >
                     Remarcar
                   </Button>
                 </div>
