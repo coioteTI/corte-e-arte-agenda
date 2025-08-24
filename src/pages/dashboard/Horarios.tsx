@@ -8,6 +8,7 @@ import { Clock, User, Scissors, Calendar, Users, Phone, DollarSign } from "lucid
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const Horarios = () => {
   const [selectedProfessional, setSelectedProfessional] = useState<string>("Todos");
@@ -17,6 +18,7 @@ const Horarios = () => {
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const dataHoje = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -152,17 +154,27 @@ const Horarios = () => {
   };
 
   const handleRemarcar = (appointment: any) => {
-    // Navigate to agenda page with appointment data for rescheduling
-    toast({
-      title: "Remarcar agendamento",
-      description: "Redirecionando para reagendar o horário..."
-    });
-    
     // Close dialog first
     setIsDetailsDialogOpen(false);
     
-    // You could navigate to agenda page with pre-filled data
-    // navigate('/dashboard/agenda', { state: { appointmentToReschedule: appointment } });
+    // Navigate to agenda page with appointment data for rescheduling
+    navigate('/dashboard/agenda', { 
+      state: { 
+        appointmentToReschedule: {
+          id: appointment.id,
+          cliente: appointment.cliente,
+          servico: appointment.servico,
+          profissional: appointment.profissional,
+          horarioAtual: appointment.horario,
+          dataAtual: new Date().toLocaleDateString('pt-BR')
+        }
+      } 
+    });
+    
+    toast({
+      title: "Redirecionando para Agenda",
+      description: `Selecione uma nova data/hora para ${appointment.cliente}`
+    });
   };
 
   const filteredAgendamentos = selectedProfessional === "Todos" 
