@@ -53,6 +53,16 @@ export const MessageEditDialog = ({
             </div>
           </div>
 
+          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+            <h4 className="text-sm font-medium mb-2 text-blue-800">💡 Dica para Anexos:</h4>
+            <p className="text-sm text-blue-700 mb-2">
+              Para incluir anexos, adicione links diretos na mensagem:
+            </p>
+            <div className="text-sm text-blue-600 font-mono bg-white p-2 rounded border">
+              Para mais detalhes, acesse: https://drive.google.com/file/seu-arquivo
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3">
             <Button 
               variant="outline" 
