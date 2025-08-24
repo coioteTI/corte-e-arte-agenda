@@ -51,14 +51,10 @@ const Clientes = () => {
 
       if (!company) return;
 
-      // Load clients that have appointments with this company
+      // Load ALL clients (not just those with appointments)
       const { data: clientsData } = await supabase
         .from('clients')
-        .select(`
-          *,
-          appointments!inner(company_id)
-        `)
-        .eq('appointments.company_id', company.id)
+        .select('*')
         .order('created_at', { ascending: false });
 
       setClientes(clientsData || []);
