@@ -161,6 +161,25 @@ const Relatorios = () => {
       };
     }) : [];
 
+  // Calculate growth percentage based on real data
+  const calculateGrowthPercentage = () => {
+    if (dadosLucro.length < 2) return 0;
+    
+    const sortedData = dadosLucro.sort((a, b) => {
+      const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      return months.indexOf(a.mes) - months.indexOf(b.mes);
+    });
+    
+    const firstMonth = sortedData[0]?.lucro || 0;
+    const lastMonth = sortedData[sortedData.length - 1]?.lucro || 0;
+    
+    if (firstMonth === 0) return 0;
+    
+    return ((lastMonth - firstMonth) / firstMonth * 100);
+  };
+
+  const growthPercentage = calculateGrowthPercentage();
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -242,8 +261,8 @@ const Relatorios = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     Evolução do Faturamento
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
-                      +75% crescimento
+                    <Badge variant="secondary" className={growthPercentage >= 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                      {growthPercentage >= 0 ? '+' : ''}{growthPercentage.toFixed(1)}% {dadosLucro.length < 2 ? '(dados insuficientes)' : 'crescimento'}
                     </Badge>
                   </CardTitle>
                 </CardHeader>

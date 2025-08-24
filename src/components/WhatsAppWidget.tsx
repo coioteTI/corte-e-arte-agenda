@@ -25,7 +25,7 @@ const WhatsAppWidget = () => {
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-green-600" />
-              WhatsApp Web
+              Contato WhatsApp
             </DialogTitle>
           </DialogHeader>
           
@@ -34,17 +34,22 @@ const WhatsAppWidget = () => {
               <div className="text-center space-y-4">
                 <MessageCircle className="h-16 w-16 mx-auto text-green-600" />
                 <div>
-                  <h3 className="font-semibold mb-2">WhatsApp Web</h3>
+                  <h3 className="font-semibold mb-2">Contato WhatsApp</h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Em uma implementação real, aqui seria carregado o WhatsApp Web
+                    Clique no botão abaixo para abrir o WhatsApp e enviar uma mensagem
                   </p>
                   <div className="space-y-2">
                     <Button
-                      onClick={() => window.open('https://web.whatsapp.com', '_blank')}
+                      onClick={() => {
+                        const message = "Olá! Gostaria de agendar um horário na barbearia.";
+                        const phone = "5511999999999"; // Número da barbearia
+                        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                        window.open(whatsappUrl, '_blank');
+                      }}
                       className="w-full"
                       style={{ backgroundColor: '#25D366' }}
                     >
-                      Abrir WhatsApp Web
+                      Enviar Mensagem WhatsApp
                     </Button>
                     <Button variant="outline" onClick={() => setIsOpen(false)}>
                       Fechar
