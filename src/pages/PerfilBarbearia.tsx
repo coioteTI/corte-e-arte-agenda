@@ -356,20 +356,34 @@ const PerfilBarbearia = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center py-2 border-b border-muted/50">
-                <span className="font-medium">Segunda a Sexta</span>
-                <span>08:00 - 18:00</span>
+            {company?.business_hours ? (
+              <div className="space-y-3">
+                {Object.entries(company.business_hours).map(([day, hours]: [string, any]) => {
+                  const dayNames: { [key: string]: string } = {
+                    'monday': 'Segunda-feira',
+                    'tuesday': 'Terça-feira', 
+                    'wednesday': 'Quarta-feira',
+                    'thursday': 'Quinta-feira',
+                    'friday': 'Sexta-feira',
+                    'saturday': 'Sábado',
+                    'sunday': 'Domingo'
+                  };
+                  
+                  return (
+                    <div key={day} className="flex justify-between items-center py-2 border-b border-muted/50 last:border-b-0">
+                      <span className="font-medium">{dayNames[day]}</span>
+                      <span className={`${!hours.isOpen ? 'text-muted-foreground' : ''}`}>
+                        {hours.isOpen ? `${hours.start} - ${hours.end}` : 'Fechado'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-muted/50">
-                <span className="font-medium">Sábado</span>
-                <span>08:00 - 16:00</span>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground">Horários não informados</p>
               </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="font-medium">Domingo</span>
-                <span className="text-muted-foreground">Fechado</span>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 

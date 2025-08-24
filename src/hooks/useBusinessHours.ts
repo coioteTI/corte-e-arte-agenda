@@ -21,19 +21,51 @@ export const useBusinessHours = (companyId: string) => {
 
   const loadBusinessHours = async () => {
     try {
+      console.log('Loading business hours for company:', companyId);
+      
       const { data, error } = await supabase
         .from('companies')
         .select('business_hours')
         .eq('id', companyId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error querying business hours:', error);
+        throw error;
+      }
+
+      console.log('Business hours data retrieved:', data);
 
       if (data?.business_hours) {
+        console.log('Setting business hours:', data.business_hours);
         setBusinessHours(data.business_hours as BusinessHours);
+      } else {
+        console.log('No business hours found, using default');
+        // Set default business hours if none exist
+        const defaultHours = {
+          monday: { isOpen: true, start: "08:00", end: "18:00" },
+          tuesday: { isOpen: true, start: "08:00", end: "18:00" },
+          wednesday: { isOpen: true, start: "08:00", end: "18:00" },
+          thursday: { isOpen: true, start: "08:00", end: "18:00" },
+          friday: { isOpen: true, start: "08:00", end: "18:00" },
+          saturday: { isOpen: true, start: "08:00", end: "18:00" },
+          sunday: { isOpen: false, start: "08:00", end: "18:00" }
+        };
+        setBusinessHours(defaultHours);
       }
     } catch (error) {
       console.error('Error loading business hours:', error);
+      // Set default hours even if there's an error
+      const defaultHours = {
+        monday: { isOpen: true, start: "08:00", end: "18:00" },
+        tuesday: { isOpen: true, start: "08:00", end: "18:00" },
+        wednesday: { isOpen: true, start: "08:00", end: "18:00" },
+        thursday: { isOpen: true, start: "08:00", end: "18:00" },
+        friday: { isOpen: true, start: "08:00", end: "18:00" },
+        saturday: { isOpen: true, start: "08:00", end: "18:00" },
+        sunday: { isOpen: false, start: "08:00", end: "18:00" }
+      };
+      setBusinessHours(defaultHours);
     } finally {
       setLoading(false);
     }

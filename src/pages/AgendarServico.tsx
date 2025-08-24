@@ -202,20 +202,37 @@ const AgendarServico = () => {
 
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
     try {
-      console.log('Fetching slots for:', { professionalId, date });
+      console.log('Fetching slots for:', { professionalId, date, companyId: company?.id });
+      
+      // Verificar se os dados necessários estão disponíveis
+      if (!company?.id) {
+        console.error('Company ID not available for fetching slots');
+        setAvailableSlots([]);
+        return;
+      }
       
       // Usar horários de funcionamento para gerar slots disponíveis
       const selectedDate = new Date(date);
       let allTimeslots: string[] = [];
       
+      console.log('Business hours available:', !!getAvailableTimeSlotsForDate);
+      
       if (getAvailableTimeSlotsForDate) {
         allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30);
+        console.log('Generated timeslots from business hours:', allTimeslots);
       } else {
+        console.log('Using fallback timeslots');
         // Fallback: gerar horários padrão se não houver horários de funcionamento definidos
         for (let hour = 8; hour < 18; hour++) {
           allTimeslots.push(`${hour.toString().padStart(2, '0')}:00`);
           allTimeslots.push(`${hour.toString().padStart(2, '0')}:30`);
         }
+      }
+
+      if (allTimeslots.length === 0) {
+        console.log('No timeslots available for this date');
+        setAvailableSlots([]);
+        return;
       }
 
       // Buscar agendamentos existentes para filtrar horários ocupados
@@ -230,11 +247,13 @@ const AgendarServico = () => {
         console.error('Error fetching existing appointments:', error);
       }
 
+      console.log('Existing appointments:', existingAppointments);
+
       // Filtrar horários ocupados
       const occupiedSlots = existingAppointments?.map(apt => apt.appointment_time) || [];
       const availableTimeslots = allTimeslots.filter(slot => !occupiedSlots.includes(slot));
 
-      console.log('Available slots:', availableTimeslots);
+      console.log('Final available slots:', availableTimeslots);
       setAvailableSlots(availableTimeslots);
     } catch (error) {
       console.error('Error fetching available slots:', error);
@@ -309,20 +328,33 @@ const AgendarServico = () => {
     }
 
     try {
+      console.log('Starting appointment creation process');
+      console.log('Form data:', formData);
+      console.log('Company:', company);
+      console.log('Selected service:', servicoSelecionado);
+      
+      // Validar se company.id existe
+      if (!company?.id) {
+        throw new Error('ID da empresa não encontrado');
+      }
+      
       // Create or get client
       let clientId = null;
       
       if (user) {
+        console.log('User logged in, checking for existing client');
         // Check if client exists
         const { data: existingClient } = await supabase
           .from('clients')
           .select('id')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (existingClient) {
+          console.log('Existing client found:', existingClient.id);
           clientId = existingClient.id;
         } else {
+          console.log('Creating new client for logged user');
           // Create new client
           const { data: newClient, error: clientError } = await supabase
             .from('clients')
@@ -335,10 +367,15 @@ const AgendarServico = () => {
             .select('id')
             .single();
 
-          if (clientError) throw clientError;
+          if (clientError) {
+            console.error('Error creating client:', clientError);
+            throw clientError;
+          }
+          console.log('New client created:', newClient.id);
           clientId = newClient.id;
         }
       } else {
+        console.log('Guest user, creating client without user_id');
         // Create client without user_id for guests
         const { data: newClient, error: clientError } = await supabase
           .from('clients')
@@ -350,26 +387,43 @@ const AgendarServico = () => {
           .select('id')
           .single();
 
-        if (clientError) throw clientError;
+        if (clientError) {
+          console.error('Error creating guest client:', clientError);
+          throw clientError;
+        }
+        console.log('Guest client created:', newClient.id);
         clientId = newClient.id;
       }
 
+      if (!clientId) {
+        throw new Error('Não foi possível criar o cliente');
+      }
+
       // Create appointment
+      const appointmentData = {
+        client_id: clientId,
+        company_id: company.id,
+        service_id: formData.servicoId,
+        professional_id: formData.professionalId,
+        appointment_date: formData.data,
+        appointment_time: formData.horario,
+        total_price: servicoSelecionado?.price,
+        notes: formData.observacoes || null,
+        status: 'scheduled'
+      };
+      
+      console.log('Creating appointment with data:', appointmentData);
+      
       const { error: appointmentError } = await supabase
         .from('appointments')
-        .insert({
-          client_id: clientId,
-          company_id: company.id,
-          service_id: formData.servicoId,
-          professional_id: formData.professionalId,
-          appointment_date: formData.data,
-          appointment_time: formData.horario,
-          total_price: servicoSelecionado?.price,
-          notes: formData.observacoes || null,
-          status: 'scheduled'
-        });
+        .insert(appointmentData);
 
-      if (appointmentError) throw appointmentError;
+      if (appointmentError) {
+        console.error('Error creating appointment:', appointmentError);
+        throw appointmentError;
+      }
+      
+      console.log('Appointment created successfully');
 
       toast({
         title: "Agendamento Realizado!",
