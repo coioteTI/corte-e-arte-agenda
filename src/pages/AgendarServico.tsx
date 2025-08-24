@@ -34,7 +34,7 @@ const saveClientData = async (data: any, userId?: string) => {
         .from('clients')
         .select('id')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (existingClient) {
         await supabase
@@ -132,7 +132,7 @@ const AgendarServico = () => {
           .from('clients')
           .select('name, phone, email')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (clientData) {
           setFormData(prev => ({
@@ -195,6 +195,11 @@ const AgendarServico = () => {
         description: "Não foi possível carregar os dados da barbearia.",
         variant: "destructive",
       });
+      
+      // Auto-dismiss after 3 seconds
+      setTimeout(() => {
+        // Toast will auto-dismiss
+      }, 3000);
     } finally {
       setLoading(false);
     }
@@ -263,6 +268,11 @@ const AgendarServico = () => {
         description: "Não foi possível carregar os horários disponíveis.",
         variant: "destructive",
       });
+      
+      // Auto-dismiss after 3 seconds
+      setTimeout(() => {
+        // Toast will auto-dismiss
+      }, 3000);
     }
   };
 
@@ -351,6 +361,11 @@ const AgendarServico = () => {
         description: errors.join(", "),
         variant: "destructive",
       });
+      
+      // Auto-dismiss after 3 seconds
+      setTimeout(() => {
+        // Toast will auto-dismiss
+      }, 3000);
       setIsLoading(false);
       return;
     }
@@ -514,6 +529,11 @@ const AgendarServico = () => {
           variant: "destructive",
         });
         
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => {
+          // Toast will auto-dismiss
+        }, 3000);
+        
         throw appointmentError;
       }
       
@@ -543,6 +563,11 @@ const AgendarServico = () => {
           description: error?.message || "Não foi possível realizar o agendamento. Tente novamente.",
           variant: "destructive",
         });
+        
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => {
+          // Toast will auto-dismiss
+        }, 3000);
       }
     } finally {
       setIsLoading(false);
@@ -593,8 +618,8 @@ const AgendarServico = () => {
                   Preencha os dados para confirmar seu agendamento
                 </p>
                 
-                {/* Informações da Barbearia */}
-                <div className="mt-3 space-y-1">
+                 {/* Informações da Barbearia */}
+                <div className="mt-3 space-y-2">
                   {company && (company.address || company.city || company.state) && (
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4" />
@@ -602,22 +627,41 @@ const AgendarServico = () => {
                     </div>
                   )}
                   
-                  {company?.phone && (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Phone className="h-4 w-4" />
-                      {company.phone}
-                    </div>
-                  )}
-                  
-                  {company?.instagram && (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <MessageSquare className="h-4 w-4" />
-                      @{company.instagram}
-                    </div>
-                  )}
+                  {/* Botões de Contato */}
+                  <div className="flex gap-2 mt-3">
+                    {company?.phone && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const phone = company.phone.replace(/\D/g, '');
+                          const message = "Olá! Gostaria de agendar um horário.";
+                          window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                        }}
+                        className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        WhatsApp
+                      </Button>
+                    )}
+                    
+                    {company?.instagram && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          window.open(`https://instagram.com/${company.instagram}`, '_blank');
+                        }}
+                        className="flex items-center gap-1 text-pink-600 border-pink-600 hover:bg-pink-50"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        Instagram
+                      </Button>
+                    )}
+                  </div>
                   
                   {company?.email && (
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-2">
                       <Mail className="h-4 w-4" />
                       {company.email}
                     </div>

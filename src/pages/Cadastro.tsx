@@ -162,7 +162,7 @@ const Cadastro = () => {
                   <Label htmlFor="nomeBarbearia">Nome da barbearia/salão</Label>
                   <Input
                     id="nomeBarbearia"
-                    placeholder="Ex: Barbearia do João"
+                    placeholder="Ex: Minha Barbearia"
                     value={formData.nomeBarbearia}
                     onChange={(e) => handleInputChange("nomeBarbearia", e.target.value)}
                     required
@@ -286,7 +286,7 @@ const Cadastro = () => {
                   <Label htmlFor="nomeAdmin">Nome completo</Label>
                   <Input
                     id="nomeAdmin"
-                    placeholder="João Silva"
+                    placeholder="Seu Nome Completo"
                     value={formData.nomeAdmin}
                     onChange={(e) => handleInputChange("nomeAdmin", e.target.value)}
                     required

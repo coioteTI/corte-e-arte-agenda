@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import WhatsAppWidget from "@/components/WhatsAppWidget";
 import CookieConsent from "@/components/CookieConsent";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -39,7 +38,6 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <WhatsAppWidget />
       <CookieConsent />
       <BrowserRouter>
         <Routes>

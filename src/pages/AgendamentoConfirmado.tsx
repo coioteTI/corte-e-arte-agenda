@@ -5,20 +5,16 @@ import { CheckCircle, Phone, MessageCircle } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 const getBarbeariaConfirmacao = (slug: string) => {
-  const barbearias = {
-    "barbearia-do-joao": {
-      nome: "Barbearia do João",
-      telefone: "(11) 99999-9999",
-      logo: logo
-    }
+  return {
+    nome: "Barbearia",
+    telefone: "(11) 99999-9999",
+    logo: logo
   };
-  
-  return barbearias[slug as keyof typeof barbearias] || barbearias["barbearia-do-joao"];
 };
 
 const AgendamentoConfirmado = () => {
   const { slug } = useParams();
-  const barbearia = getBarbeariaConfirmacao(slug || "barbearia-do-joao");
+  const barbearia = getBarbeariaConfirmacao(slug || "");
 
   const abrirWhatsApp = () => {
     const numero = barbearia.telefone.replace(/\D/g, '');

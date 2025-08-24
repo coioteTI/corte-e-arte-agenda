@@ -510,7 +510,7 @@ const Configuracoes = () => {
         </div>
 
         <Tabs defaultValue="notificacoes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="notificacoes" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
               Notificações
@@ -522,10 +522,6 @@ const Configuracoes = () => {
             <TabsTrigger value="personalizacao" className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
               Personalização
-            </TabsTrigger>
-            <TabsTrigger value="mensagens" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Mensagens
             </TabsTrigger>
             <TabsTrigger value="conta" className="flex items-center gap-2">
               <User className="h-4 w-4" />
@@ -556,13 +552,6 @@ const Configuracoes = () => {
               />
               <HorariosFuncionamentoSection companyId={companyId} />
             </div>
-          </TabsContent>
-
-          <TabsContent value="mensagens">
-            <MensagensAutomaticasSection
-              mensagensAutomaticas={mensagensAutomaticas}
-              onEditMessage={handleEditMessage}
-            />
           </TabsContent>
 
           <TabsContent value="conta">

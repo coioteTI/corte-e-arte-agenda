@@ -38,9 +38,8 @@ const services = [
 ];
 
 const professionals = [
-  { id: 1, name: "João Silva", specialty: "Barbeiro" },
-  { id: 2, name: "Maria Santos", specialty: "Cabeleireira" },
-  { id: 3, name: "Pedro Costa", specialty: "Barbeiro" }
+  { id: 1, name: "Pedro Costa", specialty: "Barbeiro" },
+  { id: 2, name: "Maria Santos", specialty: "Cabeleireira" }
 ];
 
 const availableTimes = [
