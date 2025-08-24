@@ -115,30 +115,51 @@ const Relatorios = () => {
                    companyData.professionals.length > 0 ||
                    (companyData.company?.likes_count || 0) > 0;
 
-  // Generate chart data
-  const dadosLucro = companyData.appointments.length > 0 ? [
-    { mes: 'Jan', lucro: 2500, agendamentos: 15 },
-    { mes: 'Fev', lucro: 3200, agendamentos: 22 },
-    { mes: 'Mar', lucro: 2800, agendamentos: 18 },
-    { mes: 'Abr', lucro: 3800, agendamentos: 28 },
-    { mes: 'Mai', lucro: 3500, agendamentos: 25 },
-    { mes: 'Jun', lucro: 4200, agendamentos: 32 }
-  ] : [];
+  // Generate chart data from real appointments
+  const getMonthlyData = () => {
+    const monthlyData: { [key: string]: { lucro: number; agendamentos: number } } = {};
+    
+    companyData.appointments.forEach(apt => {
+      if (apt.status === 'completed' || apt.status === 'confirmed') {
+        const month = new Date(apt.created_at).toLocaleDateString('pt-BR', { month: 'short' });
+        if (!monthlyData[month]) {
+          monthlyData[month] = { lucro: 0, agendamentos: 0 };
+        }
+        monthlyData[month].lucro += apt.total_price || 0;
+        monthlyData[month].agendamentos += 1;
+      }
+    });
+
+    return Object.entries(monthlyData).map(([mes, data]) => ({
+      mes,
+      ...data
+    }));
+  };
+
+  const dadosLucro = companyData.appointments.length > 0 ? getMonthlyData() : [];
 
   const servicosPopulares = companyData.services.length > 0 ? 
-    companyData.services.slice(0, 4).map((service, index) => ({
-      nome: service.name,
-      quantidade: Math.floor(Math.random() * 20) + 5,
-      percentual: Math.floor(Math.random() * 30) + 15,
-      valor: ['#1f2937', '#374151', '#4b5563', '#6b7280'][index]
-    })) : [];
+    companyData.services.slice(0, 4).map((service, index) => {
+      const serviceAppointments = companyData.appointments.filter(apt => apt.service_id === service.id);
+      return {
+        nome: service.name,
+        quantidade: serviceAppointments.length,
+        percentual: companyData.appointments.length > 0 ? Math.round((serviceAppointments.length / companyData.appointments.length) * 100) : 0,
+        valor: ['#1f2937', '#374151', '#4b5563', '#6b7280'][index]
+      };
+    }) : [];
 
   const profissionaisPerformance = companyData.professionals.length > 0 ?
-    companyData.professionals.map(professional => ({
-      nome: professional.name,
-      atendimentos: Math.floor(Math.random() * 15) + 5,
-      faturamento: Math.floor(Math.random() * 2000) + 1000
-    })) : [];
+    companyData.professionals.map(professional => {
+      const professionalAppointments = companyData.appointments.filter(apt => 
+        apt.professional_id === professional.id && (apt.status === 'completed' || apt.status === 'confirmed')
+      );
+      return {
+        nome: professional.name,
+        atendimentos: professionalAppointments.length,
+        faturamento: professionalAppointments.reduce((sum, apt) => sum + (apt.total_price || 0), 0)
+      };
+    }) : [];
 
   if (loading) {
     return (

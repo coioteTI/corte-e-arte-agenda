@@ -1,26 +1,92 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Clock, User, Scissors } from "lucide-react";
+import { Clock, User, Scissors, Calendar, Users, Phone, DollarSign } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
-
-// Start with empty data for new companies
-const agendamentosHoje: any[] = [];
-const horariosDisponiveis: string[] = [];
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Horarios = () => {
   const [selectedProfessional, setSelectedProfessional] = useState<string>("Todos");
   const [selectedAgendamento, setSelectedAgendamento] = useState<any>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
   
   const dataHoje = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric"
+  });
+
+  useEffect(() => {
+    fetchTodayAppointments();
+  }, []);
+
+  const fetchTodayAppointments = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!company) return;
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data: appointmentsData } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          services(name, price),
+          professionals(name),
+          clients(name, phone)
+        `)
+        .eq('company_id', company.id)
+        .eq('appointment_date', today)
+        .order('appointment_time');
+
+      setAppointments(appointmentsData || []);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os agendamentos de hoje.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const agendamentosHoje = appointments.map(apt => ({
+    id: apt.id,
+    cliente: apt.clients?.name || 'Cliente',
+    servico: apt.services?.name || 'Serviço',
+    horario: apt.appointment_time?.slice(0, 5) || '',
+    status: apt.status,
+    telefone: apt.clients?.phone || '',
+    profissional: apt.professionals?.name || 'Profissional',
+    valor: apt.services?.price || 0,
+    observacoes: apt.notes || ''
+  }));
+
+  const horariosDisponiveis = [
+    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", 
+    "11:00", "11:30", "14:00", "14:30", "15:00", "15:30", 
+    "16:00", "16:30", "17:00", "17:30"
+  ].filter(horario => {
+    const isOccupied = agendamentosHoje.some(apt => apt.horario === horario);
+    return !isOccupied;
   });
 
   const handleViewDetails = (agendamento: any) => {
@@ -38,12 +104,18 @@ const Horarios = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "scheduled":
       case "agendado":
         return "bg-blue-500";
+      case "confirmed":
       case "em_andamento":
         return "bg-yellow-500";
+      case "completed":
       case "concluido":
         return "bg-green-500";
+      case "cancelled":
+      case "cancelado":
+        return "bg-red-500";
       default:
         return "bg-gray-500";
     }
@@ -51,16 +123,37 @@ const Horarios = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
+      case "scheduled":
       case "agendado":
         return "Agendado";
+      case "confirmed":
       case "em_andamento":
-        return "Em andamento";
+        return "Confirmado";
+      case "completed":
       case "concluido":
         return "Concluído";
+      case "cancelled":
+      case "cancelado":
+        return "Cancelado";
       default:
         return status;
     }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <h1 className="text-2xl font-semibold">Horários</h1>
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-muted-foreground">Carregando horários...</p>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -76,26 +169,37 @@ const Horarios = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold">{filteredAgendamentos.length}</div>
-              <p className="text-sm text-muted-foreground">
-                {selectedProfessional === "Todos" ? "Clientes Agendados" : `Agendamentos - ${selectedProfessional}`}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold">{horariosDisponiveis.length}</div>
-              <p className="text-sm text-muted-foreground">Vagas Disponíveis</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold">
-                {agendamentosHoje.length + horariosDisponiveis.length}
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-8 w-8 text-primary" />
+                <div>
+                  <p className="text-2xl font-bold">{agendamentosHoje.length}</p>
+                  <p className="text-sm text-muted-foreground">Agendamentos Hoje</p>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">Total de Horários</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-2">
+                <Clock className="h-8 w-8 text-green-500" />
+                <div>
+                  <p className="text-2xl font-bold">{horariosDisponiveis.length}</p>
+                  <p className="text-sm text-muted-foreground">Horários Livres</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-2">
+                <Users className="h-8 w-8 text-blue-500" />
+                <div>
+                  <p className="text-2xl font-bold">{appointments.length > 0 ? '1+' : '0'}</p>
+                  <p className="text-sm text-muted-foreground">Profissionais Ativos</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -242,6 +346,16 @@ const Horarios = () => {
                       <div className="font-medium">{selectedAgendamento.cliente}</div>
                     </div>
                   </div>
+
+                  {selectedAgendamento.telefone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="text-sm text-muted-foreground">Telefone</div>
+                        <div className="font-medium">{selectedAgendamento.telefone}</div>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex items-center gap-3">
                     <Scissors className="h-4 w-4 text-muted-foreground" />
@@ -258,6 +372,23 @@ const Horarios = () => {
                       <div className="font-medium">{selectedAgendamento.profissional}</div>
                     </div>
                   </div>
+
+                  {selectedAgendamento.valor > 0 && (
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="text-sm text-muted-foreground">Valor</div>
+                        <div className="font-medium">R$ {selectedAgendamento.valor.toFixed(2)}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedAgendamento.observacoes && (
+                    <div>
+                      <div className="text-sm text-muted-foreground">Observações</div>
+                      <div className="font-medium">{selectedAgendamento.observacoes}</div>
+                    </div>
+                  )}
                 </div>
                 
                 <Separator />
