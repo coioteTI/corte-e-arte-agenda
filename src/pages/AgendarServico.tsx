@@ -164,6 +164,8 @@ const AgendarServico = () => {
         c.name.toLowerCase().replace(/\s+/g, '-') === slug
       ) || companies?.[0];
 
+      console.log('Found company:', foundCompany);
+
       if (foundCompany) {
         setCompany(foundCompany);
         
@@ -173,8 +175,13 @@ const AgendarServico = () => {
           .select('*')
           .eq('company_id', foundCompany.id);
 
-        if (!servicesError) {
-          setServices(servicesData || []);
+        console.log('Services fetched:', servicesData);
+        console.log('Services error:', servicesError);
+
+        if (!servicesError && servicesData) {
+          setServices(servicesData);
+        } else {
+          setServices([]);
         }
 
         // Fetch professionals for this company
@@ -184,8 +191,13 @@ const AgendarServico = () => {
           .eq('company_id', foundCompany.id)
           .eq('is_available', true);
 
-        if (!profError) {
-          setProfessionals(professionalsData || []);
+        console.log('Professionals fetched:', professionalsData);
+        console.log('Professionals error:', profError);
+
+        if (!profError && professionalsData) {
+          setProfessionals(professionalsData);
+        } else {
+          setProfessionals([]);
         }
       }
     } catch (error) {
@@ -661,7 +673,7 @@ const AgendarServico = () => {
                         <SelectContent>
                           {services.map((servico) => (
                             <SelectItem key={servico.id} value={servico.id}>
-                              {servico.name} - R$ {servico.price.toFixed(2)} ({servico.duration} min)
+                              {servico.name} - R$ {servico.price?.toFixed(2) || '0.00'} ({servico.duration || 0} min)
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -672,8 +684,8 @@ const AgendarServico = () => {
                       <div className="p-3 bg-muted rounded-lg">
                         <p className="text-sm">
                           <strong>{servicoSelecionado.name}</strong><br />
-                          Duração: {servicoSelecionado.duration} minutos<br />
-                          Valor: R$ {servicoSelecionado.price.toFixed(2)}
+                          Duração: {servicoSelecionado.duration || 0} minutos<br />
+                          Valor: R$ {servicoSelecionado.price?.toFixed(2) || '0.00'}
                           {servicoSelecionado.professional_responsible && (
                             <>
                               <br />
@@ -681,6 +693,9 @@ const AgendarServico = () => {
                             </>
                           )}
                         </p>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          ID do serviço: {servicoSelecionado.id}
+                        </div>
                       </div>
                     )}
                   </>
