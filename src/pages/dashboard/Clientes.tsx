@@ -76,6 +76,7 @@ const Clientes = () => {
     }
 
     try {
+      console.log('Adding client'); // Debug log
       const { error } = await supabase
         .from('clients')
         .insert({

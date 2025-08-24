@@ -84,7 +84,17 @@ const Servicos = () => {
       return;
     }
 
+    if (!companyId) {
+      toast({
+        title: "Erro",
+        description: "Company ID não encontrado. Faça login novamente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      console.log('Adding service with company_id:', companyId); // Debug log
       const { error } = await supabase
         .from('services')
         .insert({

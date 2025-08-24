@@ -88,7 +88,17 @@ const Agenda = () => {
       return;
     }
 
+    if (!companyId) {
+      toast({
+        title: "Erro",
+        description: "Company ID não encontrado. Faça login novamente.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      console.log('Adding appointment with company_id:', companyId); // Debug log
       const { error } = await supabase
         .from('appointments')
         .insert({
