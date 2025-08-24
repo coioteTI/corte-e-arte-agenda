@@ -82,36 +82,6 @@ export const MensagensAutomaticasSection = ({
           })}
         </div>
 
-        {/* Seção de Anexos */}
-        <div className="mt-6 p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
-          <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-            📎 <span>Anexos nas Mensagens</span>
-          </h4>
-          <p className="text-sm text-gray-700 mb-3">
-            Para incluir anexos (PDF, imagens, etc.) nas mensagens automáticas, você pode:
-          </p>
-          <div className="space-y-2 text-sm text-gray-600">
-            <div className="flex items-start gap-2">
-              <span className="text-blue-600">•</span>
-              <span>Usar links para arquivos hospedados (Google Drive, OneDrive, Dropbox)</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-blue-600">•</span>
-              <span>Incluir links diretos para PDFs em seu servidor</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-blue-600">•</span>
-              <span>Referenciar materiais em seu site ou aplicativo</span>
-            </div>
-          </div>
-          <div className="mt-3 p-3 bg-white rounded border border-blue-200">
-            <p className="text-sm font-medium text-gray-800 mb-1">Exemplo de mensagem com anexo:</p>
-            <p className="text-sm text-gray-600 italic">
-              "Olá {"{nome}"}, seu agendamento foi confirmado! Para mais informações, acesse: https://drive.google.com/file/seu-arquivo"
-            </p>
-          </div>
-        </div>
-
         {/* Variáveis Disponíveis */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
           <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
