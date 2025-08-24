@@ -8,7 +8,7 @@ import { Search, MapPin, Star, Navigation, Crown, Heart } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { LikeButton } from "@/components/LikeButton";
+import LikeButton from "@/components/LikeButton";
 
 // Interface para as barbearias - simplifciada para evitar conflitos
 interface Barbearia {
@@ -536,18 +536,9 @@ const BuscarBarbearias = () => {
                         </div>
                         
                         <LikeButton
-                          companyId={barbearia.id}
-                          initialLikesCount={barbearia.likes_count}
-                          isLiked={barbearia.is_favorite}
-                          size="sm"
-                          variant="outline"
-                          onLikeChange={(newCount) => {
-                            setResultados(prev => prev.map(b => 
-                              b.id === barbearia.id 
-                                ? { ...b, likes_count: newCount }
-                                : b
-                            ));
-                          }}
+                          targetType="company"
+                          targetId={barbearia.id}
+                          className="mx-auto"
                         />
                       </div>
                       

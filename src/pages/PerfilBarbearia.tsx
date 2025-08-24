@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link, useParams } from "react-router-dom";
 import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Heart, ArrowLeft } from "lucide-react";
-import { LikeButton } from "@/components/LikeButton";
+import LikeButton from "@/components/LikeButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
@@ -181,13 +181,9 @@ const PerfilBarbearia = () => {
           {/* Likes and Ranking Info */}
           <div className="flex flex-col items-center gap-3 mb-4">
             <LikeButton
-              companyId={company.id}
-              initialLikesCount={company.likes_count || 0}
-              isLiked={isLiked}
-              size="lg"
-              variant="outline"
-              showCount={true}
-              onLikeChange={handleLikeChange}
+              targetType="company"
+              targetId={company.id}
+              className="w-full"
             />
             <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
               ❤️ {company.likes_count || 0} curtidas no total

@@ -296,6 +296,30 @@ export type Database = {
           },
         ]
       }
+      likes: {
+        Row: {
+          client_key: string
+          created_at: string | null
+          id: number
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          client_key: string
+          created_at?: string | null
+          id?: number
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          client_key?: string
+          created_at?: string | null
+          id?: number
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: []
+      }
       notification_templates: {
         Row: {
           company_id: string | null
@@ -620,6 +644,16 @@ export type Database = {
           updated_at: string
           whatsapp_integration_enabled: boolean
           whatsapp_notifications: boolean
+        }[]
+      }
+      get_user_client_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_user_companies: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          company_id: string
         }[]
       }
       increment_likes: {
