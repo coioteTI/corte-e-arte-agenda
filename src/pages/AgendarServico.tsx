@@ -304,6 +304,29 @@ const AgendarServico = () => {
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.push("Email inválido");
     }
+
+    // Validar se a data não é um domingo ou dia não disponível
+    const selectedDate = new Date(formData.data);
+    if (!isDateAvailable || !isDateAvailable(selectedDate)) {
+      errors.push("Data selecionada não está disponível para agendamentos");
+    }
+
+    // Validar se o horário está dentro do expediente
+    if (getAvailableTimeSlotsForDate && formData.data) {
+      const availableSlots = getAvailableTimeSlotsForDate(selectedDate, 30);
+      if (!availableSlots.includes(formData.horario)) {
+        errors.push("Horário selecionado não está disponível");
+      }
+    }
+
+    // Validar se o profissional presta o serviço selecionado
+    const selectedService = services.find(s => s.id === formData.servicoId);
+    const selectedProfessional = professionals.find(p => p.id === formData.professionalId);
+    
+    if (selectedService?.professional_responsible && 
+        selectedProfessional?.name !== selectedService.professional_responsible) {
+      errors.push(`O serviço "${selectedService.name}" deve ser realizado por ${selectedService.professional_responsible}`);
+    }
     
     if (errors.length > 0) {
       toast({
