@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
@@ -73,6 +73,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_public"
             referencedColumns: ["id"]
           },
           {
@@ -244,6 +251,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       favorites: {
@@ -271,6 +285,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_public"
             referencedColumns: ["id"]
           },
         ]
@@ -309,6 +330,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_public"
             referencedColumns: ["id"]
           },
         ]
@@ -350,6 +378,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professionals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_public"
             referencedColumns: ["id"]
           },
         ]
@@ -429,6 +464,13 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "services_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       subscriptions: {
@@ -473,48 +515,111 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      companies_public: {
+        Row: {
+          address: string | null
+          business_hours: Json | null
+          city: string | null
+          created_at: string | null
+          id: string | null
+          instagram: string | null
+          likes_count: number | null
+          logo_url: string | null
+          name: string | null
+          neighborhood: string | null
+          number: string | null
+          plan: string | null
+          primary_color: string | null
+          state: string | null
+          updated_at: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_hours?: Json | null
+          city?: string | null
+          created_at?: string | null
+          id?: string | null
+          instagram?: string | null
+          likes_count?: number | null
+          logo_url?: string | null
+          name?: string | null
+          neighborhood?: string | null
+          number?: string | null
+          plan?: string | null
+          primary_color?: string | null
+          state?: string | null
+          updated_at?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_hours?: Json | null
+          city?: string | null
+          created_at?: string | null
+          id?: string | null
+          instagram?: string | null
+          likes_count?: number | null
+          logo_url?: string | null
+          name?: string | null
+          neighborhood?: string | null
+          number?: string | null
+          plan?: string | null
+          primary_color?: string | null
+          state?: string | null
+          updated_at?: string | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_company_rankings: {
         Args: Record<PropertyKey, never>
         Returns: {
           id: string
-          name: string
           likes_count: number
+          name: string
           ranking: number
         }[]
       }
       get_company_rankings_by_appointments: {
         Args: Record<PropertyKey, never>
         Returns: {
+          appointments_count: number
           id: string
           name: string
-          appointments_count: number
           ranking: number
         }[]
       }
       get_or_create_company_settings: {
         Args: { company_uuid: string }
         Returns: {
-          id: string
+          advanced_reports_enabled: boolean
           company_id: string
-          email_notifications: boolean
-          whatsapp_notifications: boolean
-          reminders_enabled: boolean
           confirmations_enabled: boolean
+          created_at: string
+          email_notifications: boolean
+          id: string
           online_booking_enabled: boolean
           online_payment_enabled: boolean
-          advanced_reports_enabled: boolean
-          whatsapp_integration_enabled: boolean
           primary_color: string
+          reminders_enabled: boolean
           secondary_color: string
-          created_at: string
           updated_at: string
+          whatsapp_integration_enabled: boolean
+          whatsapp_notifications: boolean
         }[]
       }
       increment_likes: {
