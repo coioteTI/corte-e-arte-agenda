@@ -153,7 +153,7 @@ const AgendarServico = () => {
     try {
       // Get company by matching slug-like pattern
       const { data: companies, error } = await supabase
-        .from('companies')
+        .from('companies_public')
         .select('*')
         .limit(10);
 
