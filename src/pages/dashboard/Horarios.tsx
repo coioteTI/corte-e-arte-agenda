@@ -127,6 +127,32 @@ const Horarios = () => {
     setSelectedProfessional(professional);
   };
 
+  const handleConcluirAtendimento = async (appointment: any) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'completed' })
+        .eq('id', appointment.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Atendimento concluído!",
+        description: `Atendimento de ${appointment.cliente} foi finalizado com sucesso.`
+      });
+
+      setIsDetailsDialogOpen(false);
+      fetchTodayAppointments(); // Reload appointments
+    } catch (error) {
+      console.error('Error completing appointment:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível concluir o atendimento.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleIniciarAtendimento = async (appointment: any) => {
     try {
       const { error } = await supabase
@@ -501,16 +527,30 @@ const Horarios = () => {
                 <Separator />
                 
                 <div className="flex space-x-2">
-                  <Button 
-                    className="flex-1"
-                    onClick={() => handleIniciarAtendimento(selectedAgendamento)}
-                  >
-                    Iniciar Atendimento
-                  </Button>
+                  {selectedAgendamento?.status === 'scheduled' ? (
+                    <Button 
+                      className="flex-1"
+                      onClick={() => handleIniciarAtendimento(selectedAgendamento)}
+                    >
+                      Iniciar Atendimento
+                    </Button>
+                  ) : selectedAgendamento?.status === 'confirmed' ? (
+                    <Button 
+                      className="flex-1"
+                      onClick={() => handleConcluirAtendimento(selectedAgendamento)}
+                    >
+                      Concluir Atendimento
+                    </Button>
+                  ) : (
+                    <Button className="flex-1" disabled>
+                      {selectedAgendamento?.status === 'completed' ? 'Concluído' : 'Ação não disponível'}
+                    </Button>
+                  )}
                   <Button 
                     variant="outline" 
                     className="flex-1"
                     onClick={() => handleRemarcar(selectedAgendamento)}
+                    disabled={selectedAgendamento?.status === 'completed'}
                   >
                     Remarcar
                   </Button>

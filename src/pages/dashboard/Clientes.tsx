@@ -22,6 +22,7 @@ const Clientes = () => {
   const [isHistoricoDialogOpen, setIsHistoricoDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
+  const [clientHistory, setClientHistory] = useState<any[]>([]);
   const [editingCliente, setEditingCliente] = useState({
     nome: "",
     telefone: "",
@@ -111,8 +112,38 @@ const Clientes = () => {
     }
   };
 
-  const handleVerHistorico = (cliente: any) => {
+  const handleVerHistorico = async (cliente: any) => {
     setSelectedCliente(cliente);
+    
+    // Load client's appointment history
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!company) return;
+
+      const { data: historyData } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          services(name, price, duration),
+          professionals(name)
+        `)
+        .eq('company_id', company.id)
+        .eq('client_id', cliente.id)
+        .order('appointment_date', { ascending: false });
+
+      setClientHistory(historyData || []);
+    } catch (error) {
+      console.error('Error loading client history:', error);
+    }
+    
     setIsHistoricoDialogOpen(true);
   };
 
@@ -384,7 +415,40 @@ const Clientes = () => {
                 </div>
                 <Separator />
                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                  <p className="text-muted-foreground">Nenhum histórico disponível.</p>
+                  {clientHistory.length === 0 ? (
+                    <p className="text-muted-foreground">Nenhum histórico disponível.</p>
+                  ) : (
+                    clientHistory.map((appointment) => (
+                      <div key={appointment.id} className="p-3 border rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 className="font-medium">{appointment.services?.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Profissional: {appointment.professionals?.name}
+                            </p>
+                          </div>
+                          <Badge variant={
+                            appointment.status === 'completed' ? 'default' :
+                            appointment.status === 'confirmed' ? 'secondary' :
+                            appointment.status === 'cancelled' ? 'destructive' : 'outline'
+                          }>
+                            {appointment.status === 'completed' ? 'Concluído' :
+                             appointment.status === 'confirmed' ? 'Confirmado' :
+                             appointment.status === 'cancelled' ? 'Cancelado' : 'Agendado'}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p>Data: {new Date(appointment.appointment_date).toLocaleDateString('pt-BR')}</p>
+                          <p>Horário: {appointment.appointment_time?.slice(0, 5)}</p>
+                          <p>Duração: {appointment.services?.duration || 30} minutos</p>
+                          <p>Valor: R$ {appointment.total_price?.toFixed(2) || appointment.services?.price?.toFixed(2) || '0,00'}</p>
+                          {appointment.notes && (
+                            <p>Observações: {appointment.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </>
               ) : (
