@@ -13,9 +13,16 @@ const WhatsAppWidget = ({ companyPhone, companyName = "barbearia" }: WhatsAppWid
   const [isOpen, setIsOpen] = useState(false);
 
   // Don't render if no phone number is provided
-  if (!companyPhone) {
+  if (!companyPhone || companyPhone.trim() === "") {
     return null;
   }
+
+  const handleWhatsAppClick = () => {
+    const normalizedPhone = companyPhone.replace(/\D/g, "");
+    const message = `Olá! Gostaria de agendar um horário na ${companyName}.`;
+    const whatsappUrl = `https://wa.me/55${normalizedPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+  };
 
   return (
     <>
@@ -53,12 +60,7 @@ const WhatsAppWidget = ({ companyPhone, companyName = "barbearia" }: WhatsAppWid
                   </p>
                   <div className="space-y-2">
                     <Button
-                      onClick={() => {
-                        const message = `Olá! Gostaria de agendar um horário na ${companyName}.`;
-                        const phone = companyPhone.replace(/\D/g, '');
-                        const whatsappUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
-                        window.open(whatsappUrl, '_blank');
-                      }}
+                      onClick={handleWhatsAppClick}
                       className="w-full"
                       style={{ backgroundColor: '#25D366' }}
                     >
