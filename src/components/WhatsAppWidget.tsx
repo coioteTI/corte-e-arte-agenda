@@ -4,8 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { MessageCircle, X } from "lucide-react";
 
-const WhatsAppWidget = () => {
+interface WhatsAppWidgetProps {
+  companyPhone?: string;
+  companyName?: string;
+}
+
+const WhatsAppWidget = ({ companyPhone, companyName = "barbearia" }: WhatsAppWidgetProps) => {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Don't render if no phone number is provided
+  if (!companyPhone) {
+    return null;
+  }
 
   return (
     <>
@@ -44,9 +54,9 @@ const WhatsAppWidget = () => {
                   <div className="space-y-2">
                     <Button
                       onClick={() => {
-                        const message = "Olá! Gostaria de agendar um horário na barbearia.";
-                        const phone = "5511999999999"; // Número da barbearia
-                        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+                        const message = `Olá! Gostaria de agendar um horário na ${companyName}.`;
+                        const phone = companyPhone.replace(/\D/g, '');
+                        const whatsappUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
                         window.open(whatsappUrl, '_blank');
                       }}
                       className="w-full"
