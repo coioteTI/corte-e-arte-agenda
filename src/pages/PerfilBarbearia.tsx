@@ -91,7 +91,20 @@ const PerfilBarbearia = () => {
     if (!company?.phone) return;
     const numero = company.phone.replace(/\D/g, '');
     const mensagem = `Olá! Gostaria de agendar um serviço na ${company.name}.`;
-    window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(mensagem)}`, '_blank');
+    
+    // Tenta abrir no WhatsApp mobile primeiro, depois web como fallback
+    const linkMobile = `https://wa.me/55${numero}?text=${encodeURIComponent(mensagem)}`;
+    const linkWeb = `https://web.whatsapp.com/send?phone=55${numero}&text=${encodeURIComponent(mensagem)}`;
+    
+    // Detecta se é mobile ou desktop e usa o link apropriado
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    try {
+      window.open(isMobile ? linkMobile : linkWeb, '_blank');
+    } catch (error) {
+      // Fallback: tenta o outro link se o primeiro falhar
+      window.open(isMobile ? linkWeb : linkMobile, '_blank');
+    }
   };
 
   const abrirMaps = () => {

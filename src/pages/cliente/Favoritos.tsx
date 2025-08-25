@@ -212,7 +212,18 @@ const Favoritos = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(`https://wa.me/55${favorito.companies.phone.replace(/\D/g, '')}`, '_blank')}
+                            onClick={() => {
+                              const numero = favorito.companies.phone.replace(/\D/g, '');
+                              const linkMobile = `https://wa.me/55${numero}`;
+                              const linkWeb = `https://web.whatsapp.com/send?phone=55${numero}`;
+                              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                              
+                              try {
+                                window.open(isMobile ? linkMobile : linkWeb, '_blank');
+                              } catch (error) {
+                                window.open(isMobile ? linkWeb : linkMobile, '_blank');
+                              }
+                            }}
                           >
                             <MessageCircle className="h-4 w-4 mr-1" />
                             WhatsApp
