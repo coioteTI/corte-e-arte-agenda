@@ -62,7 +62,7 @@ const BuscarBarbearias = () => {
   const fetchCompanies = async () => {
     try {
       const { data: companies, error } = await supabase
-        .from('companies_public')
+        .from('companies')
         .select('*')
         .or('state.neq.,city.neq.') // Only show companies with some location data
         .order('likes_count', { ascending: false });
@@ -116,7 +116,7 @@ const BuscarBarbearias = () => {
       
       if (top3Ids.length > 0) {
         const { data: companies, error: companiesError } = await supabase
-          .from('companies_public')
+          .from('companies')
           .select('*')
           .in('id', top3Ids);
         
@@ -139,7 +139,7 @@ const BuscarBarbearias = () => {
   const handleBuscar = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('companies_public').select('*');
+      let query = supabase.from('companies').select('*');
       
       // Apply filters properly
       if (estado.trim()) {
@@ -221,7 +221,7 @@ const BuscarBarbearias = () => {
               setEstado(estado);
               
               // Buscar barbearias próximas
-              let query = supabase.from('companies_public').select('*');
+              let query = supabase.from('companies').select('*');
               
               if (estado) {
                 query = query.ilike('state', `%${estado}%`).neq('state', '');
