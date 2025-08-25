@@ -635,15 +635,9 @@ const AgendarServico = () => {
                         size="sm"
                         onClick={() => {
                           const phone = company.phone.replace(/\D/g, '');
-                          const linkMobile = `https://wa.me/55${phone}`;
-                          const linkWeb = `https://web.whatsapp.com/send?phone=55${phone}`;
-                          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                          
-                          try {
-                            window.open(isMobile ? linkMobile : linkWeb, '_blank');
-                          } catch (error) {
-                            window.open(isMobile ? linkWeb : linkMobile, '_blank');
-                          }
+                          const numero = phone.replace(/\D/g, '');
+                          const whatsappUrl = `https://wa.me/55${numero}`;
+                          window.open(whatsappUrl, '_blank');
                         }}
                         className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
                       >

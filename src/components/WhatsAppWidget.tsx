@@ -56,15 +56,8 @@ const WhatsAppWidget = ({ companyPhone, companyName = "barbearia" }: WhatsAppWid
                       onClick={() => {
                         const message = `Olá! Gostaria de agendar um horário na ${companyName}.`;
                         const phone = companyPhone.replace(/\D/g, '');
-                        const linkMobile = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
-                        const linkWeb = `https://web.whatsapp.com/send?phone=55${phone}&text=${encodeURIComponent(message)}`;
-                        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                        
-                        try {
-                          window.open(isMobile ? linkMobile : linkWeb, '_blank');
-                        } catch (error) {
-                          window.open(isMobile ? linkWeb : linkMobile, '_blank');
-                        }
+                        const whatsappUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
+                        window.open(whatsappUrl, '_blank');
                       }}
                       className="w-full"
                       style={{ backgroundColor: '#25D366' }}
