@@ -12,41 +12,19 @@ const Planos = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleSubscribe = async () => {
-    setIsLoading(true);
+  const handleSubscribe = (planType: 'mensal' | 'anual') => {
+    const kiwifyUrls = {
+      mensal: 'https://pay.kiwify.com.br/ftXGkCD',
+      anual: 'https://pay.kiwify.com.br/yu7iXQJ'
+    };
     
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("Usuário não autenticado");
-      }
-
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.url) {
-        // Abrir o checkout do Stripe em nova aba
-        window.open(data.url, '_blank');
-      }
-      
-    } catch (error: any) {
-      console.error("Erro ao processar assinatura:", error);
-      toast({
-        title: "Erro na assinatura",
-        description: error.message || "Erro ao processar pagamento. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    // Abrir o checkout do Kiwify em nova aba
+    window.open(kiwifyUrls[planType], '_blank');
+    
+    toast({
+      title: "Redirecionamento para pagamento",
+      description: "Você será redirecionado para o Kiwify para finalizar sua assinatura.",
+    });
   };
 
   return (
@@ -71,7 +49,7 @@ const Planos = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {/* Plano Gratuito */}
           <Card className="relative">
             <CardHeader>
@@ -112,18 +90,18 @@ const Planos = () => {
             </CardContent>
           </Card>
 
-          {/* Plano Premium */}
+          {/* Plano Premium Mensal */}
           <Card className="relative border-primary shadow-lg">
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
               <Badge className="bg-primary text-primary-foreground">
                 <Crown className="h-3 w-3 mr-1" />
-                Recomendado
+                Popular
               </Badge>
             </div>
             <CardHeader className="pt-8">
               <div className="flex items-center gap-2">
                 <Crown className="h-5 w-5 text-primary" />
-                <CardTitle>Plano Premium</CardTitle>
+                <CardTitle>Premium Mensal</CardTitle>
               </div>
               <div className="text-3xl font-bold text-primary">R$ 59</div>
               <p className="text-sm text-muted-foreground">por mês</p>
@@ -157,13 +135,69 @@ const Planos = () => {
               </ul>
               <Button 
                 className="w-full mt-6" 
-                onClick={handleSubscribe}
-                disabled={isLoading}
+                onClick={() => handleSubscribe('mensal')}
               >
-                {isLoading ? "Processando..." : "Assinar Agora"}
+                Assinar Mensalmente
               </Button>
               <p className="text-xs text-center text-muted-foreground mt-2">
-                Cancele a qualquer momento
+                Flexibilidade para cancelar
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Plano Premium Anual */}
+          <Card className="relative border-green-500 shadow-lg">
+            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+              <Badge className="bg-green-600 text-white">
+                <Star className="h-3 w-3 mr-1" />
+                Melhor Valor
+              </Badge>
+            </div>
+            <CardHeader className="pt-8">
+              <div className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-green-600" />
+                <CardTitle>Premium Anual</CardTitle>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-3xl font-bold text-green-600">R$ 49</div>
+                <div className="text-sm text-muted-foreground line-through">R$ 59</div>
+              </div>
+              <p className="text-sm text-muted-foreground">por mês (cobrado anualmente)</p>
+              <div className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded-full w-fit">
+                Economize R$ 120/ano
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Tudo do plano mensal</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">2 meses gratuitos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Suporte prioritário VIP</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Recursos beta em primeiro</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Consultoria personalizada</span>
+                </li>
+              </ul>
+              <Button 
+                className="w-full mt-6 bg-green-600 hover:bg-green-700" 
+                onClick={() => handleSubscribe('anual')}
+              >
+                Assinar Anualmente
+              </Button>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                Melhor custo-benefício
               </p>
             </CardContent>
           </Card>
@@ -171,7 +205,10 @@ const Planos = () => {
 
         <div className="text-center mt-8">
           <p className="text-sm text-muted-foreground">
-            Todos os preços são em Reais (BRL). Cobrança recorrente mensal.
+            Todos os preços são em Reais (BRL). Pagamento processado via Kiwify.
+          </p>
+          <p className="text-xs text-muted-foreground mt-2">
+            Cancele a qualquer momento. Sem taxas de cancelamento.
           </p>
         </div>
       </div>
