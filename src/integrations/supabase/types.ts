@@ -548,6 +548,48 @@ export type Database = {
           },
         ]
       }
+      webhook_logs: {
+        Row: {
+          created_at: string
+          email: string
+          error_message: string | null
+          evento: string
+          id: string
+          plan_updated: boolean | null
+          processed_at: string
+          produto: string | null
+          raw_payload: Json | null
+          token_received: string | null
+          user_found: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          error_message?: string | null
+          evento: string
+          id?: string
+          plan_updated?: boolean | null
+          processed_at?: string
+          produto?: string | null
+          raw_payload?: Json | null
+          token_received?: string | null
+          user_found?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          error_message?: string | null
+          evento?: string
+          id?: string
+          plan_updated?: boolean | null
+          processed_at?: string
+          produto?: string | null
+          raw_payload?: Json | null
+          token_received?: string | null
+          user_found?: boolean | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       companies_public: {
