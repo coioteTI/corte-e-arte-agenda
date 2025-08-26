@@ -159,12 +159,12 @@ const Planos = () => {
                 <CardTitle>Premium Anual</CardTitle>
               </div>
               <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold text-green-600">R$ 49</div>
-                <div className="text-sm text-muted-foreground line-through">R$ 59</div>
+                <div className="text-3xl font-bold text-green-600">R$ 500</div>
+                <div className="text-sm text-muted-foreground line-through">R$ 708</div>
               </div>
-              <p className="text-sm text-muted-foreground">por mês (cobrado anualmente)</p>
+              <p className="text-sm text-muted-foreground">por ano</p>
               <div className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded-full w-fit">
-                Economize R$ 120/ano
+                Economize R$ 208/ano
               </div>
             </CardHeader>
             <CardContent>

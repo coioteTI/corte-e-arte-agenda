@@ -52,8 +52,15 @@ const isAccessGrantedEvent = (evento: string): boolean => {
 };
 
 serve(async (req) => {
+  console.log('🔄 Kiwify webhook called:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ Handling CORS preflight');
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -70,8 +77,19 @@ serve(async (req) => {
     console.log('🔄 Processing Kiwify webhook...');
     
     // Parse the request body
-    const payload: KiwifyWebhookPayload = await req.json();
-    console.log('📦 Received payload:', JSON.stringify(payload, null, 2));
+    let payload: KiwifyWebhookPayload;
+    try {
+      const rawBody = await req.text();
+      console.log('📦 Raw request body:', rawBody);
+      payload = JSON.parse(rawBody);
+      console.log('📦 Parsed payload:', JSON.stringify(payload, null, 2));
+    } catch (parseError) {
+      console.error('❌ Error parsing request body:', parseError);
+      return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const { email, evento, produto, token } = payload;
 
