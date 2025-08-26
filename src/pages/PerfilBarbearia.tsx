@@ -26,9 +26,7 @@ const PerfilBarbearia = () => {
     try {
       // Get company by matching slug-like pattern
       const { data: companies, error } = await supabase
-        .from('companies')
-        .select('*')
-        .limit(10);
+        .rpc('get_public_company_data');
 
       if (error) throw error;
 

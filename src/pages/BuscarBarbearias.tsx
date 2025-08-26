@@ -62,9 +62,7 @@ const BuscarBarbearias = () => {
   const fetchCompanies = async () => {
     try {
       const { data: companies, error } = await supabase
-        .from('companies')
-        .select('*')
-        .or('state.neq.,city.neq.') // Only show companies with some location data
+        .rpc('get_public_company_data')
         .order('likes_count', { ascending: false });
 
       if (error) throw error;
@@ -116,9 +114,7 @@ const BuscarBarbearias = () => {
       
       if (top3Ids.length > 0) {
         const { data: companies, error: companiesError } = await supabase
-          .from('companies')
-          .select('*')
-          .in('id', top3Ids);
+          .rpc('get_public_company_data');
         
         if (!companiesError && companies) {
           const top3: Barbearia[] = companies.map(company => ({
@@ -139,25 +135,30 @@ const BuscarBarbearias = () => {
   const handleBuscar = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('companies').select('*');
+      const { data: allCompanies, error } = await supabase.rpc('get_public_company_data');
       
-      // Apply filters properly
+      if (error) throw error;
+      
+      // Apply filters client-side since RPC doesn't support complex filtering
+      let companies = allCompanies || [];
+      
       if (estado.trim()) {
-        // Search for exact match or partial match for state
-        query = query.or(`state.ilike.%${estado.trim()}%,state.eq.${estado.trim().toUpperCase()}`);
+        companies = companies.filter(c => 
+          c.state?.toLowerCase().includes(estado.trim().toLowerCase())
+        );
       }
       
       if (cidade.trim()) {
-        // Search for partial match in city, handling case insensitive
-        query = query.ilike('city', `%${cidade.trim()}%`);
+        companies = companies.filter(c => 
+          c.city?.toLowerCase().includes(cidade.trim().toLowerCase())
+        );
       }
       
-      // Only get companies that have at least some location data
-      query = query.or('state.neq.,city.neq.');
+      // Only get companies that have location data
+      companies = companies.filter(c => c.state && c.city);
       
-      const { data: companies, error } = await query.order('likes_count', { ascending: false });
-      
-      if (error) throw error;
+      // Sort by likes
+      companies.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
       
       let companiesWithFavorites: Barbearia[] = [];
       
@@ -221,19 +222,27 @@ const BuscarBarbearias = () => {
               setEstado(estado);
               
               // Buscar barbearias próximas
-              let query = supabase.from('companies').select('*');
+              const { data: allCompanies, error: searchError } = await supabase.rpc('get_public_company_data');
+              
+              if (searchError) throw searchError;
+              
+              let companies = allCompanies || [];
               
               if (estado) {
-                query = query.ilike('state', `%${estado}%`).neq('state', '');
+                companies = companies.filter(c => 
+                  c.state?.toLowerCase().includes(estado.toLowerCase())
+                );
               }
               
               if (cidade) {
-                query = query.ilike('city', `%${cidade}%`).neq('city', '');
+                companies = companies.filter(c => 
+                  c.city?.toLowerCase().includes(cidade.toLowerCase())
+                );
               }
               
-              const { data: companies, error } = await query.order('likes_count', { ascending: false });
+              companies.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
               
-              if (!error && companies) {
+              if (companies) {
                 let companiesWithFavorites: Barbearia[] = [];
                 
                 if (user) {
