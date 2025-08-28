@@ -232,30 +232,6 @@ const PerfilBarbearia = () => {
                 <p className="text-muted-foreground">Endereço não informado</p>
               </div>
             )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button 
-                onClick={abrirWhatsApp} 
-                className="w-full hover:scale-105 transition-transform duration-200" 
-                size="lg"
-                style={{ backgroundColor: '#25D366' }}
-              >
-                <MessageCircle className="h-4 w-4 mr-2" />
-                WhatsApp: {company.phone}
-              </Button>
-              
-              {company.instagram && (
-                <Button 
-                  variant="outline" 
-                  className="w-full hover:scale-105 transition-transform duration-200" 
-                  size="lg"
-                  onClick={abrirInstagram}
-                >
-                  <Instagram className="h-4 w-4 mr-2" />
-                  {company.instagram}
-                </Button>
-              )}
-            </div>
           </CardContent>
         </Card>
 
