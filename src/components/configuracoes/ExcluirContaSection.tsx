@@ -32,43 +32,64 @@ export const ExcluirContaSection = ({ companyId }: ExcluirContaSectionProps) => 
 
     setIsDeleting(true);
     try {
-      console.log('Iniciando exclusão completa da conta usando função de segurança...');
+      console.log('🗑️ Iniciando exclusão COMPLETA da conta...');
 
-      // Usar a função de segurança do banco de dados para excluir todos os dados
-      const { data, error } = await supabase.rpc('delete_user_account', {
-        company_uuid: companyId
+      // Get current session for authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Sessão não encontrada');
+      }
+
+      console.log('📡 Chamando Edge Function para exclusão completa...');
+
+      // Call Edge Function to completely delete account including auth user
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
       });
 
       if (error) {
-        console.error('Erro ao executar função de exclusão:', error);
-        throw new Error(error.message);
+        console.error('❌ Erro na Edge Function:', error);
+        throw new Error(error.message || 'Erro ao chamar função de exclusão');
       }
 
-      if (!data) {
-        throw new Error('Falha na exclusão da conta');
+      if (!data?.success) {
+        console.error('❌ Falha na exclusão:', data);
+        throw new Error(data?.error || 'Falha na exclusão da conta');
       }
 
-      console.log('Conta excluída com sucesso através da função de segurança');
+      console.log('✅ Conta completamente excluída!');
 
-      // Sign out user after successful deletion
+      // Clear all local storage and session data
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Sign out to clear any remaining session
       await supabase.auth.signOut();
 
       toast({
         title: "✅ Conta excluída com sucesso",
-        description: "Todos os seus dados foram removidos permanentemente. Sua conta foi desconectada.",
+        description: "Sua conta foi completamente removida. Você precisará criar uma nova conta para acessar novamente.",
+        duration: 5000,
       });
 
-      // Redirect to home page
-      navigate('/');
+      // Force reload to clear any cached data and redirect to home
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+
     } catch (error) {
-      console.error('Error deleting account:', error);
+      console.error('❌ Erro na exclusão:', error);
       toast({
         title: "❌ Erro ao excluir conta",
-        description: error instanceof Error ? error.message : "Não foi possível excluir a conta completamente. Tente novamente ou entre em contato com o suporte.",
+        description: error instanceof Error ? error.message : "Não foi possível excluir a conta completamente. Tente novamente.",
         variant: "destructive",
       });
     } finally {
       setIsDeleting(false);
+      setIsDialogOpen(false);
+      setConfirmText("");
     }
   };
 
