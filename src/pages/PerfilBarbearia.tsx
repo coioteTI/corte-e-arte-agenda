@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link, useParams } from "react-router-dom";
 import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Heart, ArrowLeft } from "lucide-react";
 import LikeButton from "@/components/LikeButton";
+import WhatsAppWidget from "@/components/WhatsAppWidget";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
@@ -395,6 +396,12 @@ const PerfilBarbearia = () => {
           </Button>
         </div>
       </div>
+      
+      {/* WhatsApp Widget */}
+      <WhatsAppWidget 
+        companyPhone={company.phone} 
+        companyName={company.name}
+      />
     </div>
   );
 };
