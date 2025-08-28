@@ -32,45 +32,25 @@ export const ExcluirContaSection = ({ companyId }: ExcluirContaSectionProps) => 
 
     setIsDeleting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não encontrado");
+      console.log('Iniciando exclusão completa da conta usando função de segurança...');
 
-      console.log('Iniciando exclusão completa da conta...');
+      // Usar a função de segurança do banco de dados para excluir todos os dados
+      const { data, error } = await supabase.rpc('delete_user_account', {
+        company_uuid: companyId
+      });
 
-      // Step 1: Delete all clients associated with company appointments
-      const { data: companyAppointments } = await supabase
-        .from('appointments')
-        .select('client_id')
-        .eq('company_id', companyId);
-
-      if (companyAppointments && companyAppointments.length > 0) {
-        const clientIds = [...new Set(companyAppointments.map(a => a.client_id))];
-        await supabase.from('clients').delete().in('id', clientIds);
-        console.log('Clients deleted:', clientIds.length);
+      if (error) {
+        console.error('Erro ao executar função de exclusão:', error);
+        throw new Error(error.message);
       }
 
-      // Step 2: Delete all related company data in sequence for better reliability
-      console.log('Deletando dados relacionados...');
-      
-      await supabase.from('appointments').delete().eq('company_id', companyId);
-      await supabase.from('services').delete().eq('company_id', companyId);
-      await supabase.from('professionals').delete().eq('company_id', companyId);
-      await supabase.from('notification_templates').delete().eq('company_id', companyId);
-      await supabase.from('company_settings').delete().eq('company_id', companyId);
-      await supabase.from('subscriptions').delete().eq('company_id', companyId);
-      await supabase.from('favorites').delete().eq('company_id', companyId);
+      if (!data) {
+        throw new Error('Falha na exclusão da conta');
+      }
 
-      console.log('Dados relacionados excluídos');
+      console.log('Conta excluída com sucesso através da função de segurança');
 
-      // Step 3: Delete company
-      await supabase.from('companies').delete().eq('id', companyId);
-      console.log('Empresa excluída');
-
-      // Step 4: Delete user profile
-      await supabase.from('profiles').delete().eq('user_id', user.id);
-      console.log('Perfil excluído');
-
-      // Step 5: Sign out user (admin delete not available on client)
+      // Sign out user after successful deletion
       await supabase.auth.signOut();
 
       toast({
@@ -84,7 +64,7 @@ export const ExcluirContaSection = ({ companyId }: ExcluirContaSectionProps) => 
       console.error('Error deleting account:', error);
       toast({
         title: "❌ Erro ao excluir conta",
-        description: "Não foi possível excluir a conta completamente. Tente novamente ou entre em contato com o suporte.",
+        description: error instanceof Error ? error.message : "Não foi possível excluir a conta completamente. Tente novamente ou entre em contato com o suporte.",
         variant: "destructive",
       });
     } finally {

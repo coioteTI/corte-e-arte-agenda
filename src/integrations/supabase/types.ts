@@ -651,6 +651,10 @@ export type Database = {
       }
     }
     Functions: {
+      delete_user_account: {
+        Args: { company_uuid: string }
+        Returns: boolean
+      }
       get_company_rankings: {
         Args: Record<PropertyKey, never>
         Returns: {
