@@ -12,15 +12,24 @@ interface WhatsAppWidgetProps {
 const WhatsAppWidget = ({ companyPhone, companyName = "barbearia" }: WhatsAppWidgetProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Debug logs
+  console.log('WhatsApp Widget - Phone:', companyPhone);
+  console.log('WhatsApp Widget - Name:', companyName);
+
   // Don't render if no phone number is provided
   if (!companyPhone || companyPhone.trim() === "") {
+    console.log('WhatsApp Widget - No phone provided, not rendering');
     return null;
   }
 
   const handleWhatsAppClick = () => {
+    console.log('WhatsApp click - Phone:', companyPhone);
     const normalizedPhone = companyPhone.replace(/\D/g, "");
+    console.log('WhatsApp click - Normalized phone:', normalizedPhone);
     const message = `Olá! Gostaria de agendar um horário na ${companyName}.`;
+    console.log('WhatsApp click - Message:', message);
     const whatsappUrl = `https://wa.me/55${normalizedPhone}?text=${encodeURIComponent(message)}`;
+    console.log('WhatsApp click - URL:', whatsappUrl);
     window.open(whatsappUrl, "_blank");
   };
 

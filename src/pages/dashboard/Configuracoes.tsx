@@ -41,7 +41,8 @@ const Configuracoes = () => {
       corPrimaria: "#8B5CF6", // Mantido internamente mas removido da UI
       corSecundaria: "#ffffff",
       emailContato: "",
-      telefone: ""
+      telefone: "",
+      instagram: ""
     },
     sistema: {
       agendamentoOnline: true,
@@ -199,7 +200,8 @@ const Configuracoes = () => {
             corSecundaria: s.secondary_color,
             emailContato: company.email,
             telefone: company.phone,
-            logoUrl: company.logo_url || ""
+            logoUrl: company.logo_url || "",
+            instagram: company.instagram || ""
           },
           sistema: {
             agendamentoOnline: s.online_booking_enabled,
@@ -339,6 +341,7 @@ const Configuracoes = () => {
           name: configuracoes.personalizacao.nomeBarbearia,
           email: configuracoes.personalizacao.emailContato,
           phone: configuracoes.personalizacao.telefone,
+          instagram: configuracoes.personalizacao.instagram || null,
         })
         .eq('id', companyId)
         .select();

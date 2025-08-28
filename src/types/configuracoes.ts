@@ -12,6 +12,7 @@ export interface PersonalizacaoConfig {
   emailContato: string;
   telefone: string;
   logoUrl?: string;
+  instagram?: string;
 }
 
 export interface SistemaConfig {

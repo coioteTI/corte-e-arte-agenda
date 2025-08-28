@@ -70,24 +70,15 @@ export const ExcluirContaSection = ({ companyId }: ExcluirContaSectionProps) => 
       await supabase.from('profiles').delete().eq('user_id', user.id);
       console.log('Perfil excluído');
 
-      // Step 5: Delete the auth user account (this will permanently delete the user)
-      const { error: deleteUserError } = await supabase.auth.admin.deleteUser(user.id);
-      if (deleteUserError) {
-        console.error('Error deleting auth user:', deleteUserError);
-        // Continue with signOut even if admin delete fails
-      } else {
-        console.log('Usuário de autenticação excluído');
-      }
-
-      // Step 6: Sign out user
+      // Step 5: Sign out user (admin delete not available on client)
       await supabase.auth.signOut();
 
       toast({
         title: "✅ Conta excluída com sucesso",
-        description: "Todos os seus dados foram removidos permanentemente. Sua conta não pode mais ser acessada.",
+        description: "Todos os seus dados foram removidos permanentemente. Sua conta foi desconectada.",
       });
 
-      // Redirect to home page instead of login
+      // Redirect to home page
       navigate('/');
     } catch (error) {
       console.error('Error deleting account:', error);

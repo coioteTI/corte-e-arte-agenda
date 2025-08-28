@@ -47,6 +47,16 @@ export const PersonalizacaoSection = ({ configuracoes, onInputChange }: Personal
           />
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="instagram">Instagram</Label>
+          <Input
+            id="instagram"
+            value={configuracoes.instagram || ""}
+            onChange={(e) => onInputChange("instagram", e.target.value)}
+            placeholder="@sua_barbearia"
+          />
+        </div>
+
       </CardContent>
     </Card>
   );
