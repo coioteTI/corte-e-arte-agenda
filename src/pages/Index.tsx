@@ -6,19 +6,19 @@ import logo from "@/assets/logo.png";
 const Index = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardContent className="p-8 text-center space-y-8">
-          <div className="space-y-4">
+      <Card className="w-full max-w-md mx-4">
+        <CardContent className="p-6 md:p-8 text-center space-y-6 md:space-y-8">
+          <div className="space-y-3 md:space-y-4">
             <img 
               src={logo} 
               alt="Corte & Arte" 
-              className="h-16 w-auto mx-auto"
+              className="h-12 md:h-16 w-auto mx-auto"
             />
             <div>
-              <h1 className="text-2xl font-semibold text-foreground mb-2">
+              <h1 className="text-xl md:text-2xl font-semibold text-foreground mb-2">
                 Corte & Arte
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-sm md:text-base text-muted-foreground">
                 Agende com estilo. Administre com facilidade.
               </p>
             </div>
@@ -39,7 +39,7 @@ const Index = () => {
           </div>
           
           <div className="text-sm text-muted-foreground">
-            <Link to="/cadastro" className="hover:text-foreground">
+            <Link to="/cadastro" className="hover:text-foreground transition-colors">
               Cadastrar nova barbearia/salão
             </Link>
           </div>

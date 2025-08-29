@@ -2,11 +2,11 @@ import logo from "@/assets/logo.png";
 
 export const Footer = () => {
   return (
-    <footer className="bg-secondary border-t border-border py-12">
+    <footer className="bg-secondary border-t border-border py-8 md:py-12">
       <div className="container mx-auto px-4">
-        <div className="grid md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
           {/* Logo e Descrição */}
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2 md:col-span-2">
             <div className="flex items-center space-x-3 mb-4">
               <img 
                 src={logo} 

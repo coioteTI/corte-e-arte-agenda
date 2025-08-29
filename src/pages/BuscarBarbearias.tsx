@@ -369,7 +369,7 @@ const BuscarBarbearias = () => {
             <Crown className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Top Barbearias</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {topBarbearias.map((barbearia, index) => (
               <Card key={barbearia.id} className="hover:shadow-lg transition-all duration-300 animate-scale-in border-primary/10">
                 <CardContent className="p-4">
@@ -433,7 +433,7 @@ const BuscarBarbearias = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="estado">Estado</Label>
                 <Input
@@ -456,7 +456,7 @@ const BuscarBarbearias = () => {
               </div>
               
               <div className="flex items-end">
-                <Button onClick={handleBuscar} className="w-full">
+                <Button onClick={handleBuscar} className="w-full sm:w-auto">
                   <Search className="h-4 w-4 mr-2" />
                   Buscar
                 </Button>

@@ -123,11 +123,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
         <AppSidebar />
-        <main className="flex-1 p-6">
-          <div className="mb-6 flex items-center justify-between">
+        <main className="flex-1 p-3 md:p-6">
+          <div className="mb-4 md:mb-6 flex items-center justify-between">
             <SidebarTrigger />
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-muted-foreground">
+            <div className="flex items-center space-x-2 md:space-x-4">
+              <div className="text-xs md:text-sm text-muted-foreground hidden sm:block">
                 Bem-vindo, {companyName || 'Administrador'}
               </div>
             </div>

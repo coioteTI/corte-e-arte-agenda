@@ -132,22 +132,22 @@ const Cadastro = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="min-h-screen bg-background p-3 md:p-4">
+        <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader className="text-center">
             <img 
               src={logo} 
               alt="Corte & Arte" 
-              className="h-12 w-auto mx-auto mb-4"
+              className="h-10 md:h-12 w-auto mx-auto mb-4"
             />
-            <CardTitle className="text-xl">Cadastrar Barbearia & Salão</CardTitle>
+            <CardTitle className="text-lg md:text-xl">Cadastrar Barbearia & Salão</CardTitle>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <CardContent className="p-4 md:p-6">
+            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
               {/* Dados da Barbearia */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Dados da Barbearia/Salão</h3>
+              <div className="space-y-3 md:space-y-4">
+                <h3 className="text-base md:text-lg font-medium">Dados da Barbearia/Salão</h3>
                 
                 <div className="space-y-2">
                   <Label htmlFor="nomeBarbearia">Nome da barbearia/salão</Label>
@@ -270,8 +270,8 @@ const Cadastro = () => {
 
 
               {/* Usuário Admin */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Criar Usuário Administrador</h3>
+              <div className="space-y-3 md:space-y-4">
+                <h3 className="text-base md:text-lg font-medium">Criar Usuário Administrador</h3>
                 
                 <div className="space-y-2">
                   <Label htmlFor="nomeAdmin">Nome completo</Label>

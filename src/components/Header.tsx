@@ -1,46 +1,91 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu, X } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 export const Header = () => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const navigationItems = [
+    { href: "#agendamento", label: "Agendamento" },
+    { href: "#servicos", label: "Serviços" },
+    { href: "#contato", label: "Contato" },
+  ];
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   return (
-    <header className="bg-white shadow-card border-b border-border">
-      <div className="container mx-auto px-4 py-4">
+    <header className="bg-white shadow-card border-b border-border sticky top-0 z-50">
+      <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center space-x-3">
             <img 
               src={logo} 
               alt="Corte & Arte" 
-              className="h-10 w-auto"
+              className="h-8 md:h-10 w-auto"
             />
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">
+            <div className="hidden sm:block">
+              <h1 className="text-lg md:text-xl font-semibold text-foreground">
                 Corte & Arte
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs md:text-sm text-muted-foreground">
                 Sistema Profissional de Agendamentos
               </p>
             </div>
           </div>
           
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex space-x-6">
-            <a 
-              href="#agendamento" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Agendamento
-            </a>
-            <a 
-              href="#servicos" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Serviços
-            </a>
-            <a 
-              href="#contato" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Contato
-            </a>
+            {navigationItems.map((item) => (
+              <a 
+                key={item.href}
+                href={item.href} 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {item.label}
+              </a>
+            ))}
           </nav>
+
+          {/* Mobile Menu Button */}
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="sm" className="p-2">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Abrir menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[280px] sm:w-[350px]">
+              <div className="flex flex-col space-y-4 mt-6">
+                <div className="flex items-center space-x-3 pb-4 border-b">
+                  <img 
+                    src={logo} 
+                    alt="Corte & Arte" 
+                    className="h-8 w-auto"
+                  />
+                  <div>
+                    <h2 className="font-semibold text-foreground">Corte & Arte</h2>
+                    <p className="text-sm text-muted-foreground">Menu</p>
+                  </div>
+                </div>
+                
+                <nav className="flex flex-col space-y-3">
+                  {navigationItems.map((item) => (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      className="text-foreground hover:text-primary transition-colors py-2 px-3 rounded-md hover:bg-muted"
+                      onClick={closeMobileMenu}
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                </nav>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
