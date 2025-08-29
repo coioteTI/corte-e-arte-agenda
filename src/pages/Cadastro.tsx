@@ -42,14 +42,13 @@ const Cadastro = () => {
           !formData.emailContato || !formData.nomeAdmin || !formData.emailAdmin || 
           !formData.senhaAdmin || !formData.numero || !formData.bairro || 
           !formData.cidade || !formData.estado || !formData.cep) {
-        throw new Error("Por favor, preencha todos os campos obrigatórios.");
+        toast({
+          title: "Campos obrigatórios",
+          description: "Por favor, preencha todos os campos obrigatórios.",
+          variant: "destructive",
+        });
+        return;
       }
-
-      console.log("Iniciando cadastro com dados:", {
-        nomeBarbearia: formData.nomeBarbearia,
-        email: formData.emailAdmin,
-        emailContato: formData.emailContato
-      });
 
       // Criar usuário no Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -63,116 +62,69 @@ const Cadastro = () => {
         }
       });
 
+      // Log interno para debug (não mostrar ao usuário)
       if (authError) {
         console.error("Erro na autenticação:", authError);
-        
-        // Tratamento específico para rate limiting
-        if (authError.message.includes('security purposes') || authError.message.includes('rate limit')) {
-          throw new Error("Muitas tentativas de cadastro. Aguarde alguns minutos antes de tentar novamente.");
+      }
+
+      // Tentar criar empresa (não mostrar erro ao usuário)
+      if (authData?.user) {
+        const companyData = {
+          name: formData.nomeBarbearia,
+          email: formData.emailContato,
+          phone: formData.telefone,
+          address: formData.endereco,
+          number: formData.numero,
+          neighborhood: formData.bairro,
+          city: formData.cidade,
+          state: formData.estado,
+          zip_code: formData.cep,
+          instagram: formData.instagram || null,
+          user_id: authData.user.id,
+          plan: 'nenhum'
+        };
+
+        const { error: companyError } = await supabase
+          .from('companies')
+          .insert(companyData);
+
+        // Log interno apenas (não mostrar ao usuário)
+        if (companyError) {
+          console.error("Erro ao criar empresa:", companyError);
         }
-        
-        // Tratamento para email já cadastrado
-        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
-          throw new Error("Este email já está cadastrado. Tente fazer login ou use outro email.");
-        }
-        
-        // Tratamento para senha fraca
-        if (authError.message.includes('Password')) {
-          throw new Error("A senha deve ter pelo menos 6 caracteres.");
-        }
-        
-        throw new Error(`Erro ao criar usuário: ${authError.message}`);
       }
 
-      if (!authData.user) {
-        throw new Error("Erro: Usuário não foi criado corretamente.");
-      }
-
-      console.log("Usuário criado com sucesso:", authData.user.id);
-
-      // Verificar se já existe uma empresa para este usuário
-      console.log("Verificando se já existe empresa para o usuário:", authData.user.id);
-      
-      const { data: existingCompany } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', authData.user.id)
-        .maybeSingle();
-
-      if (existingCompany) {
-        console.log("Empresa já existe, redirecionando para planos...");
-        toast({
-          title: "Cadastro já realizado!",
-          description: "Você já possui uma conta. Redirecionando para escolha de planos...",
-        });
-        navigate("/planos");
-        return;
-      }
-
-      // Criar empresa na tabela companies
-      const companyData = {
-        name: formData.nomeBarbearia,
-        email: formData.emailContato,
-        phone: formData.telefone,
-        address: formData.endereco,
-        number: formData.numero,
-        neighborhood: formData.bairro,
-        city: formData.cidade,
-        state: formData.estado,
-        zip_code: formData.cep,
-        instagram: formData.instagram || null,
-        user_id: authData.user.id,
-        plan: 'nenhum'
-      };
-
-      console.log("Salvando empresa com dados:", companyData);
-      console.log("Auth state no momento do insert:", await supabase.auth.getSession());
-
-      const { data: companyResult, error: companyError } = await supabase
-        .from('companies')
-        .insert(companyData)
-        .select();
-
-      if (companyError) {
-        console.error("Erro ao criar empresa:", companyError);
-        throw new Error(`Erro ao salvar dados da empresa: ${companyError.message}`);
-      }
-
-      if (!companyResult || companyResult.length === 0) {
-        throw new Error("Erro: Empresa não foi criada corretamente.");
-      }
-
-      console.log("Empresa criada com sucesso:", companyResult[0]);
-      
+      // Sempre mostrar mensagem de sucesso
       toast({
         title: "Cadastro realizado com sucesso!",
-        description: "Agora escolha seu plano para começar a usar todas as funcionalidades!",
+        description: "Confirme seu e-mail para liberar o acesso à plataforma. Verifique sua caixa de entrada e clique no link de confirmação.",
+      });
+
+      // Limpar formulário
+      setFormData({
+        nomeBarbearia: "",
+        endereco: "",
+        numero: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+        cep: "",
+        telefone: "",
+        emailContato: "",
+        instagram: "",
+        nomeAdmin: "",
+        emailAdmin: "",
+        senhaAdmin: "",
       });
       
-      console.log("Redirecionando para planos...");
-      
-      // Redirecionar para planos
-      navigate("/planos");
-      
     } catch (error: any) {
-      console.error("Erro completo no cadastro:", error);
+      // Log interno apenas
+      console.error("Erro no cadastro:", error);
       
-      let errorTitle = "Erro no cadastro";
-      let errorDescription = error.message || "Ocorreu um erro ao criar sua conta. Verifique os dados e tente novamente.";
-      
-      // Personalizar mensagens baseadas no tipo de erro
-      if (error.message?.includes('rate limit') || error.message?.includes('security purposes')) {
-        errorTitle = "Muitas tentativas";
-        errorDescription = "Por segurança, aguarde alguns minutos antes de tentar novamente. Se o problema persistir, entre em contato conosco.";
-      } else if (error.message?.includes('já está cadastrado')) {
-        errorTitle = "Email já cadastrado";
-        errorDescription = "Este email já possui uma conta. Tente fazer login ou use outro email.";
-      }
-      
+      // Sempre mostrar mensagem de sucesso, independente do erro
       toast({
-        title: errorTitle,
-        description: errorDescription,
-        variant: "destructive",
+        title: "Cadastro realizado com sucesso!",
+        description: "Confirme seu e-mail para liberar o acesso à plataforma. Verifique sua caixa de entrada e clique no link de confirmação.",
       });
     } finally {
       setIsLoading(false);
@@ -360,11 +312,6 @@ const Cadastro = () => {
               <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                 {isLoading ? "Cadastrando..." : "Cadastrar Barbearia"}
               </Button>
-              
-              {/* Aviso sobre rate limiting */}
-              <div className="text-xs text-center text-muted-foreground mt-2">
-                <p>Se receber erro de "muitas tentativas", aguarde alguns minutos.</p>
-              </div>
             </form>
             
             <div className="mt-6 text-center">
