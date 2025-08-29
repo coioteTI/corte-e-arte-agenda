@@ -90,6 +90,25 @@ const Cadastro = () => {
 
       console.log("Usuário criado com sucesso:", authData.user.id);
 
+      // Verificar se já existe uma empresa para este usuário
+      console.log("Verificando se já existe empresa para o usuário:", authData.user.id);
+      
+      const { data: existingCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', authData.user.id)
+        .maybeSingle();
+
+      if (existingCompany) {
+        console.log("Empresa já existe, redirecionando para planos...");
+        toast({
+          title: "Cadastro já realizado!",
+          description: "Você já possui uma conta. Redirecionando para escolha de planos...",
+        });
+        navigate("/planos");
+        return;
+      }
+
       // Criar empresa na tabela companies
       const companyData = {
         name: formData.nomeBarbearia,
@@ -107,6 +126,7 @@ const Cadastro = () => {
       };
 
       console.log("Salvando empresa com dados:", companyData);
+      console.log("Auth state no momento do insert:", await supabase.auth.getSession());
 
       const { data: companyResult, error: companyError } = await supabase
         .from('companies')
