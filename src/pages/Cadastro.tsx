@@ -55,7 +55,7 @@ const Cadastro = () => {
         email: formData.emailAdmin,
         password: formData.senhaAdmin,
         options: {
-          emailRedirectTo: `${window.location.origin}/planos`,
+          emailRedirectTo: `${window.location.origin}/email-confirmado`,
           data: {
             full_name: formData.nomeAdmin,
           }
