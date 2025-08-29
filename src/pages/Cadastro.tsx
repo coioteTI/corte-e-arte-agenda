@@ -65,6 +65,22 @@ const Cadastro = () => {
 
       if (authError) {
         console.error("Erro na autenticação:", authError);
+        
+        // Tratamento específico para rate limiting
+        if (authError.message.includes('security purposes') || authError.message.includes('rate limit')) {
+          throw new Error("Muitas tentativas de cadastro. Aguarde alguns minutos antes de tentar novamente.");
+        }
+        
+        // Tratamento para email já cadastrado
+        if (authError.message.includes('already registered') || authError.message.includes('User already registered')) {
+          throw new Error("Este email já está cadastrado. Tente fazer login ou use outro email.");
+        }
+        
+        // Tratamento para senha fraca
+        if (authError.message.includes('Password')) {
+          throw new Error("A senha deve ter pelo menos 6 caracteres.");
+        }
+        
         throw new Error(`Erro ao criar usuário: ${authError.message}`);
       }
 
@@ -131,9 +147,22 @@ const Cadastro = () => {
       
     } catch (error: any) {
       console.error("Erro completo no cadastro:", error);
+      
+      let errorTitle = "Erro no cadastro";
+      let errorDescription = error.message || "Ocorreu um erro ao criar sua conta. Verifique os dados e tente novamente.";
+      
+      // Personalizar mensagens baseadas no tipo de erro
+      if (error.message?.includes('rate limit') || error.message?.includes('security purposes')) {
+        errorTitle = "Muitas tentativas";
+        errorDescription = "Por segurança, aguarde alguns minutos antes de tentar novamente. Se o problema persistir, entre em contato conosco.";
+      } else if (error.message?.includes('já está cadastrado')) {
+        errorTitle = "Email já cadastrado";
+        errorDescription = "Este email já possui uma conta. Tente fazer login ou use outro email.";
+      }
+      
       toast({
-        title: "Erro no cadastro",
-        description: error.message || "Ocorreu um erro ao criar sua conta. Verifique os dados e tente novamente.",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
       });
     } finally {
@@ -322,6 +351,11 @@ const Cadastro = () => {
               <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
                 {isLoading ? "Cadastrando..." : "Cadastrar Barbearia"}
               </Button>
+              
+              {/* Aviso sobre rate limiting */}
+              <div className="text-xs text-center text-muted-foreground mt-2">
+                <p>Se receber erro de "muitas tentativas", aguarde alguns minutos.</p>
+              </div>
             </form>
             
             <div className="mt-6 text-center">
