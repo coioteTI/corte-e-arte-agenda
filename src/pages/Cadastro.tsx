@@ -90,17 +90,6 @@ const Cadastro = () => {
 
       console.log("Usuário criado com sucesso:", authData.user.id);
 
-      // Aguardar um momento para garantir que a sessão seja estabelecida
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Verificar se o usuário está autenticado
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Erro: Sessão não foi estabelecida corretamente.");
-      }
-
-      console.log("Sessão confirmada:", session.user.id);
-
       // Criar empresa na tabela companies
       const companyData = {
         name: formData.nomeBarbearia,
