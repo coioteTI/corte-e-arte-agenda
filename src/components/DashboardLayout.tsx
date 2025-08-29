@@ -16,6 +16,7 @@ import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, Us
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { PlanStatusChecker } from "./PlanStatusChecker";
 
 const menuItems = [
   { title: "Agenda", url: "/dashboard/agenda", icon: Calendar },
@@ -131,6 +132,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </div>
             </div>
           </div>
+          <PlanStatusChecker />
           {children}
         </main>
       </div>

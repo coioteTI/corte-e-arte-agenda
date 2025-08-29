@@ -12,7 +12,14 @@ const Planos = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleSubscribe = (planType: 'mensal' | 'anual') => {
+  const handleSubscribe = async (planType: 'mensal' | 'anual') => {
+    // Salvar dados no localStorage para o webhook usar
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      localStorage.setItem('user_email_for_kiwify', user.email || '');
+      localStorage.setItem('selected_plan', planType === 'mensal' ? 'premium_mensal' : 'premium_anual');
+    }
+    
     const kiwifyUrls = {
       mensal: 'https://pay.kiwify.com.br/ftXGkCD',
       anual: 'https://pay.kiwify.com.br/yu7iXQJ'

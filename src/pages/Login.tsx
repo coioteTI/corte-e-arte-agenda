@@ -63,11 +63,21 @@ const Login = () => {
         localStorage.removeItem('senha_salva');
       }
       
+      // Verificar se o usuário tem um plano ativo
+      const { data: companies } = await supabase
+        .from('companies')
+        .select('plan')
+        .eq('user_id', data.user?.id)
+        .single();
+
+      const hasActivePlan = companies?.plan && companies.plan !== 'nenhum';
+      
       toast({
         title: "Login realizado com sucesso!",
-        description: "Redirecionando para o dashboard...",
+        description: hasActivePlan ? "Redirecionando para o dashboard..." : "Escolha seu plano para continuar!",
       });
-      navigate("/dashboard");
+      
+      navigate(hasActivePlan ? "/dashboard" : "/planos");
     } catch (error: any) {
       toast({
         title: "Erro no login",

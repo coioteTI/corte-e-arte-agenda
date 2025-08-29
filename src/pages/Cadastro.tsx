@@ -56,6 +56,7 @@ const Cadastro = () => {
         email: formData.emailAdmin,
         password: formData.senhaAdmin,
         options: {
+          emailRedirectTo: `${window.location.origin}/planos`,
           data: {
             full_name: formData.nomeAdmin,
           }
@@ -120,13 +121,13 @@ const Cadastro = () => {
       
       toast({
         title: "Cadastro realizado com sucesso!",
-        description: "Bem-vindo ao Corte & Arte! Você já pode acessar sua conta.",
+        description: "Agora escolha seu plano para começar a usar todas as funcionalidades!",
       });
       
-      console.log("Redirecionando para dashboard...");
+      console.log("Redirecionando para planos...");
       
-      // Redirecionar para o dashboard
-      navigate("/dashboard");
+      // Redirecionar para planos
+      navigate("/planos");
       
     } catch (error: any) {
       console.error("Erro completo no cadastro:", error);
