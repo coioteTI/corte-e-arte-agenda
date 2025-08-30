@@ -58,6 +58,8 @@ Deno.serve(async (req) => {
     console.log('Processing auth email:', {
       email: user.email,
       action_type: email_action_type,
+      redirect_to: redirect_to,
+      site_url: site_url,
     });
 
     let emailHtml: string;
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
             supabase_url: Deno.env.get('SUPABASE_URL') ?? site_url,
             token_hash,
             email_action_type,
-            redirect_to: redirect_to || site_url,
+            redirect_to: redirect_to || `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'sandbox.lovable.dev')}/email-confirmado`,
             email: user.email,
           })
         );
@@ -116,7 +118,7 @@ Deno.serve(async (req) => {
 
     // Send email using Resend
     const { error: emailError } = await resend.emails.send({
-      from: 'Corte & Arte <noreply@corte-e-arte.com>', // You'll need to configure this domain in Resend
+      from: 'Corte & Arte <onboarding@resend.dev>', // Using default Resend domain for now
       to: [user.email],
       subject,
       html: emailHtml,
