@@ -36,6 +36,11 @@ Design System: Minimalista, Clean, Branco e Preto
     --accent: 0 0% 96%;
     --accent-foreground: 0 0% 0%;
 
+    /* Confirmation & Success Colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 142 76% 95%;
+    
     /* Destructive - Vermelho Suave */
     --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -92,6 +97,10 @@ Design System: Minimalista, Clean, Branco e Preto
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
 
+    --success: 142 76% 26%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 142 76% 15%;
+    
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
