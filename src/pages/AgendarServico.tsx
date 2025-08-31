@@ -340,17 +340,13 @@ const AgendarServico = () => {
       }
     }
 
-    // Validar se o profissional presta o serviço selecionado
+    // Log para debug - não validamos mais se o profissional corresponde ao professional_responsible
+    // O cliente pode escolher qualquer profissional disponível
     const selectedService = services.find(s => s.id === formData.servicoId);
     const selectedProfessional = professionals.find(p => p.id === formData.professionalId);
     
     console.log('Selected service:', selectedService);
     console.log('Selected professional:', selectedProfessional);
-    
-    if (selectedService?.professional_responsible && 
-        selectedProfessional?.name !== selectedService.professional_responsible) {
-      errors.push(`O serviço "${selectedService.name}" deve ser realizado por ${selectedService.professional_responsible}`);
-    }
     
     console.log('Final validation errors:', errors);
     
@@ -782,7 +778,20 @@ const AgendarServico = () => {
                   <>
                     <div className="space-y-2">
                       <Label>Serviço *</Label>
-                      <Select value={formData.servicoId} onValueChange={(value) => handleInputChange("servicoId", value)}>
+                      <Select value={formData.servicoId} onValueChange={(value) => {
+                        handleInputChange("servicoId", value);
+                        
+                        // Auto-selecionar profissional se o serviço tiver professional_responsible
+                        const selectedService = services.find(s => s.id === value);
+                        if (selectedService?.professional_responsible) {
+                          const matchingProfessional = professionals.find(p => 
+                            p.name === selectedService.professional_responsible
+                          );
+                          if (matchingProfessional) {
+                            handleInputChange("professionalId", matchingProfessional.id);
+                          }
+                        }
+                      }}>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um serviço" />
                         </SelectTrigger>
