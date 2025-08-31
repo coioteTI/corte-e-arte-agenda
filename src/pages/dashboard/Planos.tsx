@@ -53,7 +53,7 @@ const Planos = () => {
         <div className="text-center mb-6 md:mb-8">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">Escolha seu Plano</h1>
           <p className="text-sm md:text-base text-muted-foreground px-4">
-            Desbloqueie todo o potencial da sua barbearia com nosso Plano Premium
+            Desbloqueie todo o potencial da sua barbearia com nossos Planos Premium
           </p>
         </div>
 
