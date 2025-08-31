@@ -26,7 +26,7 @@ export const Footer = () => {
             </p>
             <div className="flex space-x-4">
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">
-                📧 contato@cortearte.com
+                📧 corteearte.suporte@gmail.com
               </a>
             </div>
           </div>

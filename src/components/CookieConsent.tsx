@@ -164,7 +164,7 @@ const CookieConsent = () => {
 
             <div className="text-center pt-6 border-t">
               <p className="font-medium">Corte & Arte — Conectando beleza, tempo e confiança.</p>
-              <p className="text-muted-foreground">Em caso de dúvidas: contato@barbearia.com</p>
+              <p className="text-muted-foreground">Em caso de dúvidas: corteearte.suporte@gmail.com</p>
             </div>
           </div>
 

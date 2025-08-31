@@ -57,7 +57,7 @@ const PagamentoCancelado = () => {
 
             <div className="text-sm text-muted-foreground">
               <p className="mb-2">Precisa de ajuda?</p>
-              <p>Entre em contato: <strong>suporte@corteearte.com</strong></p>
+              <p>Entre em contato: <strong>corteearte.suporte@gmail.com</strong></p>
             </div>
           </CardContent>
         </Card>
