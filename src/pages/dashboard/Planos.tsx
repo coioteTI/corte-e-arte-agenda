@@ -12,17 +12,18 @@ const Planos = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleSubscribe = async (planType: 'mensal' | 'anual') => {
+  const handleSubscribe = async (planType: 'mensal' | 'anual' | 'teste') => {
     // Salvar dados no localStorage para o webhook usar
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       localStorage.setItem('user_email_for_kiwify', user.email || '');
-      localStorage.setItem('selected_plan', planType === 'mensal' ? 'premium_mensal' : 'premium_anual');
+      localStorage.setItem('selected_plan', planType === 'teste' ? 'plano_teste' : planType === 'mensal' ? 'premium_mensal' : 'premium_anual');
     }
     
     const kiwifyUrls = {
       mensal: 'https://pay.kiwify.com.br/ftXGkCD',
-      anual: 'https://pay.kiwify.com.br/yu7iXQJ'
+      anual: 'https://pay.kiwify.com.br/yu7iXQJ',
+      teste: 'https://pay.kiwify.com.br/9oNOaqB'
     };
     
     // Abrir o checkout do Kiwify em nova aba
@@ -56,7 +57,7 @@ const Planos = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {/* Plano Gratuito */}
           <Card className="relative">
             <CardHeader>
@@ -94,6 +95,57 @@ const Planos = () => {
               <Button variant="outline" className="w-full mt-6" disabled>
                 Plano Atual
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* Plano Teste */}
+          <Card className="relative border-blue-500 shadow-lg">
+            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+              <Badge className="bg-blue-600 text-white">
+                <Star className="h-3 w-3 mr-1" />
+                Teste
+              </Badge>
+            </div>
+            <CardHeader className="pt-8">
+              <div className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-blue-600" />
+                <CardTitle>Plano Teste</CardTitle>
+              </div>
+              <div className="text-3xl font-bold text-blue-600">R$ 1</div>
+              <p className="text-sm text-muted-foreground">período de teste</p>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Acesso completo por período limitado</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Sistema de agendamentos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Gestão de clientes</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Relatórios básicos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Suporte técnico</span>
+                </li>
+              </ul>
+              <Button 
+                className="w-full mt-6 bg-blue-600 hover:bg-blue-700" 
+                onClick={() => handleSubscribe('teste')}
+              >
+                Começar Teste
+              </Button>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                Ideal para testar nossa plataforma
+              </p>
             </CardContent>
           </Card>
 
