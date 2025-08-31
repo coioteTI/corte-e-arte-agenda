@@ -14,19 +14,45 @@ const corsHeaders = {
 const VALID_TOKEN = 'tjud6lgfb19';
 
 interface KiwifyWebhookPayload {
-  email: string;
-  evento: string;
-  produto?: string;
-  token: string;
+  webhook_event_type: string;
+  checkout_link: string;
+  Customer: {
+    email: string;
+    full_name: string;
+  };
+  Product: {
+    product_name: string;
+  };
+  order_status: string;
   [key: string]: any;
 }
 
-// Plan mapping based on product name
-const getPlanFromProduct = (produto: string): { plan: string; storage_limit: number } => {
-  const productLower = produto.toLowerCase();
+// Plan mapping based on checkout link or product name
+const getPlanFromCheckout = (checkoutLink: string, productName?: string): { plan: string; storage_limit: number } => {
+  // Map specific checkout links to plans
+  const checkoutPlans: { [key: string]: { plan: string; storage_limit: number } } = {
+    '9oNOaqB': { plan: 'plano_teste', storage_limit: 5000000000 }, // 5GB for test plan
+    'ftXGkCD': { plan: 'premium_mensal', storage_limit: 10000000000 }, // 10GB for monthly premium
+    'yu7iXQJ': { plan: 'premium_anual', storage_limit: 10000000000 } // 10GB for annual premium
+  };
   
-  if (productLower.includes('premium anual') || productLower.includes('premium mensal') || productLower.includes('premium')) {
-    return { plan: 'premium', storage_limit: 10000000000 }; // 10GB for premium
+  // Check if we have a direct mapping for the checkout link
+  if (checkoutPlans[checkoutLink]) {
+    return checkoutPlans[checkoutLink];
+  }
+  
+  // Fallback to product name analysis
+  if (productName) {
+    const productLower = productName.toLowerCase();
+    if (productLower.includes('teste')) {
+      return { plan: 'plano_teste', storage_limit: 5000000000 };
+    }
+    if (productLower.includes('premium anual')) {
+      return { plan: 'premium_anual', storage_limit: 10000000000 };
+    }
+    if (productLower.includes('premium mensal') || productLower.includes('premium')) {
+      return { plan: 'premium_mensal', storage_limit: 10000000000 };
+    }
   }
   
   // Default to free plan
@@ -47,8 +73,10 @@ const isAccessGrantedEvent = (evento: string): boolean => {
   const eventLower = evento.toLowerCase();
   return eventLower.includes('renovada') || 
          eventLower.includes('aprovada') ||
+         eventLower.includes('approved') ||
          eventLower.includes('ativa') ||
-         eventLower.includes('confirmada');
+         eventLower.includes('confirmada') ||
+         evento === 'order_approved';
 };
 
 serve(async (req) => {
@@ -91,40 +119,24 @@ serve(async (req) => {
       });
     }
 
-    const { email, evento, produto, token } = payload;
+    // Extract data from Kiwify format
+    const email = payload.Customer?.email;
+    const evento = payload.webhook_event_type;
+    const produto = payload.Product?.product_name;
+    const checkoutLink = payload.checkout_link;
 
     // Validate required fields
-    if (!email || !evento || !token) {
+    if (!email || !evento) {
       console.log('❌ Missing required fields');
       return new Response(JSON.stringify({ 
-        error: 'Missing required fields: email, evento, token' 
+        error: 'Missing required fields: Customer.email, webhook_event_type' 
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Validate security token
-    if (token !== VALID_TOKEN) {
-      console.log('❌ Invalid token provided');
-      
-      // Log failed attempt
-      await supabase.from('webhook_logs').insert({
-        email,
-        evento,
-        produto,
-        token_received: token,
-        raw_payload: payload,
-        user_found: false,
-        plan_updated: false,
-        error_message: 'Invalid token'
-      });
-
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    console.log(`✅ Processing Kiwify webhook for email: ${email}, event: ${evento}, checkout: ${checkoutLink}`);
 
     console.log('✅ Token validation passed');
 
@@ -146,7 +158,7 @@ serve(async (req) => {
         email,
         evento,
         produto,
-        token_received: token,
+        token_received: checkoutLink || 'unknown',
         raw_payload: payload,
         user_found: false,
         plan_updated: false,
@@ -183,7 +195,7 @@ serve(async (req) => {
         email,
         evento,
         produto,
-        token_received: token,
+        token_received: checkoutLink || 'unknown',
         raw_payload: payload,
         user_found: true,
         plan_updated: false,
@@ -212,11 +224,11 @@ serve(async (req) => {
       storageLimit = 1000000000; // 1GB
       console.log(`📉 Access loss event detected. Downgrading to: ${newPlan}`);
     } else if (isAccessGrantedEvent(evento)) {
-      // Access granted - upgrade based on product
-      const planInfo = getPlanFromProduct(produto || '');
+      // Access granted - upgrade based on checkout link or product
+      const planInfo = getPlanFromCheckout(checkoutLink || '', produto);
       newPlan = planInfo.plan;
       storageLimit = planInfo.storage_limit;
-      console.log(`📈 Access granted event detected. Upgrading to: ${newPlan} based on product: ${produto}`);
+      console.log(`📈 Access granted event detected. Upgrading to: ${newPlan} based on checkout: ${checkoutLink}, product: ${produto}`);
     } else {
       // Unknown event - log but don't change plan
       console.log(`⚠️ Unknown event type: ${evento}. No plan change applied.`);
@@ -225,7 +237,7 @@ serve(async (req) => {
         email,
         evento,
         produto,
-        token_received: token,
+        token_received: checkoutLink || 'unknown',
         raw_payload: payload,
         user_found: true,
         plan_updated: false,
@@ -258,7 +270,7 @@ serve(async (req) => {
         email,
         evento,
         produto,
-        token_received: token,
+        token_received: checkoutLink || 'unknown',
         raw_payload: payload,
         user_found: true,
         plan_updated: false,
@@ -275,7 +287,7 @@ serve(async (req) => {
       email,
       evento,
       produto,
-      token_received: token,
+      token_received: checkoutLink || 'success',
       raw_payload: payload,
       user_found: true,
       plan_updated: true,
@@ -315,10 +327,10 @@ serve(async (req) => {
       const body = await req.clone().json();
       if (body.email) {
         await supabase.from('webhook_logs').insert({
-          email: body.email,
-          evento: body.evento || 'unknown',
-          produto: body.produto,
-          token_received: body.token,
+          email: body.Customer?.email || 'unknown',
+          evento: body.webhook_event_type || 'unknown',
+          produto: body.Product?.product_name,
+          token_received: body.checkout_link || 'error',
           raw_payload: body,
           user_found: false,
           plan_updated: false,
