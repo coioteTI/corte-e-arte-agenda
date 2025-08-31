@@ -12,3 +12,11 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+# PWA files
+Allow: /manifest.json
+Allow: /sw.js
+Allow: /icon-192x192.png
+Allow: /icon-512x512.png
+
+Sitemap: https://a4b6f7bb-2365-4595-ad9a-e1efd7248c06.lovableproject.com/sitemap.xml
