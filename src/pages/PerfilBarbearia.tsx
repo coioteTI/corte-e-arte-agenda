@@ -31,10 +31,19 @@ const PerfilBarbearia = () => {
 
       if (error) throw error;
 
+      console.log('Companies found:', companies);
+      console.log('Looking for slug:', slug);
+
       // Find company by slug match or use first one
-      const foundCompany = companies?.find(c => 
-        c.name.toLowerCase().replace(/\s+/g, '-') === slug
-      ) || companies?.[0];
+      const foundCompany = companies?.find(c => {
+        const companySlug = c.name.toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove accents
+          .replace(/\s+/g, '-')
+          .replace(/[^\w-]/g, ''); // Remove special characters
+        console.log(`Comparing "${companySlug}" with "${slug}"`);
+        return companySlug === slug;
+      }) || companies?.[0];
 
       if (foundCompany) {
         setCompany(foundCompany);
@@ -46,6 +55,9 @@ const PerfilBarbearia = () => {
           .eq('company_id', foundCompany.id)
           .order('price', { ascending: true });
 
+        console.log('Services data:', servicesData);
+        console.log('Services error:', servicesError);
+
         if (!servicesError) {
           setServices(servicesData || []);
         }
@@ -56,6 +68,9 @@ const PerfilBarbearia = () => {
           .select('*')
           .eq('company_id', foundCompany.id)
           .eq('is_available', true);
+
+        console.log('Professionals data:', professionalsData);
+        console.log('Professionals error:', profError);
 
         if (!profError) {
           setProfessionals(professionalsData || []);
