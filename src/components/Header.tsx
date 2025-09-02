@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, X } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -37,17 +38,22 @@ export const Header = () => {
           </div>
           
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-6">
-            {navigationItems.map((item) => (
-              <a 
-                key={item.href}
-                href={item.href} 
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
+          <div className="flex items-center space-x-4">
+            <nav className="hidden md:flex space-x-6">
+              {navigationItems.map((item) => (
+                <a 
+                  key={item.href}
+                  href={item.href} 
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+            
+            {/* Theme Toggle */}
+            <ThemeToggle />
+          </div>
 
           {/* Mobile Menu Button */}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
@@ -83,6 +89,14 @@ export const Header = () => {
                     </a>
                   ))}
                 </nav>
+                
+                {/* Mobile Theme Toggle */}
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between px-3 py-2">
+                    <span className="text-sm font-medium text-foreground">Tema</span>
+                    <ThemeToggle />
+                  </div>
+                </div>
               </div>
             </SheetContent>
           </Sheet>
