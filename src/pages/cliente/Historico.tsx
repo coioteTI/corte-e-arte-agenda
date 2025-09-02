@@ -6,6 +6,8 @@ import { Calendar, Clock, MapPin, Eye, Star } from "lucide-react";
 import ClientLayout from "@/components/client/ClientLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ReviewSection } from "@/components/ReviewSection";
+import { CalendarSync } from "@/components/CalendarSync";
 
 const Historico = () => {
   const [historico, setHistorico] = useState([]);
@@ -207,10 +209,15 @@ const Historico = () => {
                       </Button>
                       
                       {item.status === 'completed' && (
-                        <Button size="sm" variant="outline">
-                          <Star className="h-4 w-4 mr-1" />
-                          Avaliar
-                        </Button>
+                        <div className="space-y-2">
+                          <CalendarSync appointment={item} />
+                          <ReviewSection
+                            companyId={item.company_id}
+                            professionalId={item.professional_id}
+                            appointmentId={item.id}
+                            canReview={true}
+                          />
+                        </div>
                       )}
                     </div>
                   </div>

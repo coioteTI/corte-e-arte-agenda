@@ -27,6 +27,7 @@ import AgendamentoConfirmado from "./pages/AgendamentoConfirmado";
 import Historico from "./pages/cliente/Historico";
 import Agendamentos from "./pages/cliente/Agendamentos";
 import Favoritos from "./pages/cliente/Favoritos";
+import ConfiguracoesCliente from "./pages/cliente/Configuracoes";
 import NotFound from "./pages/NotFound";
 import EmailConfirmado from "./pages/EmailConfirmado";
 import TesteEmail from "./pages/TesteEmail";
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/cliente/historico" element={<Historico />} />
           <Route path="/cliente/agendamentos" element={<Agendamentos />} />
           <Route path="/cliente/favoritos" element={<Favoritos />} />
+          <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
           
           {/* Rotas da Empresa */}
           <Route path="/login" element={<Login />} />

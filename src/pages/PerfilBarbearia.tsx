@@ -9,6 +9,7 @@ import WhatsAppWidget from "@/components/WhatsAppWidget";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.png";
+import { ReviewSection } from "@/components/ReviewSection";
 
 const PerfilBarbearia = () => {
   const { slug } = useParams();
@@ -386,6 +387,9 @@ const PerfilBarbearia = () => {
             </Link>
           </Button>
         </div>
+
+        {/* Avaliações da barbearia */}
+        <ReviewSection companyId={company.id} />
       </div>
       
       {/* WhatsApp Widget */}
