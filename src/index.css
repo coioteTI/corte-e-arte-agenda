@@ -10,31 +10,31 @@ Design System: Minimalista, Clean, Branco e Preto
 
 @layer base {
   :root {
-    /* Light Mode - Nova Paleta */
-    --background: 0 0% 100%; /* #FFFFFF - Branco */
-    --foreground: 0 0% 0%; /* #000000 - Preto */
+    /* Light Mode - Dourado Luxuoso */
+    --background: 0 0% 95%; /* #F2F2F2 - Cinza quase branco */
+    --foreground: 27 100% 3%; /* #0E0D0A - Preto intenso */
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
+    --card-foreground: 27 100% 3%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
+    --popover-foreground: 27 100% 3%;
 
-    /* Primary - Dourado Claro */
-    --primary: 47 68% 74%; /* #F0D18A - Dourado claro */
-    --primary-foreground: 0 0% 0%;
+    /* Primary - Dourado Escuro */
+    --primary: 36 62% 43%; /* #A48237 - Dourado escuro */
+    --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Cinza Suave */
-    --secondary: 0 0% 88%; /* #E0E0E0 - Cinza suave */
-    --secondary-foreground: 0 0% 0%;
+    /* Secondary - Dourado Claro */
+    --secondary: 45 68% 74%; /* #F0D18A - Dourado claro */
+    --secondary-foreground: 27 100% 3%;
 
     /* Muted */
-    --muted: 0 0% 88%;
-    --muted-foreground: 0 0% 17%; /* #2C2C2C - Cinza suave escuro */
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 55%; /* #8C8C8C - Cinza médio */
 
     /* Accent */
-    --accent: 47 68% 74%;
-    --accent-foreground: 0 0% 0%;
+    --accent: 45 68% 74%;
+    --accent-foreground: 27 100% 3%;
 
     /* Success */
     --success: 142 76% 36%;
@@ -46,9 +46,9 @@ Design System: Minimalista, Clean, Branco e Preto
     --destructive-foreground: 0 0% 100%;
 
     /* Borders */
-    --border: 0 0% 88%;
+    --border: 36 62% 43%;
     --input: 0 0% 88%;
-    --ring: 47 68% 74%;
+    --ring: 36 62% 43%;
 
     /* Spacing & Effects */
     --radius: 0.75rem;
@@ -64,21 +64,21 @@ Design System: Minimalista, Clean, Branco e Preto
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
-    /* Sidebar Colors */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 0%;
-    --sidebar-primary: 47 68% 74%;
-    --sidebar-primary-foreground: 0 0% 0%;
-    --sidebar-accent: 0 0% 88%;
-    --sidebar-accent-foreground: 0 0% 0%;
-    --sidebar-border: 0 0% 88%;
-    --sidebar-ring: 47 68% 74%;
+    /* Sidebar Colors - Dourado */
+    --sidebar-background: 0 0% 95%;
+    --sidebar-foreground: 27 100% 3%;
+    --sidebar-primary: 36 62% 43%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 45 68% 74%;
+    --sidebar-accent-foreground: 27 100% 3%;
+    --sidebar-border: 36 62% 43%;
+    --sidebar-ring: 36 62% 43%;
   }
 
   .dark {
-    /* Dark Mode - Nova Paleta */
+    /* Dark Mode - Preto com Dourado */
     --background: 0 0% 7%; /* #121212 - Preto principal */
-    --foreground: 0 0% 100%; /* #FFFFFF - Branco para texto */
+    --foreground: 0 0% 100%; /* Branco para texto */
 
     --card: 0 0% 17%; /* #2C2C2C - Cinza suave para cards */
     --card-foreground: 0 0% 100%;
@@ -86,13 +86,13 @@ Design System: Minimalista, Clean, Branco e Preto
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 100%;
 
-    /* Primary - Dourado Claro */
-    --primary: 47 68% 74%; /* #F0D18A - Dourado claro */
+    /* Primary - Dourado Brilhante */
+    --primary: 51 100% 50%; /* #FFD700 - Dourado brilhante */
     --primary-foreground: 0 0% 0%;
 
     /* Secondary - Cinza Suave */
-    --secondary: 0 0% 17%; /* #2C2C2C */
-    --secondary-foreground: 0 0% 88%; /* #E0E0E0 */
+    --secondary: 0 0% 17%;
+    --secondary-foreground: 0 0% 88%;
 
     /* Muted - Cinza Escuro */
     --muted: 0 0% 17%;
@@ -100,7 +100,7 @@ Design System: Minimalista, Clean, Branco e Preto
 
     /* Accent */
     --accent: 0 0% 17%;
-    --accent-foreground: 47 68% 74%;
+    --accent-foreground: 51 100% 50%;
 
     /* Success */
     --success: 142 76% 36%;
@@ -112,9 +112,9 @@ Design System: Minimalista, Clean, Branco e Preto
     --destructive-foreground: 0 0% 100%;
 
     /* Borders */
-    --border: 0 0% 17%;
+    --border: 51 100% 50%;
     --input: 0 0% 17%;
-    --ring: 47 68% 74%;
+    --ring: 51 100% 50%;
 
     /* Gradients Dark */
     --gradient-subtle: linear-gradient(180deg, hsl(0 0% 7%), hsl(0 0% 17%));
@@ -127,12 +127,12 @@ Design System: Minimalista, Clean, Branco e Preto
     /* Sidebar Colors - Dark */
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 47 68% 74%;
+    --sidebar-primary: 51 100% 50%;
     --sidebar-primary-foreground: 0 0% 0%;
     --sidebar-accent: 0 0% 17%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 17%;
-    --sidebar-ring: 47 68% 74%;
+    --sidebar-border: 51 100% 50%;
+    --sidebar-ring: 51 100% 50%;
   }
 }
 

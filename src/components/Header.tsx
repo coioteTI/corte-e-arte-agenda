@@ -8,7 +8,11 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const navigationItems = [];
+  const navigationItems = [
+    { href: "#agendamento", label: "Agendamento" },
+    { href: "#servicos", label: "Serviços" },
+    { href: "#contato", label: "Contato" },
+  ];
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
