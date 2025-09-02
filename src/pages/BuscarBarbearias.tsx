@@ -39,6 +39,17 @@ const BuscarBarbearias = () => {
 
   useEffect(() => {
     initializeData();
+    
+    // Listen to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+      // Refetch data when auth state changes
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        fetchCompanies();
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const initializeData = async () => {
@@ -61,6 +72,9 @@ const BuscarBarbearias = () => {
 
   const fetchCompanies = async () => {
     try {
+      // Always get current user to avoid stale state
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
       const { data: companies, error } = await supabase
         .rpc('get_public_company_data')
         .order('likes_count', { ascending: false });
@@ -70,11 +84,11 @@ const BuscarBarbearias = () => {
       let companiesWithFavorites: Barbearia[] = [];
 
       // If user is logged in, check favorites
-      if (user) {
+      if (currentUser) {
         const { data: favorites, error: favError } = await supabase
           .from('favorites')
           .select('company_id')
-          .eq('user_id', user.id);
+          .eq('user_id', currentUser.id);
 
         if (!favError && favorites) {
           const favoriteIds = favorites.map(f => f.company_id);
@@ -135,6 +149,9 @@ const BuscarBarbearias = () => {
   const handleBuscar = async () => {
     setLoading(true);
     try {
+      // Always get current user to avoid stale state
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
       const { data: allCompanies, error } = await supabase.rpc('get_public_company_data');
       
       if (error) throw error;
@@ -163,11 +180,11 @@ const BuscarBarbearias = () => {
       let companiesWithFavorites: Barbearia[] = [];
       
       // Check favorites if user is logged in
-      if (user) {
+      if (currentUser) {
         const { data: favorites, error: favError } = await supabase
           .from('favorites')
           .select('company_id')
-          .eq('user_id', user.id);
+          .eq('user_id', currentUser.id);
 
         if (!favError && favorites) {
           const favoriteIds = favorites.map(f => f.company_id);
@@ -242,33 +259,35 @@ const BuscarBarbearias = () => {
               
               companies.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
               
-              if (companies) {
-                let companiesWithFavorites: Barbearia[] = [];
-                
-                if (user) {
-                  const { data: favorites, error: favError } = await supabase
-                    .from('favorites')
-                    .select('company_id')
-                    .eq('user_id', user.id);
+               if (companies) {
+                 // Always get current user to avoid stale state
+                 const { data: { user: currentUser } } = await supabase.auth.getUser();
+                 let companiesWithFavorites: Barbearia[] = [];
+                 
+                 if (currentUser) {
+                   const { data: favorites, error: favError } = await supabase
+                     .from('favorites')
+                     .select('company_id')
+                     .eq('user_id', currentUser.id);
 
-                  if (!favError && favorites) {
-                    const favoriteIds = favorites.map(f => f.company_id);
-                    companiesWithFavorites = companies.map(company => ({
-                      ...company,
-                      slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-                      is_favorite: favoriteIds.includes(company.id)
-                    })) as Barbearia[];
-                  }
-                } else {
-                  companiesWithFavorites = companies.map(company => ({
-                    ...company,
-                    slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-                    is_favorite: false
-                  })) as Barbearia[];
-                }
-                
-                setResultados(companiesWithFavorites);
-              }
+                   if (!favError && favorites) {
+                     const favoriteIds = favorites.map(f => f.company_id);
+                     companiesWithFavorites = companies.map(company => ({
+                       ...company,
+                       slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+                       is_favorite: favoriteIds.includes(company.id)
+                     })) as Barbearia[];
+                   }
+                 } else {
+                   companiesWithFavorites = companies.map(company => ({
+                     ...company,
+                     slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+                     is_favorite: false
+                   })) as Barbearia[];
+                 }
+                 
+                 setResultados(companiesWithFavorites);
+               }
               
               setLocalizacaoPermitida(true);
               toast({
