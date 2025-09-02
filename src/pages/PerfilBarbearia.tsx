@@ -63,12 +63,9 @@ const PerfilBarbearia = () => {
           setServices(servicesData || []);
         }
 
-        // Fetch professionals for this company
+        // Fetch professionals for this company (using secure function)
         const { data: professionalsData, error: profError } = await supabase
-          .from('professionals')
-          .select('*')
-          .eq('company_id', foundCompany.id)
-          .eq('is_available', true);
+          .rpc('get_professionals_for_booking', { company_uuid: foundCompany.id });
 
         console.log('Professionals data:', professionalsData);
         console.log('Professionals error:', profError);
