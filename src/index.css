@@ -103,18 +103,26 @@ Design System: Minimalista, Clean, Branco e Preto
     --accent-foreground: 51 100% 50%;
 
     /* Success */
-    --success: 142 76% 26%;
+    --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
     --success-muted: 142 76% 15%;
     
     /* Destructive */
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
 
     /* Borders */
     --border: 51 100% 50%;
     --input: 0 0% 17%;
     --ring: 51 100% 50%;
+
+    /* Gradients Dark */
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 7%), hsl(0 0% 17%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 17%), hsl(51 100% 50% / 0.05));
+    
+    /* Shadows Dark */
+    --shadow-elegant: 0 4px 20px -4px hsl(51 100% 50% / 0.15);
+    --shadow-card: 0 2px 10px -2px hsl(51 100% 50% / 0.08);
 
     /* Sidebar Colors - Dark */
     --sidebar-background: 0 0% 7%;

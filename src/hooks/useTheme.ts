@@ -17,13 +17,19 @@ export const useTheme = () => {
   useEffect(() => {
     const root = document.documentElement;
     
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    // Remove both classes first
+    root.classList.remove('light', 'dark');
     
+    // Add the current theme class
+    root.classList.add(theme);
+    
+    // Set data-theme attribute for additional CSS targeting
+    root.setAttribute('data-theme', theme);
+    
+    // Save to localStorage
     localStorage.setItem('corte-arte-theme', theme);
+    
+    console.log('Theme applied:', theme);
   }, [theme]);
 
   const toggleTheme = () => {
