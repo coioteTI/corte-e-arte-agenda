@@ -34,6 +34,7 @@ import PlanoPremium from "./pages/PlanoPremium";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PagamentoSucesso from "./pages/PagamentoSucesso";
 import PagamentoCancelado from "./pages/PagamentoCancelado";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -68,17 +69,17 @@ const App = () => (
           <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
           <Route path="/payment-success" element={<PaymentSuccess />} />
           <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/agenda" element={<Agenda />} />
-          <Route path="/dashboard/clientes" element={<Clientes />} />
-          <Route path="/dashboard/servicos" element={<Servicos />} />
-          <Route path="/dashboard/profissionais" element={<Profissionais />} />
-          <Route path="/dashboard/ranking" element={<Ranking />} />
-          <Route path="/dashboard/relatorios" element={<Relatorios />} />
-          <Route path="/dashboard/horarios" element={<Horarios />} />
-          <Route path="/dashboard/planos" element={<Planos />} />
-          <Route path="/dashboard/webhook-logs" element={<WebhookLogs />} />
-          <Route path="/dashboard/configuracoes" element={<Configuracoes />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+          <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+          <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
+          <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
+          <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
+          <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+          <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
+          <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
+          <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
+          <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
