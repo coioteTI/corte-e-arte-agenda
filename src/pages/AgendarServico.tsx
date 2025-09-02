@@ -177,12 +177,13 @@ const AgendarServico = () => {
           setServices(servicesData || []);
         }
 
-        // Fetch professionals for this company
+        // Fetch professionals for this company (using secure function)
         const { data: professionalsData, error: profError } = await supabase
-          .from('professionals')
-          .select('*')
-          .eq('company_id', foundCompany.id)
-          .eq('is_available', true);
+          .rpc('get_professionals_for_booking', { company_uuid: foundCompany.id })
+          .then(result => ({
+            ...result,
+            data: result.data?.filter((prof: any) => prof.is_available) || []
+          }));
 
         if (!profError) {
           setProfessionals(professionalsData || []);
