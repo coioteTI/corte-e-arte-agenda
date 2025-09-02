@@ -17,6 +17,7 @@ import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { PlanStatusChecker } from "./PlanStatusChecker";
+import { ThemeToggle } from "./ThemeToggle";
 
 const menuItems = [
   { title: "Agenda", url: "/dashboard/agenda", icon: Calendar },
@@ -130,6 +131,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <div className="text-xs md:text-sm text-muted-foreground hidden sm:block">
                 Bem-vindo, {companyName || 'Administrador'}
               </div>
+              <ThemeToggle />
             </div>
           </div>
           <PlanStatusChecker />
