@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/Header";
+import { ThemeDemo } from "@/components/ThemeDemo";
 import logo from "@/assets/logo.png";
 
 const Index = () => {
@@ -48,6 +49,9 @@ const Index = () => {
             </div>
           </CardContent>
         </Card>
+        
+        {/* Theme Demo */}
+        <ThemeDemo />
       </div>
     </div>
   );

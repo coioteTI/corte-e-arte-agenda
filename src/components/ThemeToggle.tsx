@@ -12,6 +12,7 @@ export const ThemeToggle = () => {
       onClick={toggleTheme}
       className="relative w-16 h-8 p-0 rounded-full bg-muted hover:bg-muted/80 transition-all duration-300 overflow-hidden border border-border"
       aria-label={`Alternar para tema ${theme === 'light' ? 'escuro' : 'claro'}`}
+      title={`Modo ${theme === 'light' ? 'Escuro' : 'Claro'} - Clique para alternar`}
     >
       {/* Background slider */}
       <div 

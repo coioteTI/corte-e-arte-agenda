@@ -29,7 +29,12 @@ export const useTheme = () => {
     // Save to localStorage
     localStorage.setItem('corte-arte-theme', theme);
     
-    console.log('Theme applied:', theme);
+    console.log('🎨 Theme applied:', theme, 'Classes:', root.classList.toString());
+    console.log('📊 CSS Variables check:', {
+      background: getComputedStyle(root).getPropertyValue('--background'),
+      primary: getComputedStyle(root).getPropertyValue('--primary'),
+      foreground: getComputedStyle(root).getPropertyValue('--foreground')
+    });
   }, [theme]);
 
   const toggleTheme = () => {
