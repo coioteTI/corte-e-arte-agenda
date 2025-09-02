@@ -17,22 +17,43 @@ export const Header = () => {
       <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center">
+          <div className="flex items-center space-x-3">
             <img 
               src={logo} 
               alt="Corte & Arte" 
-              className="h-8 w-auto"
+              className="h-8 md:h-10 w-auto"
             />
+            <div className="hidden sm:block">
+              <h1 className="text-lg md:text-xl font-semibold text-foreground">
+                Corte & Arte
+              </h1>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                Sistema Profissional de Agendamentos
+              </p>
+            </div>
           </div>
           
-          {/* Center - Theme Toggle */}
-          <div className="flex items-center">
+          {/* Desktop Navigation */}
+          <div className="flex items-center space-x-4">
+            <nav className="hidden md:flex space-x-6">
+              {navigationItems.map((item) => (
+                <a 
+                  key={item.href}
+                  href={item.href} 
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+            
+            {/* Theme Toggle */}
             <ThemeToggle />
           </div>
 
           {/* Mobile Menu Button */}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild>
+            <SheetTrigger asChild className="md:hidden">
               <Button variant="ghost" size="sm" className="p-2">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Abrir menu</span>
