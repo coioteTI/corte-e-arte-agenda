@@ -7,14 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Link, useParams, useNavigate } from "react-router-dom";
-import { Calendar, Clock, User, Phone, Mail, ArrowLeft, MessageSquare, MapPin } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusinessHours } from "@/hooks/useBusinessHours";
-import logo from "@/assets/logo.png";
 
-// Load saved client data from localStorage
+// Funções auxiliares
 const loadSavedClientData = () => {
   try {
     const saved = localStorage.getItem('clientData');
@@ -24,12 +23,10 @@ const loadSavedClientData = () => {
   }
 };
 
-// Save client data to localStorage
 const saveClientData = async (data: any, userId?: string) => {
   try {
     localStorage.setItem('clientData', JSON.stringify(data));
-    
-    // Also save to database if user is logged in
+
     if (userId) {
       const { data: existingClient } = await supabase
         .from('clients')
@@ -53,27 +50,26 @@ const saveClientData = async (data: any, userId?: string) => {
   }
 };
 
-// Gerar próximos 14 dias úteis com base nos horários de funcionamento
 const gerarProximosDias = (isDateAvailable?: (date: Date) => boolean) => {
   const dias = [];
   const hoje = new Date();
-  
+
   for (let i = 1; i <= 14; i++) {
     const data = new Date(hoje);
     data.setDate(hoje.getDate() + i);
-    
+
     if (isDateAvailable ? isDateAvailable(data) : data.getDay() !== 0) {
       dias.push({
         data: data.toISOString().split('T')[0],
-        texto: data.toLocaleDateString('pt-BR', { 
-          weekday: 'long', 
-          day: '2-digit', 
-          month: '2-digit' 
+        texto: data.toLocaleDateString('pt-BR', {
+          weekday: 'long',
+          day: '2-digit',
+          month: '2-digit'
         })
       });
     }
   }
-  
+
   return dias;
 };
 
@@ -81,16 +77,16 @@ const AgendarServico = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   const [company, setCompany] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const { isDateAvailable, getAvailableTimeSlotsForDate } = useBusinessHours(company?.id || "");
   const diasDisponiveis = gerarProximosDias(isDateAvailable);
-  
+
   const [formData, setFormData] = useState({
     nome: "",
     telefone: "",
@@ -104,6 +100,7 @@ const AgendarServico = () => {
   const [saveData, setSaveData] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Carregar dados da empresa e do cliente
   useEffect(() => {
     fetchCompanyData();
     loadSavedData();
@@ -118,7 +115,7 @@ const AgendarServico = () => {
       if (user) {
         const { data: dbClient } = await supabase
           .from('clients')
-          .select('name, phone, email, address, number, neighborhood, city, state, zip_code')
+          .select('name, phone, email')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -154,7 +151,7 @@ const AgendarServico = () => {
 
       if (error) throw error;
 
-      const foundCompany = companies?.find(c => 
+      const foundCompany = companies?.find(c =>
         c.name.toLowerCase().replace(/\s+/g, '-') === slug
       ) || companies?.[0];
 
@@ -186,6 +183,7 @@ const AgendarServico = () => {
     }
   };
 
+  // Buscar horários disponíveis
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
     try {
       if (!company?.id) return setAvailableSlots([]);
@@ -231,18 +229,16 @@ const AgendarServico = () => {
     }
   }, [formData.professionalId, formData.data]);
 
-  const servicoSelecionado = services.find(s => s.id === formData.servicoId);
-  const professionalSelecionado = professionals.find(p => p.id === formData.professionalId);
-
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Enviar agendamento
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    const errors = [];
+
+    const errors: string[] = [];
     if (!formData.nome.trim()) errors.push("Nome é obrigatório");
     if (!formData.telefone.trim()) errors.push("Telefone é obrigatório");
     if (!formData.servicoId) errors.push("Selecione um serviço");
@@ -250,7 +246,8 @@ const AgendarServico = () => {
     if (!formData.data) errors.push("Selecione uma data");
     if (!formData.horario) errors.push("Selecione um horário");
 
-    if (formData.telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(formData.telefone) && !/^\d{10,11}$/.test(formData.telefone.replace(/\D/g, ''))) {
+    if (formData.telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(formData.telefone) &&
+        !/^\d{10,11}$/.test(formData.telefone.replace(/\D/g, ''))) {
       errors.push("Formato de telefone inválido");
     }
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -325,6 +322,8 @@ const AgendarServico = () => {
         clientId = newClient.id;
       }
 
+      const servicoSelecionado = services.find(s => s.id === formData.servicoId);
+
       const appointmentData = {
         client_id: clientId,
         company_id: company.id,
@@ -377,7 +376,156 @@ const AgendarServico = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* ... aqui mantém todo o layout que você enviou ... */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Agendar Serviço
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Nome */}
+              <div>
+                <Label>Nome</Label>
+                <Input
+                  value={formData.nome}
+                  onChange={(e) => handleInputChange("nome", e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Telefone */}
+              <div>
+                <Label>Telefone</Label>
+                <Input
+                  value={formData.telefone}
+                  onChange={(e) => handleInputChange("telefone", e.target.value)}
+                  required
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                />
+              </div>
+
+              {/* Serviço */}
+              <div>
+                <Label>Serviço</Label>
+                <Select
+                  onValueChange={(value) => handleInputChange("servicoId", value)}
+                  value={formData.servicoId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um serviço" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} - R$ {s.price}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Profissional */}
+              <div>
+                <Label>Profissional</Label>
+                <Select
+                  onValueChange={(value) =>
+                    handleInputChange("professionalId", value)
+                  }
+                  value={formData.professionalId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um profissional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {professionals.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Data */}
+              <div>
+                <Label>Data</Label>
+                <Select
+                  onValueChange={(value) => handleInputChange("data", value)}
+                  value={formData.data}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma data" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {diasDisponiveis.map((d) => (
+                      <SelectItem key={d.data} value={d.data}>
+                        {d.texto}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Horário */}
+              <div>
+                <Label>Horário</Label>
+                <Select
+                  onValueChange={(value) => handleInputChange("horario", value)}
+                  value={formData.horario}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um horário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSlots.map((h) => (
+                      <SelectItem key={h} value={h}>
+                        {h}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Observações */}
+              <div>
+                <Label>Observações</Label>
+                <Textarea
+                  value={formData.observacoes}
+                  onChange={(e) =>
+                    handleInputChange("observacoes", e.target.value)
+                  }
+                />
+              </div>
+
+              {/* Salvar dados */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  checked={saveData}
+                  onCheckedChange={(checked) =>
+                    setSaveData(!!checked)
+                  }
+                />
+                <Label>Salvar meus dados para a próxima vez</Label>
+              </div>
+
+              {/* Botão */}
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Agendando..." : "Confirmar Agendamento"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
