@@ -12,7 +12,6 @@ import { Calendar, Clock, User, Mail, ArrowLeft, MessageSquare, MapPin } from "l
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusinessHours } from "@/hooks/useBusinessHours";
-import logo from "@/assets/logo.png";
 
 // ------- utils -------
 const BLOCKING_STATUSES = ["scheduled", "confirmed", "in_progress", "pending"] as const;
@@ -25,6 +24,7 @@ const toSlug = (s: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
+// Load/Save client data
 const loadSavedClientData = () => {
   try {
     const saved = localStorage.getItem("clientData");
@@ -43,8 +43,12 @@ const saveClientData = async (data: any, userId?: string) => {
         .select("id")
         .eq("user_id", userId)
         .maybeSingle();
+
       if (existingClient) {
-        await supabase.from("clients").update({ name: data.nome, phone: data.telefone, email: data.email }).eq("user_id", userId);
+        await supabase
+          .from("clients")
+          .update({ name: data.nome, phone: data.telefone, email: data.email })
+          .eq("user_id", userId);
       }
     }
   } catch (error) {
@@ -52,6 +56,7 @@ const saveClientData = async (data: any, userId?: string) => {
   }
 };
 
+// Próximos dias disponíveis
 const gerarProximosDias = (isDateAvailable?: (date: Date) => boolean) => {
   const dias: { data: string; texto: string }[] = [];
   const hoje = new Date();
@@ -95,9 +100,11 @@ const AgendarServico = () => {
   });
   const [saveData, setSaveData] = useState(false);
 
+  // Carrega dados
   useEffect(() => {
     fetchCompanyData();
     loadSavedData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   const loadSavedData = async () => {
@@ -133,34 +140,26 @@ const AgendarServico = () => {
     }
   };
 
+  // Carrega empresa
   const fetchCompanyData = async () => {
     try {
       if (!slug) throw new Error("Slug não informado");
 
-      const { data: bySlug, error: slugErr } = await supabase
+      const { data: bySlug } = await supabase
         .from("companies")
-        .select(
-          "id, slug, name, phone, instagram, email, address, number, neighborhood, city, state, zip_code, primary_color, business_hours"
-        )
+        .select("*")
         .eq("slug", slug)
         .maybeSingle();
-
-      if (slugErr) throw slugErr;
 
       let foundCompany = bySlug;
 
       if (!foundCompany) {
-        const { data: allCompanies, error: allErr } = await supabase
-          .from("companies")
-          .select(
-            "id, slug, name, phone, instagram, email, address, number, neighborhood, city, state, zip_code, primary_color, business_hours"
-          );
-        if (allErr) throw allErr;
+        const { data: allCompanies } = await supabase.from("companies").select("*");
         foundCompany = allCompanies?.find((c: any) => toSlug(c?.name || "") === String(slug)) || null;
       }
 
       if (!foundCompany) {
-        toast({ title: "Barbearia não encontrada", description: "Não foi possível localizar a barbearia.", variant: "destructive" });
+        toast({ title: "Barbearia não encontrada", variant: "destructive" });
         setLoading(false);
         return;
       }
@@ -176,21 +175,25 @@ const AgendarServico = () => {
       setProfessionals(professionalsData || []);
     } catch (error) {
       console.error("Erro ao carregar dados da barbearia:", error);
-      toast({ title: "Erro ao carregar dados", description: "Não foi possível carregar os dados da barbearia.", variant: "destructive" });
+      toast({ title: "Erro ao carregar dados", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
+  // Horários disponíveis
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
     try {
-      if (!company?.id || !professionalId || !date) return setAvailableSlots([]);
+      if (!company?.id || !professionalId || !date) {
+        setAvailableSlots([]);
+        return;
+      }
+
       const selectedDate = new Date(date);
       let allTimeslots: string[] = [];
 
-      if (getAvailableTimeSlotsForDate) {
-        allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30) || [];
-      } else {
+      if (getAvailableTimeSlotsForDate) allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30) || [];
+      else {
         for (let hour = 8; hour < 18; hour++) {
           allTimeslots.push(`${hour.toString().padStart(2, "0")}:00`);
           allTimeslots.push(`${hour.toString().padStart(2, "0")}:30`);
@@ -209,46 +212,129 @@ const AgendarServico = () => {
     } catch (error) {
       console.error("Erro ao carregar horários disponíveis:", error);
       setAvailableSlots([]);
-      toast({ title: "Erro ao carregar horários", description: "Não foi possível carregar os horários disponíveis.", variant: "destructive" });
+      toast({ title: "Erro ao carregar horários", variant: "destructive" });
     }
   };
 
   useEffect(() => {
-    if (formData.professionalId && formData.data) {
-      fetchAvailableSlots(formData.professionalId, formData.data);
-    } else setAvailableSlots([]);
+    if (formData.professionalId && formData.data) fetchAvailableSlots(formData.professionalId, formData.data);
+    else setAvailableSlots([]);
   }, [formData.professionalId, formData.data, company?.id]);
 
   const servicoSelecionado = services.find((s) => s.id === formData.servicoId);
   const professionalSelecionado = professionals.find((p) => p.id === formData.professionalId);
 
-  const handleInputChange = (field: string, value: string) => setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
-  // ----------------- UI -----------------
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const errors: string[] = [];
+    if (!formData.nome.trim()) errors.push("Nome é obrigatório");
+    if (!formData.telefone.trim()) errors.push("Telefone é obrigatório");
+    if (!formData.servicoId) errors.push("Selecione um serviço");
+    if (!formData.professionalId) errors.push("Selecione um profissional");
+    if (!formData.data) errors.push("Selecione uma data");
+    if (!formData.horario) errors.push("Selecione um horário");
+
+    if (errors.length > 0) {
+      toast({ title: "Erro na validação", description: errors.join(", "), variant: "destructive" });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (saveData) await saveClientData({ nome: formData.nome, telefone: formData.telefone, email: formData.email }, user?.id);
+
+      let clientId: string | null = null;
+      if (user) {
+        const { data: existingClient } = await supabase.from("clients").select("id").eq("user_id", user.id).maybeSingle();
+        if (existingClient) clientId = existingClient.id;
+        else {
+          const { data: newClient } = await supabase
+            .from("clients")
+            .insert({ user_id: user.id, name: formData.nome, phone: formData.telefone, email: formData.email })
+            .select("id")
+            .single();
+          clientId = newClient?.id || null;
+        }
+      } else {
+        const { data: newClient } = await supabase
+          .from("clients")
+          .insert({ name: formData.nome, phone: formData.telefone, email: formData.email })
+          .select("id")
+          .single();
+        clientId = newClient?.id || null;
+      }
+
+      if (!clientId || !company?.id) throw new Error("Não foi possível identificar cliente ou empresa.");
+
+      const hhmmss = `${toHHMM(formData.horario)}:00`;
+      const { data: clash } = await supabase
+        .from("appointments")
+        .select("id")
+        .eq("professional_id", formData.professionalId)
+        .eq("appointment_date", formData.data)
+        .eq("appointment_time", hhmmss)
+        .in("status", BLOCKING_STATUSES as unknown as string[])
+        .maybeSingle();
+
+      if (clash) {
+        toast({ title: "Horário indisponível", description: "Este horário acabou de ser reservado.", variant: "destructive" });
+        await fetchAvailableSlots(formData.professionalId, formData.data);
+        setIsLoading(false);
+        return;
+      }
+
+      const appointmentData = {
+        client_id: clientId,
+        company_id: company.id,
+        service_id: formData.servicoId,
+        professional_id: formData.professionalId,
+        appointment_date: formData.data,
+        appointment_time: hhmmss,
+        total_price: services.find((s) => s.id === formData.servicoId)?.price || null,
+        notes: formData.observacoes || null,
+        status: "scheduled",
+      };
+
+      await supabase.from("appointments").insert(appointmentData);
+      toast({ title: "Agendamento Realizado!", description: "Seu agendamento foi confirmado com sucesso." });
+      navigate(`/agendamento-confirmado/${slug}`);
+    } catch (error: any) {
+      toast({ title: "Erro no agendamento", description: error?.message || "Não foi possível realizar o agendamento.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-4 flex justify-center items-center">
-        <div className="w-full max-w-md space-y-4 animate-pulse">
-          <div className="h-32 bg-muted rounded-2xl shadow-inner"></div>
-          <div className="h-96 bg-muted rounded-2xl shadow-inner"></div>
+        <div className="animate-pulse space-y-4 w-full max-w-2xl">
+          <div className="h-32 bg-muted rounded-2xl"></div>
+          <div className="h-96 bg-muted rounded-2xl"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-3xl mx-auto space-y-8">
-        {/* Header */}
-        <Card className="bg-white shadow-lg rounded-2xl overflow-hidden animate-fadeIn">
-          <CardContent className="flex flex-col items-center justify-center p-6">
-            <img src={logo} alt="Logo" className="w-24 h-24 mb-4" />
-            <CardTitle className="text-2xl font-bold text-primary mb-2">Agende seu horário</CardTitle>
-            <p className="text-center text-muted-foreground">Escolha o serviço, profissional, data e horário que deseja</p>
-          </CardContent>
-        </Card>
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Back Button */}
+        <Link to={`/barbearia/${slug}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Voltar ao perfil da barbearia
+        </Link>
 
-        {/* TODO: Mantive seu restante do layout intacto, mas os cards de formulário e informações da empresa podem receber o mesmo estilo elegante */}
+        {/* Aqui você mantém o resto do layout intacto, com cards estilizados */}
       </div>
     </div>
   );
