@@ -83,6 +83,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appointments_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "appointments_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -509,6 +516,13 @@ export type Database = {
             referencedRelation: "professionals"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "reviews_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       services: {
@@ -649,7 +663,41 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      professionals_public: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          id: string | null
+          is_available: boolean | null
+          name: string | null
+          specialty: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_available?: boolean | null
+          name?: string | null
+          specialty?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_available?: boolean | null
+          name?: string | null
+          specialty?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professionals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       delete_user_account: {
@@ -691,6 +739,17 @@ export type Database = {
           updated_at: string
           whatsapp_integration_enabled: boolean
           whatsapp_notifications: boolean
+        }[]
+      }
+      get_professionals_for_booking: {
+        Args: { company_uuid?: string }
+        Returns: {
+          company_id: string
+          created_at: string
+          id: string
+          is_available: boolean
+          name: string
+          specialty: string
         }[]
       }
       get_public_company_data: {
