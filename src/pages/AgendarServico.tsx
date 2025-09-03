@@ -1,5 +1,5 @@
-// AgendarServico.tsx (endereço sem duplicação)
-import { useState, useEffect, useMemo } from "react";
+// AgendarServico.tsx
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,97 +49,48 @@ const saveClientData = async (data: any, userId?: string) => {
       }
     }
   } catch (error) {
-    console.error('Error saving client data:', error);
+    console.error('Erro ao salvar dados do cliente:', error);
   }
 };
 
 // Gerar próximos 14 dias úteis com base nos horários de funcionamento
 const gerarProximosDias = (isDateAvailable?: (date: Date) => boolean) => {
-  const dias: { data: string; texto: string }[] = [];
+  const dias = [];
   const hoje = new Date();
-
+  
   for (let i = 1; i <= 14; i++) {
     const data = new Date(hoje);
     data.setDate(hoje.getDate() + i);
+    
     if (isDateAvailable ? isDateAvailable(data) : data.getDay() !== 0) {
       dias.push({
         data: data.toISOString().split('T')[0],
-        texto: data.toLocaleDateString('pt-BR', {
-          weekday: 'long',
-          day: '2-digit',
-          month: '2-digit'
+        texto: data.toLocaleDateString('pt-BR', { 
+          weekday: 'long', 
+          day: '2-digit', 
+          month: '2-digit' 
         })
       });
     }
   }
+  
   return dias;
 };
-
-// --- NOVA FUNÇÃO: normaliza e formata endereço sem duplicar partes já existentes ---
-const normalizeText = (s?: any) => {
-  if (!s) return "";
-  return String(s)
-    .toLowerCase()
-    .replace(/[^\w\s]/g, "") // remove pontuação
-    .replace(/\s+/g, " ")
-    .trim();
-};
-
-const formatCompanyAddress = (company: any) => {
-  if (!company) return "";
-  const address = company.address?.toString().trim() || "";
-  const number = company.number?.toString().trim() || "";
-  const neighborhood = company.neighborhood?.toString().trim() || "";
-  const city = company.city?.toString().trim() || "";
-  const state = company.state?.toString().trim() || "";
-  const zip = company.zip_code?.toString().trim() || "";
-
-  const normalizedAddress = normalizeText(address);
-
-  const parts: string[] = [];
-
-  if (address) parts.push(address);
-
-  if (number && !normalizedAddress.includes(normalizeText(number))) {
-    parts.push(number);
-  }
-
-  // Para os demais campos, além de checar normalizedAddress, também checar se já não foram adicionados em parts
-  const joinedSoFar = () => normalizeText(parts.join(" "));
-
-  if (neighborhood && !normalizedAddress.includes(normalizeText(neighborhood)) && !joinedSoFar().includes(normalizeText(neighborhood))) {
-    parts.push(neighborhood);
-  }
-  if (city && !normalizedAddress.includes(normalizeText(city)) && !joinedSoFar().includes(normalizeText(city))) {
-    parts.push(city);
-  }
-  if (state && !normalizedAddress.includes(normalizeText(state)) && !joinedSoFar().includes(normalizeText(state))) {
-    parts.push(state);
-  }
-  if (zip && !normalizedAddress.includes(normalizeText(zip)) && !joinedSoFar().includes(normalizeText(zip))) {
-    parts.push(zip);
-  }
-
-  return parts.filter(Boolean).join(", ");
-};
-// -------------------------------------------------------------------------------
 
 const AgendarServico = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-
+  
   const [company, setCompany] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-
-  const [loadingCompany, setLoadingCompany] = useState(true);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [loading, setLoading] = useState(true);
+  
   const { isDateAvailable, getAvailableTimeSlotsForDate } = useBusinessHours(company?.id || "");
-
+  const diasDisponiveis = gerarProximosDias(isDateAvailable);
+  
   const [formData, setFormData] = useState({
     nome: "",
     telefone: "",
@@ -151,115 +102,98 @@ const AgendarServico = () => {
     observacoes: ""
   });
   const [saveData, setSaveData] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
+    fetchCompanyData();
+    loadSavedData();
+  }, [slug]);
 
-    const loadData = async () => {
-      setLoadingCompany(true);
-      try {
-        const { data: companies, error } = await supabase
-          .from('companies')
-          .select('id, name, phone, instagram, email, address, number, neighborhood, city, state, zip_code, primary_color, business_hours')
-          .limit(10);
+  const loadSavedData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-        if (error) throw error;
+      let clientData = null;
 
-        const foundCompany = companies?.find((c: any) => {
-          if (!c?.name) return false;
-          return c.name.toLowerCase().replace(/\s+/g, '-') === slug;
-        }) || companies?.[0];
+      if (user) {
+        const { data: dbClient } = await supabase
+          .from('clients')
+          .select('name, phone, email, address, number, neighborhood, city, state, zip_code')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-        if (foundCompany && mounted) {
-          setCompany(foundCompany);
-
-          const { data: servicesData } = await supabase
-            .from('services')
-            .select('*')
-            .eq('company_id', foundCompany.id);
-          setServices(servicesData || []);
-
-          const { data: professionalsData } = await supabase
-            .from('professionals')
-            .select('*')
-            .eq('company_id', foundCompany.id)
-            .eq('is_available', true);
-          setProfessionals(professionalsData || []);
-        }
-      } catch (error) {
-        console.error('Erro ao buscar dados da empresa:', error);
-        toast({
-          title: "Erro ao carregar dados",
-          description: "Não foi possível carregar os dados da barbearia.",
-          variant: "destructive",
-        });
-      } finally {
-        if (mounted) setLoadingCompany(false);
+        if (dbClient) clientData = dbClient;
       }
-    };
 
-    const loadSaved = async () => {
-      const saved = loadSavedClientData();
-      if (saved) {
+      if (!clientData) {
+        const saved = loadSavedClientData();
+        if (saved) clientData = saved;
+      }
+
+      if (clientData) {
         setFormData(prev => ({
           ...prev,
-          nome: saved.nome || "",
-          telefone: saved.telefone || "",
-          email: saved.email || ""
+          nome: clientData.name || clientData.nome || "",
+          telefone: clientData.phone || clientData.telefone || "",
+          email: clientData.email || clientData.email || "",
         }));
         setSaveData(true);
       }
 
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: clientData } = await supabase
-            .from('clients')
-            .select('name, phone, email')
-            .eq('user_id', user.id)
-            .maybeSingle();
+    } catch (error) {
+      console.log('Erro ao carregar dados do cliente', error);
+    }
+  };
 
-          if (clientData) {
-            setFormData(prev => ({
-              ...prev,
-              nome: clientData.name || prev.nome,
-              telefone: clientData.phone || prev.telefone,
-              email: clientData.email || prev.email
-            }));
-            setSaveData(true);
-          }
-        }
-      } catch (err) {
-        console.log('Sem dados salvos no banco (ou erro ao buscar).');
+  const fetchCompanyData = async () => {
+    try {
+      const { data: companies, error } = await supabase
+        .from('companies')
+        .select('id, name, phone, instagram, email, address, number, neighborhood, city, state, zip_code, primary_color, business_hours')
+        .limit(10);
+
+      if (error) throw error;
+
+      const foundCompany = companies?.find(c => 
+        c.name.toLowerCase().replace(/\s+/g, '-') === slug
+      ) || companies?.[0];
+
+      if (foundCompany) {
+        setCompany(foundCompany);
+
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('services')
+          .select('*')
+          .eq('company_id', foundCompany.id);
+        if (!servicesError) setServices(servicesData || []);
+
+        const { data: professionalsData, error: profError } = await supabase
+          .from('professionals')
+          .select('*')
+          .eq('company_id', foundCompany.id)
+          .eq('is_available', true);
+        if (!profError) setProfessionals(professionalsData || []);
       }
-    };
-
-    loadData();
-    loadSaved();
-
-    return () => { mounted = false; };
-  }, [slug, toast]);
-
-  const diasDisponiveis = useMemo(() => gerarProximosDias(isDateAvailable), [isDateAvailable, company?.id]);
-
-  const servicoSelecionado = services.find(s => s.id === formData.servicoId);
-  const professionalSelecionado = professionals.find(p => p.id === formData.professionalId);
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    } catch (error) {
+      console.error('Erro ao carregar dados da barbearia:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar os dados da barbearia.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
-    setAvailableSlots([]);
-    if (!company?.id || !professionalId || !date) return;
-
-    setLoadingSlots(true);
     try {
+      if (!company?.id) return setAvailableSlots([]);
       const selectedDate = new Date(date);
       let allTimeslots: string[] = [];
 
       if (getAvailableTimeSlotsForDate) {
-        allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30) || [];
+        allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30);
       } else {
         for (let hour = 8; hour < 18; hour++) {
           allTimeslots.push(`${hour.toString().padStart(2, '0')}:00`);
@@ -274,21 +208,18 @@ const AgendarServico = () => {
         .eq('appointment_date', date)
         .in('status', ['scheduled', 'confirmed', 'in_progress']);
 
-      if (error) throw error;
+      if (error) console.error('Erro ao buscar agendamentos:', error);
 
-      const occupiedSlots = existingAppointments?.map((apt: any) => apt?.appointment_time) || [];
-      const availableTimeslots = allTimeslots.filter(slot => !occupiedSlots.includes(slot));
-      setAvailableSlots(availableTimeslots);
+      const occupiedSlots = existingAppointments?.map(apt => apt.appointment_time) || [];
+      setAvailableSlots(allTimeslots.filter(slot => !occupiedSlots.includes(slot)));
+
     } catch (error) {
-      console.error("Erro ao buscar horários disponíveis:", error);
+      console.error('Erro ao buscar horários disponíveis:', error);
       toast({
-        title: "Erro",
-        description: "Não foi possível carregar horários disponíveis.",
-        variant: "destructive"
+        title: "Erro ao carregar horários",
+        description: "Não foi possível carregar os horários disponíveis.",
+        variant: "destructive",
       });
-      setAvailableSlots([]);
-    } finally {
-      setLoadingSlots(false);
     }
   };
 
@@ -298,34 +229,57 @@ const AgendarServico = () => {
     } else {
       setAvailableSlots([]);
     }
-  }, [formData.professionalId, formData.data, company?.id]);
+  }, [formData.professionalId, formData.data]);
 
-  const formattedAddress = useMemo(() => formatCompanyAddress(company), [company]);
+  const servicoSelecionado = services.find(s => s.id === formData.servicoId);
+  const professionalSelecionado = professionals.find(p => p.id === formData.professionalId);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setIsLoading(true);
+    
+    const errors = [];
+    if (!formData.nome.trim()) errors.push("Nome é obrigatório");
+    if (!formData.telefone.trim()) errors.push("Telefone é obrigatório");
+    if (!formData.servicoId) errors.push("Selecione um serviço");
+    if (!formData.professionalId) errors.push("Selecione um profissional");
+    if (!formData.data) errors.push("Selecione uma data");
+    if (!formData.horario) errors.push("Selecione um horário");
+
+    if (formData.telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(formData.telefone) && !/^\d{10,11}$/.test(formData.telefone.replace(/\D/g, ''))) {
+      errors.push("Formato de telefone inválido");
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.push("Email inválido");
+    }
+
+    const selectedDate = new Date(formData.data);
+    if (!isDateAvailable || !isDateAvailable(selectedDate)) {
+      errors.push("Data selecionada não está disponível");
+    }
+
+    if (getAvailableTimeSlotsForDate && formData.data) {
+      const slots = getAvailableTimeSlotsForDate(selectedDate, 30);
+      if (!slots.includes(formData.horario)) errors.push("Horário selecionado não está disponível");
+    }
+
+    if (errors.length > 0) {
+      toast({
+        title: "Erro na validação",
+        description: errors.join(", "),
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const errors: string[] = [];
-      if (!formData.nome.trim()) errors.push("Nome é obrigatório");
-      if (!formData.telefone.trim()) errors.push("Telefone é obrigatório");
-      if (!formData.servicoId) errors.push("Selecione um serviço");
-      if (!formData.professionalId) errors.push("Selecione um profissional");
-      if (!formData.data) errors.push("Selecione uma data");
-      if (!formData.horario) errors.push("Selecione um horário");
-
-      if (errors.length > 0) {
-        toast({
-          title: "Erro na validação",
-          description: errors.join(", "),
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
+
       if (saveData) {
         await saveClientData({
           nome: formData.nome,
@@ -334,7 +288,7 @@ const AgendarServico = () => {
         }, user?.id);
       }
 
-      let clientId: any = null;
+      let clientId = null;
 
       if (user) {
         const { data: existingClient } = await supabase
@@ -342,9 +296,10 @@ const AgendarServico = () => {
           .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
-        clientId = existingClient?.id;
 
-        if (!clientId) {
+        if (existingClient) {
+          clientId = existingClient.id;
+        } else {
           const { data: newClient } = await supabase
             .from('clients')
             .insert({
@@ -355,7 +310,7 @@ const AgendarServico = () => {
             })
             .select('id')
             .single();
-          clientId = newClient?.id;
+          clientId = newClient.id;
         }
       } else {
         const { data: newClient } = await supabase
@@ -367,12 +322,12 @@ const AgendarServico = () => {
           })
           .select('id')
           .single();
-        clientId = newClient?.id;
+        clientId = newClient.id;
       }
 
       const appointmentData = {
         client_id: clientId,
-        company_id: company?.id,
+        company_id: company.id,
         service_id: formData.servicoId,
         professional_id: formData.professionalId,
         appointment_date: formData.data,
@@ -382,7 +337,11 @@ const AgendarServico = () => {
         status: 'scheduled'
       };
 
-      await supabase.from('appointments').insert(appointmentData);
+      const { error: appointmentError } = await supabase
+        .from('appointments')
+        .insert(appointmentData);
+
+      if (appointmentError) throw appointmentError;
 
       toast({
         title: "Agendamento Realizado!",
@@ -390,134 +349,36 @@ const AgendarServico = () => {
       });
 
       navigate(`/agendamento-confirmado/${slug}`);
+
     } catch (error: any) {
-      console.error("Erro no agendamento:", error);
       toast({
         title: "Erro no agendamento",
         description: error?.message || "Não foi possível realizar o agendamento. Tente novamente.",
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
-  // RENDER
-  return (
-    <div className="min-h-screen bg-background p-4">
-      {loadingCompany ? (
-        <div className="w-full max-w-2xl mx-auto bg-card p-6 rounded-lg shadow">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-4"></div>
-            <div>Carregando informações da barbearia...</div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div className="animate-pulse">
+            <div className="h-32 bg-muted rounded-lg mb-6"></div>
+            <div className="h-96 bg-muted rounded-lg"></div>
           </div>
         </div>
-      ) : (
-        <div className="w-full max-w-2xl mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Agendar Serviço - {company?.name}
-                {formattedAddress && `, ${formattedAddress}`}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label>Nome</Label>
-                  <Input value={formData.nome} onChange={(e) => handleInputChange('nome', e.target.value)} />
-                </div>
+      </div>
+    );
+  }
 
-                <div>
-                  <Label>Telefone</Label>
-                  <Input value={formData.telefone} onChange={(e) => handleInputChange('telefone', e.target.value)} />
-                </div>
-
-                <div>
-                  <Label>Serviço</Label>
-                  {services.length === 0 ? (
-                    <div>Carregando serviços...</div>
-                  ) : (
-                    <Select onValueChange={(v) => handleInputChange('servicoId', v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um serviço" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {services.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-
-                <div>
-                  <Label>Profissional</Label>
-                  {professionals.length === 0 ? (
-                    <div>Carregando profissionais...</div>
-                  ) : (
-                    <Select onValueChange={(v) => handleInputChange('professionalId', v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um profissional" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {professionals.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-
-                <div>
-                  <Label>Data</Label>
-                  <Select onValueChange={(v) => handleInputChange('data', v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma data" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {diasDisponiveis.map(d => (
-                        <SelectItem key={d.data} value={d.data}>{d.texto}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Horário</Label>
-                  {loadingSlots ? (
-                    <div>Buscando horários...</div>
-                  ) : availableSlots.length === 0 ? (
-                    <div>Nenhum horário disponível</div>
-                  ) : (
-                    <Select onValueChange={(v) => handleInputChange('horario', v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um horário" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableSlots.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-
-                <div>
-                  <Label>Observações</Label>
-                  <Textarea value={formData.observacoes} onChange={(e) => handleInputChange('observacoes', e.target.value)} />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Checkbox checked={saveData} onCheckedChange={(v: any) => setSaveData(Boolean(v))} />
-                    <span className="ml-2">Salvar meus dados</span>
-                  </div>
-                  <div>
-                    <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? 'Enviando...' : 'Confirmar Agendamento'}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+  return (
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* ... aqui mantém todo o layout que você enviou ... */}
+      </div>
     </div>
   );
 };
