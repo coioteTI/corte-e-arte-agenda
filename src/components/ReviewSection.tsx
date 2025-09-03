@@ -130,17 +130,22 @@ export const ReviewSection = ({
       const reviewData = {
         client_id: clientData.id,
         company_id: companyId,
-        professional_id: professionalId,
-        appointment_id: appointmentId,
+        professional_id: professionalId || null,
+        appointment_id: appointmentId || null,
         rating,
         comment: comment.trim() || null,
       };
+
+      console.log('Dados da avaliação:', reviewData);
 
       const { error } = await supabase
         .from('reviews')
         .insert(reviewData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro do Supabase:', error);
+        throw error;
+      }
 
       toast.success('Avaliação enviada com sucesso!');
       setShowReviewForm(false);
