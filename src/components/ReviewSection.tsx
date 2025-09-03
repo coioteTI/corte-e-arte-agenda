@@ -92,16 +92,40 @@ export const ReviewSection = ({
     setSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      if (!user) {
+        toast.error('É necessário fazer login para avaliar');
+        return;
+      }
 
-      // Buscar o client_id do usuário
-      const { data: clientData } = await supabase
+      // Buscar ou criar o client_id do usuário
+      let { data: clientData } = await supabase
         .from('clients')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (!clientData) throw new Error('Cliente não encontrado');
+      if (!clientData) {
+        // Criar cliente se não existir
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const { data: newClient, error: clientError } = await supabase
+          .from('clients')
+          .insert({
+            user_id: user.id,
+            name: profileData?.full_name || user.email?.split('@')[0] || 'Cliente',
+            email: user.email,
+            phone: ''
+          })
+          .select('id')
+          .single();
+
+        if (clientError) throw clientError;
+        clientData = newClient;
+      }
 
       const reviewData = {
         client_id: clientData.id,
