@@ -195,11 +195,6 @@ const AgendarServico = () => {
         description: "Não foi possível carregar os dados da barbearia.",
         variant: "destructive",
       });
-      
-      // Auto-dismiss after 3 seconds
-      setTimeout(() => {
-        // Toast will auto-dismiss
-      }, 3000);
     } finally {
       setLoading(false);
     }
@@ -207,11 +202,8 @@ const AgendarServico = () => {
 
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
     try {
-      console.log('Fetching slots for:', { professionalId, date, companyId: company?.id });
-      
       // Verificar se os dados necessários estão disponíveis
       if (!company?.id) {
-        console.error('Company ID not available for fetching slots');
         setAvailableSlots([]);
         return;
       }
@@ -220,13 +212,9 @@ const AgendarServico = () => {
       const selectedDate = new Date(date);
       let allTimeslots: string[] = [];
       
-      console.log('Business hours available:', !!getAvailableTimeSlotsForDate);
-      
       if (getAvailableTimeSlotsForDate) {
         allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30);
-        console.log('Generated timeslots from business hours:', allTimeslots);
       } else {
-        console.log('Using fallback timeslots');
         // Fallback: gerar horários padrão se não houver horários de funcionamento definidos
         for (let hour = 8; hour < 18; hour++) {
           allTimeslots.push(`${hour.toString().padStart(2, '0')}:00`);
@@ -235,7 +223,6 @@ const AgendarServico = () => {
       }
 
       if (allTimeslots.length === 0) {
-        console.log('No timeslots available for this date');
         setAvailableSlots([]);
         return;
       }
@@ -252,13 +239,10 @@ const AgendarServico = () => {
         console.error('Error fetching existing appointments:', error);
       }
 
-      console.log('Existing appointments:', existingAppointments);
-
       // Filtrar horários ocupados
       const occupiedSlots = existingAppointments?.map(apt => apt.appointment_time) || [];
       const availableTimeslots = allTimeslots.filter(slot => !occupiedSlots.includes(slot));
 
-      console.log('Final available slots:', availableTimeslots);
       setAvailableSlots(availableTimeslots);
     } catch (error) {
       console.error('Error fetching available slots:', error);
@@ -268,11 +252,6 @@ const AgendarServico = () => {
         description: "Não foi possível carregar os horários disponíveis.",
         variant: "destructive",
       });
-      
-      // Auto-dismiss after 3 seconds
-      setTimeout(() => {
-        // Toast will auto-dismiss
-      }, 3000);
     }
   };
 
@@ -295,12 +274,6 @@ const AgendarServico = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    console.log('=== STARTING APPOINTMENT BOOKING ===');
-    console.log('Form data:', formData);
-    console.log('Company data:', company);
-    console.log('Services available:', services);
-    console.log('Professionals available:', professionals);
-    
     // Validações melhoradas
     const errors = [];
     
@@ -310,8 +283,6 @@ const AgendarServico = () => {
     if (!formData.professionalId) errors.push("Selecione um profissional");
     if (!formData.data) errors.push("Selecione uma data");
     if (!formData.horario) errors.push("Selecione um horário");
-    
-    console.log('Validation errors found:', errors);
     
     // Validar formato do telefone (básico)
     if (formData.telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(formData.telefone) && !/^\d{10,11}$/.test(formData.telefone.replace(/\D/g, ''))) {
@@ -325,7 +296,6 @@ const AgendarServico = () => {
 
     // Validar se a data não é um domingo ou dia não disponível
     const selectedDate = new Date(formData.data);
-    console.log('Selected date:', selectedDate, 'isDateAvailable:', isDateAvailable);
     if (!isDateAvailable || !isDateAvailable(selectedDate)) {
       errors.push("Data selecionada não está disponível para agendamentos");
     }
@@ -333,8 +303,6 @@ const AgendarServico = () => {
     // Validar se o horário está dentro do expediente
     if (getAvailableTimeSlotsForDate && formData.data) {
       const availableSlots = getAvailableTimeSlotsForDate(selectedDate, 30);
-      console.log('Available slots for selected date:', availableSlots);
-      console.log('Selected time slot:', formData.horario);
       if (!availableSlots.includes(formData.horario)) {
         errors.push("Horário selecionado não está disponível");
       }
@@ -345,34 +313,21 @@ const AgendarServico = () => {
     const selectedService = services.find(s => s.id === formData.servicoId);
     const selectedProfessional = professionals.find(p => p.id === formData.professionalId);
     
-    console.log('Selected service:', selectedService);
-    console.log('Selected professional:', selectedProfessional);
-    
-    console.log('Final validation errors:', errors);
-    
     if (errors.length > 0) {
-      console.log('Validation failed, stopping submission');
       toast({
         title: "Erro na validação",
         description: errors.join(", "),
         variant: "destructive",
       });
-      
-      // Auto-dismiss after 3 seconds
-      setTimeout(() => {
-        // Toast will auto-dismiss
-      }, 3000);
       setIsLoading(false);
       return;
     }
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
-    console.log('Current user:', user ? 'logged in' : 'guest');
     
     // Save client data if checkbox is checked
     if (saveData) {
-      console.log('Saving client data...');
       await saveClientData({
         nome: formData.nome,
         telefone: formData.telefone,
@@ -381,11 +336,8 @@ const AgendarServico = () => {
     }
 
     try {
-      console.log('=== STARTING CLIENT CREATION/RETRIEVAL ===');
-      
       // Validar se company.id existe
       if (!company?.id) {
-        console.error('Company ID not found!');
         throw new Error('ID da empresa não encontrado');
       }
       
@@ -393,7 +345,6 @@ const AgendarServico = () => {
       let clientId = null;
       
       if (user) {
-        console.log('User logged in, checking for existing client');
         // Check if client exists
         const { data: existingClient, error: existingClientError } = await supabase
           .from('clients')
@@ -402,15 +353,12 @@ const AgendarServico = () => {
           .maybeSingle();
 
         if (existingClientError) {
-          console.error('Error checking existing client:', existingClientError);
           throw existingClientError;
         }
 
         if (existingClient) {
-          console.log('Existing client found:', existingClient.id);
           clientId = existingClient.id;
         } else {
-          console.log('Creating new client for logged user');
           // Create new client
           const { data: newClient, error: clientError } = await supabase
             .from('clients')
@@ -424,14 +372,11 @@ const AgendarServico = () => {
             .single();
 
           if (clientError) {
-            console.error('Error creating client for logged user:', clientError);
             throw clientError;
           }
-          console.log('New client created for logged user:', newClient.id);
           clientId = newClient.id;
         }
       } else {
-        console.log('Guest user, creating client without user_id');
         // Create client without user_id for guests
         const { data: newClient, error: clientError } = await supabase
           .from('clients')
@@ -444,21 +389,14 @@ const AgendarServico = () => {
           .single();
 
         if (clientError) {
-          console.error('Error creating guest client:', clientError);
-          console.error('Client error details:', clientError);
           throw clientError;
         }
-        console.log('Guest client created:', newClient.id);
         clientId = newClient.id;
       }
 
       if (!clientId) {
-        console.error('Client ID is null after creation/retrieval');
         throw new Error('Não foi possível criar o cliente');
       }
-
-      console.log('=== STARTING APPOINTMENT CREATION ===');
-      console.log('Client ID:', clientId);
 
       // Validate all required data is present
       const requiredFields = {
@@ -470,9 +408,7 @@ const AgendarServico = () => {
         appointment_time: formData.horario
       };
 
-      console.log('Required fields check:');
       Object.entries(requiredFields).forEach(([key, value]) => {
-        console.log(`${key}: ${value} (${typeof value})`);
         if (!value) {
           throw new Error(`Campo obrigatório ausente: ${key}`);
         }
@@ -491,8 +427,6 @@ const AgendarServico = () => {
         status: 'scheduled'
       };
       
-      console.log('Final appointment data to insert:', appointmentData);
-      
       const { data: insertedAppointment, error: appointmentError } = await supabase
         .from('appointments')
         .insert(appointmentData)
@@ -500,13 +434,6 @@ const AgendarServico = () => {
         .single();
 
       if (appointmentError) {
-        console.error('=== APPOINTMENT INSERT ERROR ===');
-        console.error('Error code:', appointmentError.code);
-        console.error('Error message:', appointmentError.message);
-        console.error('Error details:', appointmentError.details);
-        console.error('Error hint:', appointmentError.hint);
-        console.error('Full error object:', appointmentError);
-        
         // More specific error messages
         let userMessage = "Não foi possível realizar o agendamento. ";
         if (appointmentError.message.includes('violates row-level security policy')) {
@@ -525,16 +452,8 @@ const AgendarServico = () => {
           variant: "destructive",
         });
         
-        // Auto-dismiss after 3 seconds
-        setTimeout(() => {
-          // Toast will auto-dismiss
-        }, 3000);
-        
         throw appointmentError;
       }
-      
-      console.log('=== APPOINTMENT CREATED SUCCESSFULLY ===');
-      console.log('Inserted appointment:', insertedAppointment);
 
       toast({
         title: "Agendamento Realizado!",
@@ -543,13 +462,6 @@ const AgendarServico = () => {
       
       navigate(`/agendamento-confirmado/${slug}`);
     } catch (error: any) {
-      console.error('=== GENERAL ERROR IN APPOINTMENT CREATION ===');
-      console.error('Error type:', typeof error);
-      console.error('Error name:', error?.name);
-      console.error('Error message:', error?.message);
-      console.error('Error stack:', error?.stack);
-      console.error('Full error object:', error);
-      
       // Only show toast if not already shown
       if (!error?.message?.includes('row-level security') && 
           !error?.message?.includes('foreign key') && 
@@ -559,11 +471,6 @@ const AgendarServico = () => {
           description: error?.message || "Não foi possível realizar o agendamento. Tente novamente.",
           variant: "destructive",
         });
-        
-        // Auto-dismiss after 3 seconds
-        setTimeout(() => {
-          // Toast will auto-dismiss
-        }, 3000);
       }
     } finally {
       setIsLoading(false);
