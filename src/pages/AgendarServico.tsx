@@ -1,3 +1,4 @@
+// AgendarServico.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,7 @@ const saveClientData = async (data: any, userId?: string) => {
   try {
     localStorage.setItem('clientData', JSON.stringify(data));
     
+    // Also save to database if user is logged in
     if (userId) {
       const { data: existingClient } = await supabase
         .from('clients')
@@ -47,7 +49,7 @@ const saveClientData = async (data: any, userId?: string) => {
       }
     }
   } catch (error) {
-    console.error('Error saving client data:', error);
+    console.error('Erro ao salvar dados do cliente:', error);
   }
 };
 
@@ -87,7 +89,6 @@ const AgendarServico = () => {
   const [loading, setLoading] = useState(true);
   
   const { isDateAvailable, getAvailableTimeSlotsForDate } = useBusinessHours(company?.id || "");
-  
   const diasDisponiveis = gerarProximosDias(isDateAvailable);
   
   const [formData, setFormData] = useState({
@@ -103,48 +104,44 @@ const AgendarServico = () => {
   const [saveData, setSaveData] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Correção: async dentro do useEffect
   useEffect(() => {
-    const init = async () => {
-      await fetchCompanyData();
-      await loadSavedData();
-    };
-    init();
+    fetchCompanyData();
+    loadSavedData();
   }, [slug]);
 
   const loadSavedData = async () => {
-    const saved = loadSavedClientData();
-    if (saved) {
-      setFormData(prev => ({
-        ...prev,
-        nome: saved.nome || "",
-        telefone: saved.telefone || "",
-        email: saved.email || ""
-      }));
-      setSaveData(true);
-    }
-
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      let clientData = null;
+
       if (user) {
-        const { data: clientData } = await supabase
+        const { data: dbClient } = await supabase
           .from('clients')
-          .select('name, phone, email')
+          .select('name, phone, email, address, number, neighborhood, city, state, zip_code')
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (clientData) {
-          setFormData(prev => ({
-            ...prev,
-            nome: clientData.name || prev.nome,
-            telefone: clientData.phone || prev.telefone,
-            email: clientData.email || prev.email
-          }));
-          setSaveData(true);
-        }
+        if (dbClient) clientData = dbClient;
       }
+
+      if (!clientData) {
+        const saved = loadSavedClientData();
+        if (saved) clientData = saved;
+      }
+
+      if (clientData) {
+        setFormData(prev => ({
+          ...prev,
+          nome: clientData.name || clientData.nome || "",
+          telefone: clientData.phone || clientData.telefone || "",
+          email: clientData.email || clientData.email || "",
+        }));
+        setSaveData(true);
+      }
+
     } catch (error) {
-      console.log('No saved client data in database');
+      console.log('Erro ao carregar dados do cliente', error);
     }
   };
 
@@ -163,12 +160,11 @@ const AgendarServico = () => {
 
       if (foundCompany) {
         setCompany(foundCompany);
-        
+
         const { data: servicesData, error: servicesError } = await supabase
           .from('services')
           .select('*')
           .eq('company_id', foundCompany.id);
-
         if (!servicesError) setServices(servicesData || []);
 
         const { data: professionalsData, error: profError } = await supabase
@@ -176,11 +172,10 @@ const AgendarServico = () => {
           .select('*')
           .eq('company_id', foundCompany.id)
           .eq('is_available', true);
-
         if (!profError) setProfessionals(professionalsData || []);
       }
     } catch (error) {
-      console.error('Error fetching company data:', error);
+      console.error('Erro ao carregar dados da barbearia:', error);
       toast({
         title: "Erro ao carregar dados",
         description: "Não foi possível carregar os dados da barbearia.",
@@ -193,14 +188,10 @@ const AgendarServico = () => {
 
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
     try {
-      if (!company?.id) {
-        setAvailableSlots([]);
-        return;
-      }
-      
+      if (!company?.id) return setAvailableSlots([]);
       const selectedDate = new Date(date);
       let allTimeslots: string[] = [];
-      
+
       if (getAvailableTimeSlotsForDate) {
         allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30);
       } else {
@@ -217,16 +208,13 @@ const AgendarServico = () => {
         .eq('appointment_date', date)
         .in('status', ['scheduled', 'confirmed', 'in_progress']);
 
-      if (error) console.error('Error fetching existing appointments:', error);
+      if (error) console.error('Erro ao buscar agendamentos:', error);
 
-      // Proteção extra para undefined
       const occupiedSlots = existingAppointments?.map(apt => apt.appointment_time) || [];
-      const availableTimeslots = allTimeslots.filter(slot => !occupiedSlots.includes(slot));
+      setAvailableSlots(allTimeslots.filter(slot => !occupiedSlots.includes(slot)));
 
-      setAvailableSlots(availableTimeslots);
     } catch (error) {
-      console.error('Error fetching available slots:', error);
-      setAvailableSlots([]);
+      console.error('Erro ao buscar horários disponíveis:', error);
       toast({
         title: "Erro ao carregar horários",
         description: "Não foi possível carregar os horários disponíveis.",
@@ -253,7 +241,124 @@ const AgendarServico = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // ...restante do código permanece igual
+    
+    const errors = [];
+    if (!formData.nome.trim()) errors.push("Nome é obrigatório");
+    if (!formData.telefone.trim()) errors.push("Telefone é obrigatório");
+    if (!formData.servicoId) errors.push("Selecione um serviço");
+    if (!formData.professionalId) errors.push("Selecione um profissional");
+    if (!formData.data) errors.push("Selecione uma data");
+    if (!formData.horario) errors.push("Selecione um horário");
+
+    if (formData.telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(formData.telefone) && !/^\d{10,11}$/.test(formData.telefone.replace(/\D/g, ''))) {
+      errors.push("Formato de telefone inválido");
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.push("Email inválido");
+    }
+
+    const selectedDate = new Date(formData.data);
+    if (!isDateAvailable || !isDateAvailable(selectedDate)) {
+      errors.push("Data selecionada não está disponível");
+    }
+
+    if (getAvailableTimeSlotsForDate && formData.data) {
+      const slots = getAvailableTimeSlotsForDate(selectedDate, 30);
+      if (!slots.includes(formData.horario)) errors.push("Horário selecionado não está disponível");
+    }
+
+    if (errors.length > 0) {
+      toast({
+        title: "Erro na validação",
+        description: errors.join(", "),
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (saveData) {
+        await saveClientData({
+          nome: formData.nome,
+          telefone: formData.telefone,
+          email: formData.email
+        }, user?.id);
+      }
+
+      let clientId = null;
+
+      if (user) {
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (existingClient) {
+          clientId = existingClient.id;
+        } else {
+          const { data: newClient } = await supabase
+            .from('clients')
+            .insert({
+              user_id: user.id,
+              name: formData.nome,
+              phone: formData.telefone,
+              email: formData.email
+            })
+            .select('id')
+            .single();
+          clientId = newClient.id;
+        }
+      } else {
+        const { data: newClient } = await supabase
+          .from('clients')
+          .insert({
+            name: formData.nome,
+            phone: formData.telefone,
+            email: formData.email
+          })
+          .select('id')
+          .single();
+        clientId = newClient.id;
+      }
+
+      const appointmentData = {
+        client_id: clientId,
+        company_id: company.id,
+        service_id: formData.servicoId,
+        professional_id: formData.professionalId,
+        appointment_date: formData.data,
+        appointment_time: formData.horario + ':00',
+        total_price: servicoSelecionado?.price ? Number(servicoSelecionado.price) : null,
+        notes: formData.observacoes || null,
+        status: 'scheduled'
+      };
+
+      const { error: appointmentError } = await supabase
+        .from('appointments')
+        .insert(appointmentData);
+
+      if (appointmentError) throw appointmentError;
+
+      toast({
+        title: "Agendamento Realizado!",
+        description: "Seu agendamento foi confirmado com sucesso.",
+      });
+
+      navigate(`/agendamento-confirmado/${slug}`);
+
+    } catch (error: any) {
+      toast({
+        title: "Erro no agendamento",
+        description: error?.message || "Não foi possível realizar o agendamento. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (loading) {
@@ -272,7 +377,7 @@ const AgendarServico = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* O resto do JSX permanece exatamente igual */}
+        {/* ... aqui mantém todo o layout que você enviou ... */}
       </div>
     </div>
   );
