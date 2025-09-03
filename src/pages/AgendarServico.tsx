@@ -1,4 +1,4 @@
-// AgendarServico.tsx (corrigido para endereço correto)
+// AgendarServico.tsx (revisto)
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +56,7 @@ const gerarProximosDias = (isDateAvailable?: (date: Date) => boolean) => {
   for (let i = 1; i <= 14; i++) {
     const data = new Date(hoje);
     data.setDate(hoje.getDate() + i);
+    // se isDateAvailable definida, usa ela; senão filtra domingo (0)
     if (isDateAvailable ? isDateAvailable(data) : data.getDay() !== 0) {
       dias.push({
         data: data.toISOString().split('T')[0],
@@ -80,6 +81,7 @@ const AgendarServico = () => {
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
 
+  // estados de carregamento separados
   const [loadingCompany, setLoadingCompany] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,12 +100,13 @@ const AgendarServico = () => {
   });
   const [saveData, setSaveData] = useState(false);
 
+  // carregar dados iniciais: empresa, serviços e profissionais
   useEffect(() => {
     let mounted = true;
-
     const loadData = async () => {
       setLoadingCompany(true);
       try {
+        // buscar empresas (seu código original usava limit(10) e buscava pelo slug)
         const { data: companies, error } = await supabase
           .from('companies')
           .select('id, name, phone, instagram, email, address, number, neighborhood, city, state, zip_code, primary_color, business_hours')
@@ -144,6 +147,7 @@ const AgendarServico = () => {
       }
     };
 
+    // carregar dados salvos do cliente (localStorage + supabase)
     const loadSaved = async () => {
       const saved = loadSavedClientData();
       if (saved) {
@@ -176,6 +180,7 @@ const AgendarServico = () => {
           }
         }
       } catch (err) {
+        // silent
         console.log('Sem dados salvos no banco (ou erro ao buscar).');
       }
     };
@@ -186,6 +191,7 @@ const AgendarServico = () => {
     return () => { mounted = false; };
   }, [slug, toast]);
 
+  // memoiza dias disponiveis pra não rodar gerarProximosDias antes do hook
   const diasDisponiveis = useMemo(() => gerarProximosDias(isDateAvailable), [isDateAvailable, company?.id]);
 
   const servicoSelecionado = services.find(s => s.id === formData.servicoId);
@@ -197,7 +203,9 @@ const AgendarServico = () => {
 
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
     setAvailableSlots([]);
-    if (!company?.id || !professionalId || !date) return;
+    if (!company?.id || !professionalId || !date) {
+      return;
+    }
 
     setLoadingSlots(true);
     try {
@@ -205,8 +213,10 @@ const AgendarServico = () => {
       let allTimeslots: string[] = [];
 
       if (getAvailableTimeSlotsForDate) {
+        // se implementado, usa horário real da empresa
         allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30) || [];
       } else {
+        // fallback: gera de 08:00 a 17:30
         for (let hour = 8; hour < 18; hour++) {
           allTimeslots.push(`${hour.toString().padStart(2, '0')}:00`);
           allTimeslots.push(`${hour.toString().padStart(2, '0')}:30`);
@@ -238,6 +248,7 @@ const AgendarServico = () => {
     }
   };
 
+  // sempre que profissional ou data mudarem, recarrega horários
   useEffect(() => {
     if (formData.professionalId && formData.data) {
       fetchAvailableSlots(formData.professionalId, formData.data);
@@ -349,6 +360,7 @@ const AgendarServico = () => {
   // RENDER
   return (
     <div className="min-h-screen bg-background p-4">
+      {/* Spinner pequeno enquanto carrega os dados da empresa */}
       {loadingCompany ? (
         <div className="w-full max-w-2xl mx-auto bg-card p-6 rounded-lg shadow">
           <div className="flex items-center justify-center">
@@ -360,10 +372,7 @@ const AgendarServico = () => {
         <div className="w-full max-w-2xl mx-auto">
           <Card>
             <CardHeader>
-              <CardTitle>
-                Agendar Serviço - {company?.name} 
-                {company?.address && `, ${company.address}, ${company.number} - ${company.neighborhood}, ${company.city} - ${company.state}, ${company.zip_code}`}
-              </CardTitle>
+              <CardTitle>Agendar Serviço - {company?.name}</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
