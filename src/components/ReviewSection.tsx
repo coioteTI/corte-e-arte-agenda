@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { getClientKey } from '@/lib/getClientKey';
 
 interface Review {
   id: string;
@@ -91,40 +92,69 @@ export const ReviewSection = ({
 
     setSubmitting(true);
     try {
+      const clientKey = await getClientKey();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('É necessário fazer login para avaliar');
-        return;
-      }
-
-      // Buscar ou criar o client_id do usuário
-      let { data: clientData } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (!clientData) {
-        // Criar cliente se não existir
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('full_name')
+      
+      // Buscar ou criar cliente
+      let clientData;
+      
+      if (user) {
+        // Usuário logado - buscar cliente pelo user_id
+        let { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
 
-        const { data: newClient, error: clientError } = await supabase
-          .from('clients')
-          .insert({
-            user_id: user.id,
-            name: profileData?.full_name || user.email?.split('@')[0] || 'Cliente',
-            email: user.email,
-            phone: ''
-          })
-          .select('id')
-          .single();
+        if (!existingClient) {
+          // Criar cliente para usuário logado
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-        if (clientError) throw clientError;
-        clientData = newClient;
+          const { data: newClient, error: clientError } = await supabase
+            .from('clients')
+            .insert({
+              user_id: user.id,
+              name: profileData?.full_name || user.email?.split('@')[0] || 'Cliente',
+              email: user.email,
+              phone: ''
+            })
+            .select('id')
+            .single();
+
+          if (clientError) throw clientError;
+          clientData = newClient;
+        } else {
+          clientData = existingClient;
+        }
+      } else {
+        // Usuário anônimo - buscar cliente pelo phone (usando client_key como phone)
+        let { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('phone', clientKey)
+          .maybeSingle();
+
+        if (!existingClient) {
+          // Criar cliente anônimo
+          const { data: newClient, error: clientError } = await supabase
+            .from('clients')
+            .insert({
+              name: 'Cliente Anônimo',
+              phone: clientKey, // Usar client_key como identificador
+              email: null
+            })
+            .select('id')
+            .single();
+
+          if (clientError) throw clientError;
+          clientData = newClient;
+        } else {
+          clientData = existingClient;
+        }
       }
 
       const reviewData = {
