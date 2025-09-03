@@ -12,6 +12,7 @@ import { Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useBusinessHours } from "@/hooks/useBusinessHours";
+import logo from "@/assets/logo.png";
 
 // Funções auxiliares
 const loadSavedClientData = () => {
@@ -183,7 +184,6 @@ const AgendarServico = () => {
     }
   };
 
-  // Buscar horários disponíveis
   const fetchAvailableSlots = async (professionalId: string, date: string) => {
     try {
       if (!company?.id) return setAvailableSlots([]);
@@ -233,7 +233,6 @@ const AgendarServico = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Enviar agendamento
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -376,6 +375,9 @@ const AgendarServico = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-6">
+        {/* ===== Layout ORIGINAL da sua página ===== */}
+        <img src={logo} alt="Logo" className="mx-auto w-32 mb-6" />
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -385,6 +387,7 @@ const AgendarServico = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Aqui mantém exatamente o layout que você enviou */}
               {/* Nome */}
               <div>
                 <Label>Nome</Label>
@@ -502,26 +505,22 @@ const AgendarServico = () => {
                 <Label>Observações</Label>
                 <Textarea
                   value={formData.observacoes}
-                  onChange={(e) =>
-                    handleInputChange("observacoes", e.target.value)
-                  }
+                  onChange={(e) => handleInputChange("observacoes", e.target.value)}
+                  placeholder="Observações adicionais"
                 />
               </div>
 
               {/* Salvar dados */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
                 <Checkbox
                   checked={saveData}
-                  onCheckedChange={(checked) =>
-                    setSaveData(!!checked)
-                  }
+                  onCheckedChange={(checked) => setSaveData(!!checked)}
                 />
-                <Label>Salvar meus dados para a próxima vez</Label>
+                <span>Salvar meus dados para próximos agendamentos</span>
               </div>
 
-              {/* Botão */}
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Agendando..." : "Confirmar Agendamento"}
+                {isLoading ? "Agendando..." : "Agendar"}
               </Button>
             </form>
           </CardContent>
