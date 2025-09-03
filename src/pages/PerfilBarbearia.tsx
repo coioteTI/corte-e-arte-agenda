@@ -389,7 +389,7 @@ const PerfilBarbearia = () => {
         </div>
 
         {/* Avaliações da barbearia */}
-        <ReviewSection companyId={company.id} />
+        <ReviewSection companyId={company.id} canReview={true} />
       </div>
       
       {/* WhatsApp Widget */}
