@@ -143,25 +143,28 @@ export default function AgendarServico() {
     setSubmitting(true);
     try {
       await new Promise((r) => setTimeout(r, 900));
+
       if (saveForFuture) {
-        localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
+        localStorage.setItem(
+          "agendamento_form_v1",
+          JSON.stringify({ fullName, whatsapp, email })
+        );
       } else {
         localStorage.removeItem("agendamento_form_v1");
       }
+
       setMessage({
         type: "success",
-        text: `✅ Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`,
+        text: `🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`,
       });
+
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
       setSelectedTime(undefined);
     } catch (err) {
       console.error(err);
-      setMessage({
-        type: "error",
-        text: "Erro ao confirmar agendamento. Tente novamente.",
-      });
+      setMessage({ type: "error", text: "Erro ao confirmar agendamento. Tente novamente." });
     } finally {
       setSubmitting(false);
     }
@@ -174,12 +177,9 @@ export default function AgendarServico() {
 
   return (
     <div className="max-w-3xl mx-auto p-4">
-      {/* Botão Voltar */}
+      {/* Voltar */}
       <div className="mb-4">
-        <Button
-          onClick={() => history.back()}
-          className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold glow inline-flex items-center gap-2"
-        >
+        <Button size="sm" className="mb-2 hover:scale-105 transition-transform" onClick={() => window.history.back()}>
           🔙 Voltar
         </Button>
       </div>
@@ -190,52 +190,63 @@ export default function AgendarServico() {
           <CardTitle>Agendar em Barbearia Teste</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 flex-wrap mt-2">
-            <a
-              href="https://wa.me/5511944887878"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-5 py-2 rounded-lg font-semibold text-white glow"
-              style={{ backgroundColor: "#25D366" }}
-            >
-              📱 WhatsApp
-            </a>
-            <a
-              href="https://instagram.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-5 py-2 rounded-lg font-semibold text-white glow"
-              style={{
-                backgroundImage:
-                  "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
-              }}
-            >
-              📸 Instagram
-            </a>
-            <a
-              href="https://www.google.com/maps?q=Rua+Rubens+Lopes+da+Silva,+250,+Jandira,+SP"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-5 py-2 rounded-lg font-semibold text-white glow"
-              style={{ backgroundColor: "#FF4500" }}
-            >
-              📍 Localização
-            </a>
+          <p className="text-sm mb-2">Preencha os dados para confirmar seu agendamento</p>
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="w-12 h-12 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold">
+              B
+            </div>
+            <div className="flex-1 flex flex-col gap-2">
+              <div className="flex flex-wrap gap-4">
+                <a
+                  href="https://wa.me/5511944887878"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-green-500 dark:bg-green-600 transition-transform"
+                >
+                  📱 WhatsApp
+                </a>
+
+                <a
+                  href="https://instagram.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 transition-transform"
+                >
+                  📸 Instagram
+                </a>
+
+                <a
+                  href="mailto:teste52@gmail.com"
+                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-blue-500 dark:bg-blue-600 transition-transform"
+                >
+                  ✉️ E-mail
+                </a>
+
+                <a
+                  href="https://www.google.com/maps/search/?api=1&query=Rua+Rubens+Lopes+da+Silva,+250,+Jandira,+São+Paulo"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-red-500 dark:bg-red-600 transition-transform"
+                >
+                  📍 Localização
+                </a>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Horários */}
+      {/* Horários de Funcionamento */}
       <Card className="mb-4 bg-neutral-800">
         <CardHeader>
           <CardTitle>Horários de Funcionamento</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             {["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"].map((day, i) => (
-              <div key={i} className="p-2 bg-gray-900 rounded">
-                <div className="font-semibold text-center">{day}</div>
-                <div className="text-center">{day === "Domingo" ? "Fechado" : "08:00 - 18:00"}</div>
+              <div key={i} className="p-2 bg-neutral-700 rounded-md">
+                <div className="font-semibold">{day}</div>
+                <div>{i === 6 ? "Fechado" : "08:00 - 18:00"}</div>
               </div>
             ))}
           </div>
@@ -254,21 +265,34 @@ export default function AgendarServico() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Nome completo *</Label>
-                  <Input placeholder="Ex: Elizeu Matos" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                  <Input
+                    placeholder="Ex: Elizeu Matos"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label>WhatsApp *</Label>
-                  <Input placeholder="+55 11 9xxxx-xxxx" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+                  <Input
+                    placeholder="+55 11 9xxxx-xxxx"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                  />
                 </div>
-                <div className="md:col-span-2">
+                <div>
                   <Label>E-mail (opcional)</Label>
-                  <Input placeholder="seuemail@exemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Input
+                    placeholder="seuemail@exemplo.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
 
             <hr className="my-4" />
 
+            {/* Serviço */}
             <div className="mb-4">
               <Label>Escolha o Serviço *</Label>
               <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
@@ -276,11 +300,16 @@ export default function AgendarServico() {
                   <SelectValue placeholder="Selecione um serviço" />
                 </SelectTrigger>
                 <SelectContent>
-                  {services.map((s) => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                  {services.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Profissional */}
             <div className="mb-4">
               <Label>Profissional *</Label>
               <Select value={selectedProfessionalId} onValueChange={(v) => setSelectedProfessionalId(v || undefined)}>
@@ -288,19 +317,37 @@ export default function AgendarServico() {
                   <SelectValue placeholder="Selecione um profissional" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredProfessionals.length === 0 ? (
-                    <SelectItem value="none" disabled>Nenhum profissional disponível</SelectItem>
-                  ) : filteredProfessionals.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  {filteredProfessionals.length === 0 && (
+                    <SelectItem value="none" disabled>
+                      Nenhum profissional disponível
+                    </SelectItem>
+                  )}
+                  {filteredProfessionals.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Data e Horário */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               <div>
                 <Label>Data *</Label>
-                <Input type="date" min={todayIso()} value={selectedDate ?? ""} onChange={(e) => setSelectedDate(e.target.value || undefined)} disabled={!selectedProfessionalId} className="border rounded p-2 bg-gray-900 text-white"/>
+                <Input
+                  type="date"
+                  min={todayIso()}
+                  value={selectedDate ?? ""}
+                  onChange={(e) => setSelectedDate(e.target.value || undefined)}
+                  className="bg-neutral-700 text-white rounded-md"
+                  disabled={!selectedProfessionalId}
+                />
+                {!selectedProfessionalId && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Selecione um profissional primeiro
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Horário *</Label>
@@ -310,53 +357,65 @@ export default function AgendarServico() {
                   </SelectTrigger>
                   <SelectContent>
                     {selectedProfessionalId && selectedDate ? (
-                      availableTimes.length ? availableTimes.map(t => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      )) : <SelectItem value="none" disabled>Sem horários disponíveis</SelectItem>
-                    ) : <SelectItem value="none" disabled>Selecione profissional e data</SelectItem>}
+                      availableTimes.length ? (
+                        availableTimes.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          Sem horários disponíveis
+                        </SelectItem>
+                      )
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        Selecione profissional e data
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
+            {/* Observações */}
             <div className="mb-4">
               <Label>Observações (opcional)</Label>
               <Textarea placeholder="Ex: Preferência de estilo, alguma observação especial..." />
             </div>
 
+            {/* Salvar info */}
             <div className="flex items-center gap-2 mb-4">
               <Checkbox checked={saveForFuture} onCheckedChange={(v) => setSaveForFuture(Boolean(v))} />
               <span className="text-sm">Salvar minhas informações para agendamentos futuros</span>
             </div>
 
             {message && (
-              <div className={`p-3 rounded mb-4 ${message.type === "error" ? "bg-red-600" : message.type === "success" ? "bg-green-600" : "bg-gray-600"}`}>
+              <div className={`p-3 rounded mb-4 ${message.type === "error" ? "bg-red-600" : "bg-green-600"}`}>
                 <span className="text-sm">{message.text}</span>
               </div>
             )}
 
             <div className="flex justify-end">
-              <Button type="submit" disabled={submitting} className="glow">
+              <Button type="submit" disabled={submitting}>
                 {submitting ? "Confirmando..." : "Confirmar Agendamento"}
               </Button>
+            </div>
+
+            <div className="text-xs mt-4 p-3 bg-neutral-900 rounded">
+              Importante: Este é um pré-agendamento. A barbearia entrará em contato via WhatsApp para confirmar a disponibilidade do horário solicitado.
             </div>
           </CardContent>
         </Card>
       </form>
 
-      {/* Glow CSS */}
-      <style>
-        {`
-          .glow {
-            box-shadow: 0 0 8px rgba(255,255,255,0.3);
-            transition: box-shadow 0.3s ease-in-out, transform 0.3s ease-in-out;
-          }
-          .glow:hover {
-            box-shadow: 0 0 20px #f0f, 0 0 40px #0ff, 0 0 60px #ff0;
-            transform: scale(1.05);
-          }
-        `}
-      </style>
+      <style jsx>{`
+        .glow {
+          box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(255, 255, 255, 0.2);
+          transition: box-shadow 0.3s ease-in-out;
+        }
+        .glow:hover {
+          box-shadow: 0 0 20px #f0f, 0 0 40px #0ff, 0 0 60px #ff0;
+        }
+      `}</style>
     </div>
   );
 }
