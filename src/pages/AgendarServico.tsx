@@ -163,7 +163,7 @@ const AgendarServico = () => {
     try {
       const { data: companies, error } = await supabase
         .from("companies")
-        .select("id, name, phone, email, address, city, state, primary_color, business_hours, likes_count")
+        .select("id, name, phone, email, address, number, neighborhood, city, state, primary_color, business_hours, likes_count")
         .limit(10);
 
       if (error) throw error;
@@ -218,7 +218,12 @@ const AgendarServico = () => {
         .eq("appointment_date", date)
         .in("status", ["scheduled", "confirmed", "in_progress"]);
 
-      const occupied = existingAppointments?.map((apt) => apt.appointment_time) || [];
+      const occupied = existingAppointments?.map((apt) => {
+        // Convert time to HH:MM format
+        const timeStr = String(apt.appointment_time);
+        return timeStr.substring(0, 5);
+      }) || [];
+      
       setAvailableSlots(allTimeslots.filter((slot) => !occupied.includes(slot)));
     } catch (error) {
       console.error("Erro slots:", error);
@@ -259,6 +264,28 @@ const AgendarServico = () => {
     setIsLoading(true);
 
     try {
+      // Verificar se o horário ainda está disponível antes de agendar
+      const { data: conflictCheck } = await supabase
+        .from("appointments")
+        .select("id")
+        .eq("professional_id", formData.professionalId)
+        .eq("appointment_date", formData.data)
+        .eq("appointment_time", formData.horario + ":00")
+        .in("status", ["scheduled", "confirmed", "in_progress"])
+        .maybeSingle();
+
+      if (conflictCheck) {
+        toast({
+          title: "Horário não disponível",
+          description: "Este horário já foi agendado. Por favor, escolha outro horário.",
+          variant: "destructive",
+        });
+        // Recarregar os slots disponíveis
+        await fetchAvailableSlots(formData.professionalId, formData.data);
+        setIsLoading(false);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
 
       if (saveData) {
@@ -290,11 +317,11 @@ const AgendarServico = () => {
             })
             .select("id")
             .single();
-          clientId = newClient.id;
+          clientId = newClient?.id;
         }
       }
 
-      await supabase.from("appointments").insert({
+      const { error: insertError } = await supabase.from("appointments").insert({
         client_id: clientId,
         company_id: company.id,
         service_id: formData.servicoId,
@@ -305,9 +332,12 @@ const AgendarServico = () => {
         status: "scheduled",
       });
 
+      if (insertError) throw insertError;
+
       toast({ title: "Sucesso", description: "Agendamento confirmado!" });
       navigate(`/agendamento-confirmado/${slug}`);
     } catch (error: any) {
+      console.error("Erro no agendamento:", error);
       toast({
         title: "Erro",
         description: error?.message || "Não foi possível realizar o agendamento.",
@@ -339,7 +369,7 @@ const AgendarServico = () => {
               <img src={logo} alt="Logo" className="w-24 h-24 rounded-full mb-2" />
               <CardTitle>{company.name}</CardTitle>
               <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <MapPin size={14} /> {company.address}, {company.city} - {company.state}
+                <MapPin size={14} /> {company.address}{company.number && `, ${company.number}`}{company.neighborhood && `, ${company.neighborhood}`}, {company.city} - {company.state}
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <Button variant="outline" size="sm" onClick={handleLike}>
