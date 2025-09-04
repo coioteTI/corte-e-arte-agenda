@@ -20,8 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
  * - salvamento local (localStorage) quando marcar "Salvar minhas informações".
  * - validação mínima antes de confirmar.
  * - mensagens de erro/sucesso simples.
- *
- * Ajuste os dados mock abaixo para integrar com sua API real.
+ * - botões com glow pulsante neon e botão GPS.
  */
 
 type Service = {
@@ -76,37 +75,16 @@ const MOCK_PROFESSIONALS: Professional[] = [
 ];
 
 export default function AgendarServico() {
-  // Form fields
-  const [fullName, setFullName] = useState<string>("");
-  const [whatsapp, setWhatsapp] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-
-  // Selects
+  const [fullName, setFullName] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [email, setEmail] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
-
-  // Other
-  const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [message, setMessage] = useState<{ type: "info" | "error" | "success"; text: string } | null>(
-    null
-  );
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("agendamento_form_v1");
-      if (saved) {
-        const obj = JSON.parse(saved);
-        setFullName(obj.fullName || "");
-        setWhatsapp(obj.whatsapp || "");
-        setEmail(obj.email || "");
-      }
-    } catch (e) {
-      console.warn("Erro ao ler storage", e);
-    }
-  }, []);
+  const [saveForFuture, setSaveForFuture] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
 
   const services = useMemo(() => MOCK_SERVICES, []);
   const professionals = useMemo(() => MOCK_PROFESSIONALS, []);
@@ -125,6 +103,18 @@ export default function AgendarServico() {
     const weekday = dt.getDay();
     return prof.availability[weekday] ?? [];
   }, [selectedProfessionalId, selectedDate, professionals]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("agendamento_form_v1");
+      if (saved) {
+        const obj = JSON.parse(saved);
+        setFullName(obj.fullName || "");
+        setWhatsapp(obj.whatsapp || "");
+        setEmail(obj.email || "");
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     setSelectedProfessionalId(undefined);
@@ -159,86 +149,77 @@ export default function AgendarServico() {
     try {
       await new Promise((r) => setTimeout(r, 900));
       if (saveForFuture) {
-        localStorage.setItem(
-          "agendamento_form_v1",
-          JSON.stringify({ fullName, whatsapp, email })
-        );
+        localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
       } else {
         localStorage.removeItem("agendamento_form_v1");
       }
-      setMessage({
-        type: "success",
-        text: `Agendamento pré-confirmado para ${selectedDate} às ${selectedTime}. Em breve confirmaremos via WhatsApp.`,
-      });
+      setMessage({ type: "success", text: `Agendamento pré-confirmado para ${selectedDate} às ${selectedTime}. Em breve confirmaremos via WhatsApp.` });
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
       setSelectedTime(undefined);
-    } catch (err) {
-      console.error(err);
-      setMessage({
-        type: "error",
-        text: "Erro ao confirmar agendamento. Tente novamente.",
-      });
+    } catch {
+      setMessage({ type: "error", text: "Erro ao confirmar agendamento. Tente novamente." });
     } finally {
       setSubmitting(false);
     }
   }
 
   function todayIso() {
-    const t = new Date();
-    return t.toISOString().split("T")[0];
+    return new Date().toISOString().split("T")[0];
   }
+
+  // Endereço da empresa para GPS
+  const enderecoGoogleMaps = encodeURIComponent("Rua Rubens Lopes da Silva, 250, Parque das Igrejas, Jandira, São Paulo");
 
   return (
     <div className="max-w-3xl mx-auto p-4">
-      {/* Header */}
+      {/* Header card com botões de ação */}
       <Card className="mb-4 bg-neutral-800">
         <CardHeader>
           <CardTitle>Agendar em Barbearia Teste</CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm mb-2">Preencha os dados para confirmar seu agendamento</p>
-          <div className="flex gap-3 items-center">
-            <div className="w-12 h-12 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold">
-              B
-            </div>
-            <div className="flex-1">
-              <div className="text-sm">Rua Rubens Lopes da Silva, 250, Parque das Igrejas, Jandira, São Paulo</div>
-              {/* Botões sociais com glow */}
-              <div className="flex gap-2 mt-2">
-                <a
-                  href="https://wa.me/5511944887878"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_15px_#25D366]"
-                  style={{ backgroundColor: "#25D366" }}
-                >
-                  WhatsApp
-                </a>
-                <a
-                  href="https://instagram.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_15px_#F58529]"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
-                  }}
-                >
-                  Instagram
-                </a>
-                <a
-                  href="mailto:teste52@gmail.com"
-                  className="px-4 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_15px_#4285F4]"
-                  style={{ backgroundColor: "#4285F4" }}
-                >
-                  E-mail
-                </a>
-              </div>
-              <div className="text-xs mt-2">Teste4526@gmail.com</div>
-            </div>
-          </div>
+        <CardContent className="flex gap-2">
+          <a
+            href="https://wa.me/5511944887878"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_20px_#25D366] animate-pulse"
+            style={{ backgroundColor: "#25D366" }}
+          >
+            WhatsApp
+          </a>
+
+          <a
+            href="https://instagram.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_20px_#DD2A7B] animate-pulse"
+            style={{
+              backgroundImage:
+                "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
+            }}
+          >
+            Instagram
+          </a>
+
+          <a
+            href="mailto:teste52@gmail.com"
+            className="px-4 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_20px_#4285F4] animate-pulse"
+            style={{ backgroundColor: "#4285F4" }}
+          >
+            E-mail
+          </a>
+
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${enderecoGoogleMaps}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_20px_#FF9900] animate-pulse"
+            style={{ backgroundColor: "#FF9900" }}
+          >
+            GPS
+          </a>
         </CardContent>
       </Card>
 
@@ -288,11 +269,11 @@ export default function AgendarServico() {
             <CardTitle>Dados do Agendamento</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Seus Dados */}
             <div className="mb-4">
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-semibold">Seus Dados</h3>
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Nome completo *</Label>
@@ -302,6 +283,7 @@ export default function AgendarServico() {
                     onChange={(e) => setFullName(e.target.value)}
                   />
                 </div>
+
                 <div>
                   <Label>WhatsApp *</Label>
                   <Input
@@ -310,6 +292,7 @@ export default function AgendarServico() {
                     onChange={(e) => setWhatsapp(e.target.value)}
                   />
                 </div>
+
                 <div>
                   <Label>E-mail (opcional)</Label>
                   <Input
@@ -423,12 +406,12 @@ export default function AgendarServico() {
               </div>
             )}
 
-            {/* Botão Confirmar */}
             <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-6 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_20px_#F58529] bg-gradient-to-r from-[#F58529] via-[#FEDA77] to-[#DD2A7B]"
+                className="px-6 py-2 rounded-lg font-semibold text-white transition-transform duration-300 ease-in-out transform hover:scale-105 shadow-md hover:shadow-lg hover:shadow-[0_0_25px_#FF00FF] animate-pulse"
+                style={{ backgroundColor: "#FF00FF" }}
               >
                 {submitting ? "Confirmando..." : "Confirmar Agendamento"}
               </button>
