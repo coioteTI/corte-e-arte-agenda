@@ -12,6 +12,33 @@ import { Calendar, Clock, User, Mail, ArrowLeft, MessageSquare, MapPin } from "l
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+// Explicit type definitions to prevent TypeScript infinite recursion
+interface Company {
+  id: string;
+  name: string;
+  address: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  [key: string]: any;
+}
+
+interface Service {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+  [key: string]: any;
+}
+
+interface Professional {
+  id: string;
+  name: string;
+  specialty?: string;
+  [key: string]: any;
+}
+
 // ------- utils -------
 const BLOCKING_STATUSES = ["scheduled", "confirmed", "in_progress", "pending"] as const;
 const toHHMM = (t: string) => (t?.length >= 5 ? t.slice(0, 5) : t || "");
@@ -77,9 +104,9 @@ const AgendarServico = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [company, setCompany] = useState<any>(null);
-  const [services, setServices] = useState<any[]>([]);
-  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -160,17 +187,38 @@ const AgendarServico = () => {
     try {
       if (!slug) throw new Error("Slug não informado");
 
-      let foundCompany = null;
+      let foundCompany: Company | null = null;
+
+      // Use hardcoded Supabase values to avoid accessing protected properties
+      const SUPABASE_URL = "https://gwyickztdeiplccievyt.supabase.co";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd3eWlja3p0ZGVpcGxjY2lldnl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NDExOTYsImV4cCI6MjA2NzIxNzE5Nn0._cyV4DVT3LRVy6yI6ehO9zwgNlr3vsWYQt7-e5K4PyE";
 
       // Primeira tentativa: buscar por slug
-      const { data: companyData } = await supabase.from("companies").select("*").eq("slug", slug);
-      foundCompany = companyData?.[0] || null;
+      const response1 = await fetch(`${SUPABASE_URL}/rest/v1/companies?slug=eq.${slug}&select=*`, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      });
+      
+      if (response1.ok) {
+        const companies = await response1.json();
+        foundCompany = companies[0] || null;
+      }
 
       // Segunda tentativa: buscar por nome convertido para slug
       if (!foundCompany) {
-        const allCompaniesResult = await supabase.from("companies").select("*");
-        const allCompanies = allCompaniesResult.data || [];
-        foundCompany = allCompanies.find((c: any) => toSlug(c?.name || "") === String(slug)) || null;
+        const response2 = await fetch(`${SUPABASE_URL}/rest/v1/companies?select=*`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        
+        if (response2.ok) {
+          const allCompanies = await response2.json();
+          foundCompany = allCompanies.find((c: any) => toSlug(c?.name || "") === String(slug)) || null;
+        }
       }
 
       if (!foundCompany) {
@@ -182,11 +230,26 @@ const AgendarServico = () => {
       setCompany(foundCompany);
 
       // Buscar serviços e profissionais
-      const servicesResult = await supabase.from("services").select("*").eq("company_id", foundCompany.id);
-      const professionalsResult = await supabase.from("professionals").select("*").eq("company_id", foundCompany.id).eq("is_available", true);
+      const [servicesResponse, professionalsResponse] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/services?company_id=eq.${foundCompany.id}&select=*`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        }),
+        fetch(`${SUPABASE_URL}/rest/v1/professionals?company_id=eq.${foundCompany.id}&is_available=eq.true&select=*`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        })
+      ]);
 
-      setServices(servicesResult.data || []);
-      setProfessionals(professionalsResult.data || []);
+      const servicesData = servicesResponse.ok ? await servicesResponse.json() : [];
+      const professionalsData = professionalsResponse.ok ? await professionalsResponse.json() : [];
+
+      setServices(servicesData);
+      setProfessionals(professionalsData);
     } catch (error) {
       console.error("Erro ao carregar dados da barbearia:", error);
       toast({ title: "Erro ao carregar dados", variant: "destructive" });
