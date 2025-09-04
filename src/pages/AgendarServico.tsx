@@ -11,7 +11,6 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { Calendar, Clock, User, Mail, ArrowLeft, MessageSquare, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useBusinessHours } from "@/hooks/useBusinessHours";
 
 // ------- utils -------
 const BLOCKING_STATUSES = ["scheduled", "confirmed", "in_progress", "pending"] as const;
@@ -85,7 +84,23 @@ const AgendarServico = () => {
   const [loading, setLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { isDateAvailable, getAvailableTimeSlotsForDate } = useBusinessHours(company?.id || "");
+  // Simple date availability check
+  const isDateAvailable = (date: Date) => {
+    // Skip Sundays by default
+    return date.getDay() !== 0;
+  };
+
+  const getAvailableTimeSlots = (selectedDate: Date, intervalMinutes: number = 30) => {
+    const slots: string[] = [];
+    for (let hour = 8; hour < 18; hour++) {
+      for (let minute = 0; minute < 60; minute += intervalMinutes) {
+        const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+        slots.push(timeString);
+      }
+    }
+    return slots;
+  };
+
   const diasDisponiveis = gerarProximosDias(isDateAvailable);
 
   const [formData, setFormData] = useState({
@@ -145,17 +160,17 @@ const AgendarServico = () => {
     try {
       if (!slug) throw new Error("Slug não informado");
 
-      const { data: bySlug } = await supabase
-        .from("companies")
-        .select("*")
-        .eq("slug", slug)
-        .maybeSingle();
+      let foundCompany = null;
 
-      let foundCompany = bySlug;
+      // Primeira tentativa: buscar por slug
+      const { data: companyData } = await supabase.from("companies").select("*").eq("slug", slug);
+      foundCompany = companyData?.[0] || null;
 
+      // Segunda tentativa: buscar por nome convertido para slug
       if (!foundCompany) {
-        const { data: allCompanies } = await supabase.from("companies").select("*");
-        foundCompany = allCompanies?.find((c: any) => toSlug(c?.name || "") === String(slug)) || null;
+        const allCompaniesResult = await supabase.from("companies").select("*");
+        const allCompanies = allCompaniesResult.data || [];
+        foundCompany = allCompanies.find((c: any) => toSlug(c?.name || "") === String(slug)) || null;
       }
 
       if (!foundCompany) {
@@ -166,13 +181,12 @@ const AgendarServico = () => {
 
       setCompany(foundCompany);
 
-      const [{ data: servicesData }, { data: professionalsData }] = await Promise.all([
-        supabase.from("services").select("*").eq("company_id", foundCompany.id),
-        supabase.from("professionals").select("*").eq("company_id", foundCompany.id).eq("is_available", true),
-      ]);
+      // Buscar serviços e profissionais
+      const servicesResult = await supabase.from("services").select("*").eq("company_id", foundCompany.id);
+      const professionalsResult = await supabase.from("professionals").select("*").eq("company_id", foundCompany.id).eq("is_available", true);
 
-      setServices(servicesData || []);
-      setProfessionals(professionalsData || []);
+      setServices(servicesResult.data || []);
+      setProfessionals(professionalsResult.data || []);
     } catch (error) {
       console.error("Erro ao carregar dados da barbearia:", error);
       toast({ title: "Erro ao carregar dados", variant: "destructive" });
@@ -190,15 +204,7 @@ const AgendarServico = () => {
       }
 
       const selectedDate = new Date(date);
-      let allTimeslots: string[] = [];
-
-      if (getAvailableTimeSlotsForDate) allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30) || [];
-      else {
-        for (let hour = 8; hour < 18; hour++) {
-          allTimeslots.push(`${hour.toString().padStart(2, "0")}:00`);
-          allTimeslots.push(`${hour.toString().padStart(2, "0")}:30`);
-        }
-      }
+      const allTimeslots = getAvailableTimeSlots(selectedDate, 30);
 
       const { data: existingAppointments } = await supabase
         .from("appointments")
@@ -334,7 +340,204 @@ const AgendarServico = () => {
           <ArrowLeft className="h-4 w-4" /> Voltar ao perfil da barbearia
         </Link>
 
-        {/* Aqui você mantém o resto do layout intacto, com cards estilizados */}
+        {/* Company Header */}
+        <Card className="text-center">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-center gap-3">
+              <MapPin className="h-5 w-5 text-primary" />
+              {company?.name}
+            </CardTitle>
+            <p className="text-muted-foreground text-sm">
+              {company?.address}, {company?.number} - {company?.neighborhood}
+            </p>
+            <p className="text-muted-foreground text-sm">
+              {company?.city}, {company?.state}
+            </p>
+          </CardHeader>
+        </Card>
+
+        {/* Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Agendar Serviço
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Personal Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="nome" className="flex items-center gap-2">
+                    <User className="h-4 w-4" /> Nome *
+                  </Label>
+                  <Input
+                    id="nome"
+                    value={formData.nome}
+                    onChange={(e) => handleInputChange("nome", e.target.value)}
+                    placeholder="Seu nome completo"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="telefone">Telefone *</Label>
+                  <Input
+                    id="telefone"
+                    type="tel"
+                    value={formData.telefone}
+                    onChange={(e) => handleInputChange("telefone", e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" /> Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  placeholder="seu@email.com"
+                />
+              </div>
+
+              {/* Service Selection */}
+              <div>
+                <Label>Serviço *</Label>
+                <Select value={formData.servicoId} onValueChange={(value) => handleInputChange("servicoId", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha um serviço" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map((service) => (
+                      <SelectItem key={service.id} value={service.id}>
+                        {service.name} - R$ {service.price.toFixed(2)} ({service.duration} min)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Professional Selection */}
+              <div>
+                <Label>Profissional *</Label>
+                <Select
+                  value={formData.professionalId}
+                  onValueChange={(value) => handleInputChange("professionalId", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha um profissional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {professionals.map((professional) => (
+                      <SelectItem key={professional.id} value={professional.id}>
+                        {professional.name} {professional.specialty && `- ${professional.specialty}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Date Selection */}
+              <div>
+                <Label>Data *</Label>
+                <Select value={formData.data} onValueChange={(value) => handleInputChange("data", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha uma data" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {diasDisponiveis.map((dia) => (
+                      <SelectItem key={dia.data} value={dia.data}>
+                        {dia.texto}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Time Selection */}
+              <div>
+                <Label className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" /> Horário *
+                </Label>
+                <Select
+                  value={formData.horario}
+                  onValueChange={(value) => handleInputChange("horario", value)}
+                  disabled={!formData.professionalId || !formData.data}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={
+                      !formData.professionalId || !formData.data 
+                        ? "Selecione profissional e data primeiro" 
+                        : availableSlots.length === 0 
+                          ? "Nenhum horário disponível" 
+                          : "Escolha um horário"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSlots.map((slot) => (
+                      <SelectItem key={slot} value={slot}>
+                        {slot}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label htmlFor="observacoes" className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> Observações
+                </Label>
+                <Textarea
+                  id="observacoes"
+                  value={formData.observacoes}
+                  onChange={(e) => handleInputChange("observacoes", e.target.value)}
+                  placeholder="Alguma observação especial? (opcional)"
+                />
+              </div>
+
+              {/* Save Data Checkbox */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="save-data"
+                  checked={saveData}
+                  onCheckedChange={(checked) => setSaveData(checked as boolean)}
+                />
+                <Label htmlFor="save-data" className="text-sm">
+                  Salvar meus dados para futuros agendamentos
+                </Label>
+              </div>
+
+              {/* Summary */}
+              {servicoSelecionado && professionalSelecionado && formData.data && formData.horario && (
+                <Card className="bg-muted/50">
+                  <CardContent className="p-4">
+                    <h3 className="font-medium mb-2">Resumo do Agendamento:</h3>
+                    <div className="space-y-1 text-sm">
+                      <p><strong>Serviço:</strong> {servicoSelecionado.name}</p>
+                      <p><strong>Profissional:</strong> {professionalSelecionado.name}</p>
+                      <p><strong>Data:</strong> {new Date(formData.data).toLocaleDateString("pt-BR")}</p>
+                      <p><strong>Horário:</strong> {formData.horario}</p>
+                      <p><strong>Duração:</strong> {servicoSelecionado.duration} minutos</p>
+                      <p><strong>Valor:</strong> R$ {servicoSelecionado.price.toFixed(2)}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Submit Button */}
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                {isLoading ? "Agendando..." : "Confirmar Agendamento"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

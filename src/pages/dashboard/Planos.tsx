@@ -21,8 +21,8 @@ const Planos = () => {
     }
     
     const kiwifyUrls = {
-      mensal: 'https://pay.kiwify.com.br/ftXGkCD',
-      anual: 'https://pay.kiwify.com.br/yu7iXQJ',
+      mensal: 'https://pay.kiwify.com.br/cmCYZ6A',
+      anual: 'https://pay.kiwify.com.br/kHeXa3O',
       teste: 'https://pay.kiwify.com.br/9oNOaqB'
     };
     
@@ -111,8 +111,14 @@ const Planos = () => {
                 <Crown className="h-5 w-5 text-primary" />
                 <CardTitle>Premium Mensal</CardTitle>
               </div>
-              <div className="text-3xl font-bold text-primary">R$ 59</div>
-              <p className="text-sm text-muted-foreground">por mês</p>
+              <div className="flex items-baseline gap-2">
+                <div className="text-3xl font-bold text-primary">R$ 59,90</div>
+                <div className="text-sm text-muted-foreground line-through">R$ 79,90</div>
+              </div>
+              <p className="text-sm text-muted-foreground">primeiro mês com desconto</p>
+              <div className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full w-fit">
+                Depois R$ 79,90/mês
+              </div>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
@@ -167,12 +173,12 @@ const Planos = () => {
                 <CardTitle>Premium Anual</CardTitle>
               </div>
               <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold text-green-600">R$ 500</div>
-                <div className="text-sm text-muted-foreground line-through">R$ 708</div>
+                <div className="text-3xl font-bold text-green-600">R$ 770</div>
+                <div className="text-sm text-muted-foreground line-through">R$ 958,80</div>
               </div>
-              <p className="text-sm text-muted-foreground">por ano</p>
+              <p className="text-sm text-muted-foreground">pagamento à vista</p>
               <div className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded-full w-fit">
-                Economize R$ 208/ano
+                Economize R$ 188,80 por ano
               </div>
             </CardHeader>
             <CardContent>

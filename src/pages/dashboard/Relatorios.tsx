@@ -145,7 +145,7 @@ const Relatorios = () => {
         nome: service.name,
         quantidade: serviceAppointments.length,
         percentual: companyData.appointments.length > 0 ? Math.round((serviceAppointments.length / companyData.appointments.length) * 100) : 0,
-        valor: ['#1f2937', '#374151', '#4b5563', '#6b7280'][index]
+        valor: ['#F0D18A', '#E6C875', '#DCC060', '#D2B84B'][index]
       };
     }) : [];
 
@@ -272,8 +272,8 @@ const Relatorios = () => {
                       <AreaChart data={dadosLucro} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorLucro" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#1f2937" stopOpacity={0.8}/>
-                            <stop offset="95%" stopColor="#1f2937" stopOpacity={0.1}/>
+                            <stop offset="5%" stopColor="#F0D18A" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="#F0D18A" stopOpacity={0.1}/>
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -304,12 +304,12 @@ const Relatorios = () => {
                         <Area 
                           type="monotone" 
                           dataKey="lucro" 
-                          stroke="#1f2937" 
+                          stroke="#F0D18A" 
                           strokeWidth={3}
                           fillOpacity={1} 
                           fill="url(#colorLucro)"
-                          dot={{ fill: '#1f2937', strokeWidth: 2, r: 4 }}
-                          activeDot={{ r: 6, stroke: '#1f2937', strokeWidth: 2, fill: '#ffffff' }}
+                          dot={{ fill: '#F0D18A', strokeWidth: 2, r: 4 }}
+                          activeDot={{ r: 6, stroke: '#F0D18A', strokeWidth: 2, fill: '#ffffff' }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -401,7 +401,7 @@ const Relatorios = () => {
                         />
                         <Bar 
                           dataKey="atendimentos" 
-                          fill="#1f2937" 
+                          fill="#F0D18A" 
                           radius={[4, 4, 0, 0]}
                           name="atendimentos"
                         />
@@ -445,7 +445,7 @@ const Relatorios = () => {
                       <Line 
                         type="monotone" 
                         dataKey="agendamentos" 
-                        stroke="#1f2937" 
+                        stroke="#F0D18A" 
                         strokeWidth={3}
                         dot={{ fill: '#1f2937', strokeWidth: 2, r: 5 }}
                         activeDot={{ r: 7, stroke: '#1f2937', strokeWidth: 2, fill: '#ffffff' }}
