@@ -14,15 +14,6 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 
-/**
- * Comportamento implementado:
- * - evita "tela preta".
- * - selects controlados e encadeados (serviço -> profissionais -> datas -> horário).
- * - salvamento local (localStorage) quando marcar "Salvar minhas informações".
- * - validação mínima antes de confirmar.
- * - mensagens de sucesso personalizadas.
- */
-
 type Service = {
   id: string;
   title: string;
@@ -75,23 +66,19 @@ const MOCK_PROFESSIONALS: Professional[] = [
 ];
 
 export default function AgendarServico() {
-  // Form fields
   const [fullName, setFullName] = useState<string>("");
   const [whatsapp, setWhatsapp] = useState<string>("");
   const [email, setEmail] = useState<string>("");
 
-  // Selects
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
 
-  // Other
   const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
 
-  // Load saved user info
   useEffect(() => {
     try {
       const saved = localStorage.getItem("agendamento_form_v1");
@@ -156,15 +143,19 @@ export default function AgendarServico() {
     setSubmitting(true);
     try {
       await new Promise((r) => setTimeout(r, 900));
+
       if (saveForFuture) {
-        localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
+        localStorage.setItem(
+          "agendamento_form_v1",
+          JSON.stringify({ fullName, whatsapp, email })
+        );
       } else {
         localStorage.removeItem("agendamento_form_v1");
       }
 
       setMessage({
         type: "success",
-        text: "✅ Agendamento realizado com sucesso! Obrigado pelo seu contato 🙏✨",
+        text: `🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`,
       });
 
       setSelectedServiceId(undefined);
@@ -173,29 +164,22 @@ export default function AgendarServico() {
       setSelectedTime(undefined);
     } catch (err) {
       console.error(err);
-      setMessage({
-        type: "error",
-        text: "Erro ao confirmar agendamento. Tente novamente.",
-      });
+      setMessage({ type: "error", text: "Erro ao confirmar agendamento. Tente novamente." });
     } finally {
       setSubmitting(false);
     }
   }
 
   function todayIso() {
-    return new Date().toISOString().split("T")[0];
+    const t = new Date();
+    return t.toISOString().split("T")[0];
   }
 
   return (
     <div className="max-w-3xl mx-auto p-4">
-      {/* Botão Voltar */}
+      {/* Voltar */}
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4"
-          onClick={() => window.history.back()}
-        >
+        <Button size="sm" className="mb-2 hover:scale-105 transition-transform" onClick={() => window.history.back()}>
           🔙 Voltar
         </Button>
       </div>
@@ -207,46 +191,42 @@ export default function AgendarServico() {
         </CardHeader>
         <CardContent>
           <p className="text-sm mb-2">Preencha os dados para confirmar seu agendamento</p>
-          <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap gap-4 items-center">
             <div className="w-12 h-12 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold">
               B
             </div>
-            <div className="flex-1 flex flex-col gap-3">
-              <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 flex flex-col gap-2">
+              <div className="flex flex-wrap gap-4">
                 <a
                   href="https://wa.me/5511944887878"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg font-semibold text-white hover:shadow-lg hover:scale-105 transition-transform duration-300 glow"
-                  style={{ backgroundColor: "#25D366" }}
+                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-green-500 dark:bg-green-600 transition-transform"
                 >
                   📱 WhatsApp
                 </a>
+
                 <a
                   href="https://instagram.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg font-semibold text-white hover:shadow-lg hover:scale-105 transition-transform duration-300 glow"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
-                  }}
+                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 transition-transform"
                 >
                   📸 Instagram
                 </a>
+
                 <a
                   href="mailto:teste52@gmail.com"
-                  className="px-4 py-2 rounded-lg font-semibold text-white hover:shadow-lg hover:scale-105 transition-transform duration-300 glow"
-                  style={{ backgroundColor: "#4285F4" }}
+                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-blue-500 dark:bg-blue-600 transition-transform"
                 >
                   ✉️ E-mail
                 </a>
+
                 <a
                   href="https://www.google.com/maps/search/?api=1&query=Rua+Rubens+Lopes+da+Silva,+250,+Jandira,+São+Paulo"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg font-semibold text-white hover:shadow-lg hover:scale-105 transition-transform duration-300 glow"
-                  style={{ backgroundColor: "#FF4500" }}
+                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-red-500 dark:bg-red-600 transition-transform"
                 >
                   📍 Localização
                 </a>
@@ -261,21 +241,15 @@ export default function AgendarServico() {
         <CardHeader>
           <CardTitle>Horários de Funcionamento</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            { day: "Segunda-feira", hours: "08:00 - 18:00" },
-            { day: "Terça-feira", hours: "08:00 - 18:00" },
-            { day: "Quarta-feira", hours: "08:00 - 18:00" },
-            { day: "Quinta-feira", hours: "08:00 - 18:00" },
-            { day: "Sexta-feira", hours: "08:00 - 18:00" },
-            { day: "Sábado", hours: "08:00 - 18:00" },
-            { day: "Domingo", hours: "Fechado" },
-          ].map((h) => (
-            <div key={h.day} className="p-3 bg-neutral-900 rounded shadow text-center">
-              <div className="font-semibold">{h.day}</div>
-              <div>{h.hours}</div>
-            </div>
-          ))}
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"].map((day, i) => (
+              <div key={i} className="p-2 bg-neutral-700 rounded-md">
+                <div className="font-semibold">{day}</div>
+                <div>{i === 6 ? "Fechado" : "08:00 - 18:00"}</div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -286,12 +260,8 @@ export default function AgendarServico() {
             <CardTitle>Dados do Agendamento</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Seus Dados */}
             <div className="mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-semibold">Seus Dados</h3>
-              </div>
-
+              <h3 className="font-semibold mb-2">Seus Dados</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Nome completo *</Label>
@@ -301,7 +271,6 @@ export default function AgendarServico() {
                     onChange={(e) => setFullName(e.target.value)}
                   />
                 </div>
-
                 <div>
                   <Label>WhatsApp *</Label>
                   <Input
@@ -310,7 +279,6 @@ export default function AgendarServico() {
                     onChange={(e) => setWhatsapp(e.target.value)}
                   />
                 </div>
-
                 <div>
                   <Label>E-mail (opcional)</Label>
                   <Input
@@ -324,7 +292,7 @@ export default function AgendarServico() {
 
             <hr className="my-4" />
 
-            {/* Escolha o Serviço */}
+            {/* Serviço */}
             <div className="mb-4">
               <Label>Escolha o Serviço *</Label>
               <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
@@ -372,12 +340,15 @@ export default function AgendarServico() {
                   min={todayIso()}
                   value={selectedDate ?? ""}
                   onChange={(e) => setSelectedDate(e.target.value || undefined)}
-                  className="border rounded-lg px-2 py-1 shadow focus:ring-2 focus:ring-pink-500 transition"
+                  className="bg-neutral-700 text-white rounded-md"
                   disabled={!selectedProfessionalId}
                 />
-                {!selectedProfessionalId && <p className="text-xs text-muted-foreground mt-1">Selecione um profissional primeiro</p>}
+                {!selectedProfessionalId && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Selecione um profissional primeiro
+                  </p>
+                )}
               </div>
-
               <div>
                 <Label>Horário *</Label>
                 <Select value={selectedTime} onValueChange={(v) => setSelectedTime(v || undefined)}>
@@ -388,13 +359,11 @@ export default function AgendarServico() {
                     {selectedProfessionalId && selectedDate ? (
                       availableTimes.length ? (
                         availableTimes.map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
                         ))
                       ) : (
                         <SelectItem value="none" disabled>
-                          Sem horários disponíveis nesta data
+                          Sem horários disponíveis
                         </SelectItem>
                       )
                     ) : (
@@ -420,7 +389,7 @@ export default function AgendarServico() {
             </div>
 
             {message && (
-              <div className={`p-3 rounded mb-4 ${message.type === "error" ? "bg-red-600" : message.type === "success" ? "bg-green-600" : "bg-gray-600"}`}>
+              <div className={`p-3 rounded mb-4 ${message.type === "error" ? "bg-red-600" : "bg-green-600"}`}>
                 <span className="text-sm">{message.text}</span>
               </div>
             )}
@@ -438,17 +407,13 @@ export default function AgendarServico() {
         </Card>
       </form>
 
-      <style>{`
+      <style jsx>{`
         .glow {
-          box-shadow: 0 0 10px rgba(255,255,255,0.6);
+          box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(255, 255, 255, 0.2);
+          transition: box-shadow 0.3s ease-in-out;
         }
         .glow:hover {
-          animation: glowPulse 1.5s infinite alternate;
-        }
-        @keyframes glowPulse {
-          0% { box-shadow: 0 0 10px rgba(255,255,255,0.6); }
-          50% { box-shadow: 0 0 20px rgba(255,255,255,1); }
-          100% { box-shadow: 0 0 10px rgba(255,255,255,0.6); }
+          box-shadow: 0 0 20px #f0f, 0 0 40px #0ff, 0 0 60px #ff0;
         }
       `}</style>
     </div>
