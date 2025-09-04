@@ -186,69 +186,51 @@ export default function AgendarServico() {
 
       {/* Header card */}
       <Card className="mb-4 bg-neutral-800">
-        <CardHeader>
-          <CardTitle>Agendar em Barbearia Teste</CardTitle>
+        <CardHeader className="flex flex-col items-center gap-2">
+          {/* Logo da empresa */}
+          <img
+            src="/logo.png" // coloque sua logo em public/logo.png
+            alt="Logo da Barbearia"
+            className="w-16 h-16 rounded-full object-cover border-2 border-yellow-600"
+          />
+          <CardTitle className="text-center">Agendar em Barbearia Teste</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm mb-2">Preencha os dados para confirmar seu agendamento</p>
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="w-12 h-12 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold">
-              B
-            </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <div className="flex flex-wrap gap-4">
-                <a
-                  href="https://wa.me/5511944887878"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-green-500 dark:bg-green-600 transition-transform"
-                >
-                  📱 WhatsApp
-                </a>
+          <p className="text-sm mb-2 text-center">Preencha os dados para confirmar seu agendamento</p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <a
+              href="https://wa.me/5511944887878"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-green-500 dark:bg-green-600 transition-transform"
+            >
+              📱 WhatsApp
+            </a>
 
-                <a
-                  href="https://instagram.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 transition-transform"
-                >
-                  📸 Instagram
-                </a>
+            <a
+              href="https://instagram.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 transition-transform"
+            >
+              📸 Instagram
+            </a>
 
-                <a
-                  href="mailto:teste52@gmail.com"
-                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-blue-500 dark:bg-blue-600 transition-transform"
-                >
-                  ✉️ E-mail
-                </a>
+            <a
+              href="mailto:teste52@gmail.com"
+              className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-blue-500 dark:bg-blue-600 transition-transform"
+            >
+              ✉️ E-mail
+            </a>
 
-                <a
-                  href="https://www.google.com/maps/search/?api=1&query=Rua+Rubens+Lopes+da+Silva,+250,+Jandira,+São+Paulo"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-red-500 dark:bg-red-600 transition-transform"
-                >
-                  📍 Localização
-                </a>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Horários de Funcionamento */}
-      <Card className="mb-4 bg-neutral-800">
-        <CardHeader>
-          <CardTitle>Horários de Funcionamento</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            {["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"].map((day, i) => (
-              <div key={i} className="p-2 bg-neutral-700 rounded-md">
-                <div className="font-semibold">{day}</div>
-                <div>{i === 6 ? "Fechado" : "08:00 - 18:00"}</div>
-              </div>
-            ))}
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=Rua+Rubens+Lopes+da+Silva,+250,+Jandira,+São+Paulo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-red-500 dark:bg-red-600 transition-transform"
+            >
+              📍 Localização
+            </a>
           </div>
         </CardContent>
       </Card>
@@ -407,7 +389,7 @@ export default function AgendarServico() {
         </Card>
       </form>
 
-      <style jsx>{`
+      <style>{`
         .glow {
           box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(255, 255, 255, 0.2);
           transition: box-shadow 0.3s ease-in-out;
