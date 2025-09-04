@@ -1,469 +1,436 @@
 // AgendarServico.tsx
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useParams, useNavigate } from "react-router-dom";
-import { MapPin, Heart } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useBusinessHours } from "@/hooks/useBusinessHours";
-import logo from "@/assets/logo.png";
 
-// Helpers
-const loadSavedClientData = () => {
-  try {
-    const saved = localStorage.getItem("clientData");
-    return saved ? JSON.parse(saved) : null;
-  } catch {
+/**
+ * Comportamento implementado:
+ * - evita "tela preta" (nunca esconde todo componente por loading).
+ * - selects controlados e encadeados (serviço -> profissionais -> datas -> horário).
+ * - salvamento local (localStorage) quando marcar "Salvar minhas informações".
+ * - validação mínima antes de confirmar.
+ * - mensagens de erro/sucesso simples.
+ *
+ * Ajuste os dados mock abaixo para integrar com sua API real.
+ */
+
+type Service = {
+  id: string;
+  title: string;
+  durationMinutes: number;
+  price?: number;
+};
+
+type Professional = {
+  id: string;
+  name: string;
+  servicesIds: string[]; // quais serviços atende
+  // disponibilidade simples: horários por dia da semana (0 domingo ... 6 sábado)
+  availability: Record<number, string[]>; // exemplos: {1: ["08:00", "09:00", ...], ...}
+};
+
+const MOCK_SERVICES: Service[] = [
+  { id: "s1", title: "Corte Masculino", durationMinutes: 30, price: 30 },
+  { id: "s2", title: "Barba", durationMinutes: 20, price: 20 },
+  { id: "s3", title: "Corte + Barba", durationMinutes: 50, price: 45 },
+];
+
+const MOCK_PROFESSIONALS: Professional[] = [
+  {
+    id: "p1",
+    name: "Pedro",
+    servicesIds: ["s1", "s2", "s3"],
+    availability: {
+      1: ["08:00", "09:00", "10:00", "14:00", "15:00"],
+      2: ["08:00", "09:00", "10:00", "14:00", "15:00"],
+      3: ["08:00", "09:00", "10:00", "14:00", "15:00"],
+      4: ["08:00", "09:00", "10:00", "14:00", "15:00"],
+      5: ["08:00", "09:00", "10:00", "14:00", "15:00"],
+      6: ["09:00", "10:00"],
+      0: [],
+    },
+  },
+  {
+    id: "p2",
+    name: "Lucas",
+    servicesIds: ["s1", "s3"],
+    availability: {
+      1: ["09:00", "10:00", "11:00", "16:00"],
+      2: ["09:00", "10:00", "11:00", "16:00"],
+      3: ["09:00", "10:00", "11:00", "16:00"],
+      4: ["09:00", "10:00", "11:00", "16:00"],
+      5: ["09:00", "10:00", "11:00", "16:00"],
+      6: [],
+      0: [],
+    },
+  },
+];
+
+export default function AgendarServico() {
+  // Form fields
+  const [fullName, setFullName] = useState<string>("");
+  const [whatsapp, setWhatsapp] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+
+  // Selects
+  const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined); // yyyy-mm-dd
+  const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
+
+  // Other
+  const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [message, setMessage] = useState<{ type: "info" | "error" | "success"; text: string } | null>(
+    null
+  );
+
+  // Simulate fetching (non-blocking): useEffect to populate initial values from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("agendamento_form_v1");
+      if (saved) {
+        const obj = JSON.parse(saved);
+        setFullName(obj.fullName || "");
+        setWhatsapp(obj.whatsapp || "");
+        setEmail(obj.email || "");
+        // keep saveForFuture true by default
+      }
+    } catch (e) {
+      console.warn("Erro ao ler storage", e);
+    }
+  }, []);
+
+  // Derived lists
+  const services = useMemo(() => MOCK_SERVICES, []);
+  const professionals = useMemo(() => MOCK_PROFESSIONALS, []);
+
+  // Professionals filtered by selected service
+  const filteredProfessionals = useMemo(() => {
+    if (!selectedServiceId) return professionals;
+    return professionals.filter((p) => p.servicesIds.includes(selectedServiceId));
+  }, [professionals, selectedServiceId]);
+
+  // Time slots available for selected professional + date
+  const availableTimes = useMemo(() => {
+    if (!selectedProfessionalId || !selectedDate) return [];
+    const prof = professionals.find((p) => p.id === selectedProfessionalId);
+    if (!prof) return [];
+    const dt = new Date(selectedDate + "T00:00:00");
+    if (Number.isNaN(dt.getTime())) return [];
+    const weekday = dt.getDay(); // 0-6
+    return prof.availability[weekday] ?? [];
+  }, [selectedProfessionalId, selectedDate, professionals]);
+
+  // When user changes service, reset dependent fields to avoid inconsistent state
+  useEffect(() => {
+    setSelectedProfessionalId(undefined);
+    setSelectedDate(undefined);
+    setSelectedTime(undefined);
+  }, [selectedServiceId]);
+
+  // When user changes professional, reset date/time
+  useEffect(() => {
+    setSelectedDate(undefined);
+    setSelectedTime(undefined);
+  }, [selectedProfessionalId]);
+
+  // Simple form validation
+  function validate() {
+    if (!fullName.trim()) return "Preencha o nome completo.";
+    if (!whatsapp.trim()) return "Preencha o WhatsApp.";
+    if (!selectedServiceId) return "Selecione um serviço.";
+    if (!selectedProfessionalId) return "Selecione um profissional.";
+    if (!selectedDate) return "Selecione uma data.";
+    if (!selectedTime) return "Selecione um horário.";
     return null;
   }
-};
 
-const saveClientData = async (data: any, userId?: string) => {
-  try {
-    localStorage.setItem("clientData", JSON.stringify(data));
-    if (userId) {
-      const { data: existingClient } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (existingClient) {
-        await supabase
-          .from("clients")
-          .update({
-            name: data.nome,
-            phone: data.telefone,
-            email: data.email,
-          })
-          .eq("user_id", userId);
-      }
-    }
-  } catch (error) {
-    console.error("Erro ao salvar cliente:", error);
-  }
-};
-
-const gerarProximosDias = (isDateAvailable?: (date: Date) => boolean) => {
-  const dias = [];
-  const hoje = new Date();
-
-  for (let i = 1; i <= 14; i++) {
-    const data = new Date(hoje);
-    data.setDate(hoje.getDate() + i);
-
-    if (isDateAvailable ? isDateAvailable(data) : data.getDay() !== 0) {
-      dias.push({
-        data: data.toISOString().split("T")[0],
-        texto: data.toLocaleDateString("pt-BR", {
-          weekday: "long",
-          day: "2-digit",
-          month: "2-digit",
-        }),
-      });
-    }
-  }
-  return dias;
-};
-
-const AgendarServico = () => {
-  const { slug } = useParams();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-
-  const [company, setCompany] = useState<any>(null);
-  const [services, setServices] = useState<any[]>([]);
-  const [professionals, setProfessionals] = useState<any[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [likes, setLikes] = useState<number>(0);
-
-  const { isDateAvailable, getAvailableTimeSlotsForDate } = useBusinessHours(company?.id || "");
-  const diasDisponiveis = company ? gerarProximosDias(isDateAvailable) : [];
-
-  const [formData, setFormData] = useState({
-    nome: "",
-    telefone: "",
-    email: "",
-    servicoId: "",
-    professionalId: "",
-    data: "",
-    horario: "",
-    observacoes: "",
-  });
-  const [saveData, setSaveData] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Carregar dados iniciais
-  useEffect(() => {
-    fetchCompanyData();
-    loadSavedData();
-  }, [slug]);
-
-  const loadSavedData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      let clientData = null;
-
-      if (user) {
-        const { data: dbClient } = await supabase
-          .from("clients")
-          .select("name, phone, email")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (dbClient) clientData = dbClient;
-      }
-
-      if (!clientData) {
-        const saved = loadSavedClientData();
-        if (saved) clientData = saved;
-      }
-
-      if (clientData) {
-        setFormData((prev) => ({
-          ...prev,
-          nome: clientData.name || clientData.nome || "",
-          telefone: clientData.phone || clientData.telefone || "",
-          email: clientData.email || clientData.email || "",
-        }));
-        setSaveData(true);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar dados cliente", error);
-    }
-  };
-
-  const fetchCompanyData = async () => {
-    try {
-      const { data: companies, error } = await supabase
-        .from("companies")
-        .select("id, name, phone, email, address, number, neighborhood, city, state, primary_color, business_hours, likes_count")
-        .limit(10);
-
-      if (error) throw error;
-
-      const foundCompany =
-        companies?.find((c) => c.name.toLowerCase().replace(/\s+/g, "-") === slug) ||
-        companies?.[0];
-
-      if (foundCompany) {
-        setCompany(foundCompany);
-        setLikes(foundCompany.likes_count || 0);
-
-        const { data: servicesData } = await supabase
-          .from("services")
-          .select("*")
-          .eq("company_id", foundCompany.id);
-        setServices(servicesData || []);
-
-        const { data: professionalsData } = await supabase
-          .from("professionals")
-          .select("*")
-          .eq("company_id", foundCompany.id)
-          .eq("is_available", true);
-        setProfessionals(professionalsData || []);
-      }
-    } catch (error) {
-      console.error("Erro carregar empresa:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar os dados da barbearia.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAvailableSlots = async (professionalId: string, date: string) => {
-    try {
-      if (!company?.id || !professionalId || !date) return setAvailableSlots([]);
-      const selectedDate = new Date(date);
-      let allTimeslots: string[] = [];
-
-      if (getAvailableTimeSlotsForDate) {
-        allTimeslots = getAvailableTimeSlotsForDate(selectedDate, 30);
-      }
-
-      const { data: existingAppointments } = await supabase
-        .from("appointments")
-        .select("appointment_time")
-        .eq("professional_id", professionalId)
-        .eq("appointment_date", date)
-        .in("status", ["scheduled", "confirmed", "in_progress"]);
-
-      const occupied = existingAppointments?.map((apt) =>
-        String(apt.appointment_time).substring(0, 5)
-      ) || [];
-
-      setAvailableSlots(allTimeslots.filter((slot) => !occupied.includes(slot)));
-    } catch (error) {
-      console.error("Erro slots:", error);
-      setAvailableSlots([]);
-    }
-  };
-
-  useEffect(() => {
-    if (formData.professionalId && formData.data) {
-      fetchAvailableSlots(formData.professionalId, formData.data);
-    } else {
-      setAvailableSlots([]);
-    }
-  }, [formData.professionalId, formData.data]);
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value || "" }));
-  };
-
-  const handleLike = async () => {
-    if (!company?.id) return;
-    try {
-      const { data, error } = await supabase
-        .from("companies")
-        .update({ likes_count: likes + 1 })
-        .eq("id", company.id)
-        .select("likes_count")
-        .single();
-
-      if (!error && data) setLikes(data.likes_count || 0);
-    } catch (error) {
-      console.error("Erro curtida:", error);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.servicoId || !formData.professionalId || !formData.data || !formData.horario) {
-      toast({
-        title: "Atenção",
-        description: "Preencha todos os campos obrigatórios antes de continuar.",
-        variant: "destructive",
-      });
+  // Submit handler (simulate API call)
+  async function handleConfirm(e?: React.FormEvent) {
+    e?.preventDefault();
+    setMessage(null);
+    const err = validate();
+    if (err) {
+      setMessage({ type: "error", text: err });
       return;
     }
-
-    setIsLoading(true);
-
+    setSubmitting(true);
     try {
-      const { error: insertError } = await supabase.from("appointments").insert({
-        company_id: company.id,
-        service_id: formData.servicoId,
-        professional_id: formData.professionalId,
-        appointment_date: formData.data,
-        appointment_time: formData.horario + ":00",
-        notes: formData.observacoes || null,
-        status: "scheduled",
+      // If you have a real API, call it here.
+      // Simulate network latency:
+      await new Promise((r) => setTimeout(r, 900));
+
+      // Save local if requested
+      if (saveForFuture) {
+        localStorage.setItem(
+          "agendamento_form_v1",
+          JSON.stringify({ fullName, whatsapp, email })
+        );
+      } else {
+        localStorage.removeItem("agendamento_form_v1");
+      }
+
+      // Success message
+      setMessage({
+        type: "success",
+        text: `Agendamento pré-confirmado para ${selectedDate} às ${selectedTime}. Em breve confirmaremos via WhatsApp.`,
       });
 
-      if (insertError) throw insertError;
-
-      toast({ title: "Sucesso", description: "Agendamento confirmado!" });
-      navigate(`/agendamento-confirmado/${slug}`);
-    } catch (error: any) {
-      console.error("Erro no agendamento:", error);
-      toast({
-        title: "Erro",
-        description: error?.message || "Não foi possível realizar o agendamento.",
-        variant: "destructive",
+      // Reset only scheduling fields (keep user info)
+      setSelectedServiceId(undefined);
+      setSelectedProfessionalId(undefined);
+      setSelectedDate(undefined);
+      setSelectedTime(undefined);
+    } catch (err) {
+      console.error(err);
+      setMessage({
+        type: "error",
+        text: "Erro ao confirmar agendamento. Tente novamente.",
       });
     } finally {
-      setIsLoading(false);
+      setSubmitting(false);
     }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse space-y-4 w-96">
-          <div className="h-24 bg-muted rounded-xl"></div>
-          <div className="h-48 bg-muted rounded-xl"></div>
-        </div>
-      </div>
-    );
   }
 
-  // ---- Layout (igual sua imagem, só com proteções extras) ----
+  // small helper to format date min attribute to today
+  function todayIso() {
+    const t = new Date();
+    return t.toISOString().split("T")[0];
+  }
+
   return (
-    <div className="min-h-screen bg-background p-4 text-foreground">
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Card Empresa */}
-        {company && (
-          <Card>
-            <CardHeader className="text-center">
-              <img src={logo} alt="Logo" className="w-16 h-16 rounded-full mx-auto mb-2" />
-              <CardTitle>{company.name}</CardTitle>
-              {company.address && (
-                <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                  <MapPin size={14} /> {company.address}
-                  {company.number && `, ${company.number}`}
-                  {company.neighborhood && `, ${company.neighborhood}`}
-                  , {company.city} - {company.state}
-                </p>
-              )}
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <Button size="sm" onClick={handleLike}>
-                  <Heart className="mr-1" size={16} /> Curtir ({likes})
-                </Button>
+    <div className="max-w-3xl mx-auto p-4">
+      {/* Header card */}
+      <Card className="mb-4 bg-neutral-800">
+        <CardHeader>
+          <CardTitle>Agendar em Barbearia Teste</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm mb-2">Preencha os dados para confirmar seu agendamento</p>
+          <div className="flex gap-3 items-center">
+            <div className="w-12 h-12 rounded-full bg-yellow-600 flex items-center justify-center text-black font-bold">
+              B
+            </div>
+            <div className="flex-1">
+              <div className="text-sm">Rua Rubens Lopes da Silva, 250, Parque das Igrejas, Jandira, São Paulo</div>
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" variant="ghost">WhatsApp</Button>
+                <Button size="sm" variant="outline">Instagram</Button>
               </div>
-            </CardHeader>
-          </Card>
-        )}
+              <div className="text-xs mt-2">Teste4526@gmail.com</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Card Horários */}
-        {company?.business_hours && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Horários de Funcionamento</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {Object.entries(company.business_hours || {}).map(([day, hours]: any) => (
-                  <div key={day} className="flex justify-between border-b py-1">
-                    <span className="capitalize">{day}</span>
-                    <span>{hours?.open && hours?.close ? `${hours.open} - ${hours.close}` : "Fechado"}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {/* Horários */}
+      <Card className="mb-4 bg-neutral-800">
+        <CardHeader>
+          <CardTitle>Horários de Funcionamento</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div className="font-semibold">Segunda-feira</div>
+              <div>08:00 - 18:00</div>
+            </div>
+            <div>
+              <div className="font-semibold">Terça-feira</div>
+              <div>08:00 - 18:00</div>
+            </div>
+            <div>
+              <div className="font-semibold">Quarta-feira</div>
+              <div>08:00 - 18:00</div>
+            </div>
+            <div>
+              <div className="font-semibold">Quinta-feira</div>
+              <div>08:00 - 18:00</div>
+            </div>
+            <div>
+              <div className="font-semibold">Sexta-feira</div>
+              <div>08:00 - 18:00</div>
+            </div>
+            <div>
+              <div className="font-semibold">Sábado</div>
+              <div>08:00 - 18:00</div>
+            </div>
+            <div>
+              <div className="font-semibold">Domingo</div>
+              <div>Fechado</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Card Agendamento */}
-        <Card>
+      {/* Form */}
+      <form onSubmit={handleConfirm}>
+        <Card className="bg-neutral-800">
           <CardHeader>
             <CardTitle>Dados do Agendamento</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Nome e Telefone */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Nome completo</Label>
-                  <Input value={formData.nome} onChange={(e) => handleInputChange("nome", e.target.value)} required />
-                </div>
-                <div>
-                  <Label>WhatsApp</Label>
-                  <Input value={formData.telefone} onChange={(e) => handleInputChange("telefone", e.target.value)} placeholder="(11) 90000-0000" required />
-                </div>
+            {/* Seus Dados */}
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold">Seus Dados</h3>
               </div>
 
-              {/* Email */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>Nome completo *</Label>
+                  <Input
+                    placeholder="Ex: Elizeu Matos"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label>WhatsApp *</Label>
+                  <Input
+                    placeholder="+55 11 9xxxx-xxxx"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label>E-mail (opcional)</Label>
+                  <Input
+                    placeholder="seuemail@exemplo.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <hr className="my-4" />
+
+            {/* Escolha o Serviço */}
+            <div className="mb-4">
+              <Label>Escolha o Serviço *</Label>
+              <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um serviço" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Profissional */}
+            <div className="mb-4">
+              <Label>Profissional *</Label>
+              <Select value={selectedProfessionalId} onValueChange={(v) => setSelectedProfessionalId(v || undefined)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um profissional" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredProfessionals.length === 0 && (
+                    <SelectItem value="none" disabled>
+                      Nenhum profissional disponível para este serviço
+                    </SelectItem>
+                  )}
+                  {filteredProfessionals.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Data e Horário */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               <div>
-                <Label>Email (opcional)</Label>
-                <Input type="email" value={formData.email} onChange={(e) => handleInputChange("email", e.target.value)} />
+                <Label>Data *</Label>
+                <Input
+                  type="date"
+                  min={todayIso()}
+                  value={selectedDate ?? ""}
+                  onChange={(e) => setSelectedDate(e.target.value || undefined)}
+                  disabled={!selectedProfessionalId}
+                />
+                {!selectedProfessionalId && <p className="text-xs text-muted-foreground mt-1">Selecione um profissional primeiro</p>}
               </div>
 
-              {/* Serviço */}
               <div>
-                <Label>Escolha o Serviço</Label>
-                <Select value={formData.servicoId} onValueChange={(v) => handleInputChange("servicoId", v)}>
+                <Label>Horário *</Label>
+                <Select value={selectedTime} onValueChange={(v) => setSelectedTime(v || undefined)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione um serviço" />
+                    <SelectValue placeholder="Selecione horário" />
                   </SelectTrigger>
                   <SelectContent>
-                    {services.length === 0 ? (
-                      <SelectItem value="no-service" disabled>Nenhum serviço disponível</SelectItem>
+                    {selectedProfessionalId && selectedDate ? (
+                      availableTimes.length ? (
+                        availableTimes.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          Sem horários disponíveis nesta data
+                        </SelectItem>
+                      )
                     ) : (
-                      services.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name} - R${s.price}</SelectItem>
-                      ))
+                      <SelectItem value="none" disabled>
+                        Selecione profissional e data
+                      </SelectItem>
                     )}
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              {/* Profissional */}
-              <div>
-                <Label>Quem você quer que realize o serviço?</Label>
-                {professionals.length === 0 ? (
-                  <div className="bg-yellow-100 text-yellow-800 text-sm p-2 rounded-md">
-                    Esta barbearia não possui profissionais disponíveis no momento.
-                  </div>
-                ) : (
-                  <Select value={formData.professionalId} onValueChange={(v) => handleInputChange("professionalId", v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um profissional" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {professionals.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+            {/* Observações */}
+            <div className="mb-4">
+              <Label>Observações (opcional)</Label>
+              <Textarea placeholder="Ex: Preferência de estilo, alguma observação especial..." />
+            </div>
+
+            {/* Salvar info */}
+            <div className="flex items-center gap-2 mb-4">
+              <Checkbox checked={saveForFuture} onCheckedChange={(v) => setSaveForFuture(Boolean(v))} />
+              <span className="text-sm">Salvar minhas informações para agendamentos futuros</span>
+            </div>
+
+            {message && (
+              <div className={`p-3 rounded mb-4 ${message.type === "error" ? "bg-red-600" : message.type === "success" ? "bg-green-600" : "bg-gray-600"}`}>
+                <span className="text-sm">{message.text}</span>
               </div>
+            )}
 
-              {/* Data e Horário */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Data</Label>
-                  <Select value={formData.data} onValueChange={(v) => handleInputChange("data", v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma data" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {diasDisponiveis.length === 0 ? (
-                        <SelectItem value="no-date" disabled>Nenhuma data disponível</SelectItem>
-                      ) : (
-                        diasDisponiveis.map((d) => (
-                          <SelectItem key={d.data} value={d.data}>{d.texto}</SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Horário</Label>
-                  <Select value={formData.horario} onValueChange={(v) => handleInputChange("horario", v)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um horário" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSlots.length === 0 ? (
-                        <SelectItem value="no-slot" disabled>Nenhum horário disponível</SelectItem>
-                      ) : (
-                        availableSlots.map((slot) => (
-                          <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Observações */}
-              <div>
-                <Label>Observações (opcional)</Label>
-                <Textarea value={formData.observacoes} onChange={(e) => handleInputChange("observacoes", e.target.value)} placeholder="Alguma observação especial..." />
-              </div>
-
-              {/* Salvar dados */}
-              <div className="flex items-center gap-2">
-                <Checkbox checked={saveData} onCheckedChange={(v: boolean) => setSaveData(v)} />
-                <span className="text-sm">Salvar minhas informações para próximos agendamentos</span>
-              </div>
-
-              {/* Botão */}
-              <Button type="submit" className="w-full bg-yellow-300 text-black hover:bg-yellow-400" disabled={isLoading}>
-                {isLoading ? "Agendando..." : "Continuar Agendamento"}
+            <div className="flex justify-end">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Confirmando..." : "Confirmar Agendamento"}
               </Button>
-            </form>
+            </div>
 
-            {/* Rodapé */}
-            <p className="text-xs text-muted-foreground mt-4 text-center">
-              Importante: Este é um agendamento solicitado. Entraremos em contato via WhatsApp para confirmar a disponibilidade do horário selecionado.
-            </p>
+            <div className="text-xs mt-4 p-3 bg-neutral-900 rounded">
+              Importante: Este é um pré-agendamento. A barbearia entrará em contato via WhatsApp para confirmar a disponibilidade do horário solicitado.
+            </div>
           </CardContent>
         </Card>
-      </div>
+      </form>
     </div>
   );
-};
-
-export default AgendarServico;
+}
