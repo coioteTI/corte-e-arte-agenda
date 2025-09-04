@@ -116,7 +116,7 @@ const AgendarServico = () => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "companies", filter: `id=eq.${company.id}` },
         (payload) => {
-          setLikes(payload.new.likes || 0);
+          setLikes(payload.new.likes_count || 0);
         }
       )
       .subscribe();
@@ -163,7 +163,7 @@ const AgendarServico = () => {
     try {
       const { data: companies, error } = await supabase
         .from("companies")
-        .select("id, name, phone, email, address, city, state, primary_color, business_hours, likes")
+        .select("id, name, phone, email, address, city, state, primary_color, business_hours, likes_count")
         .limit(10);
 
       if (error) throw error;
@@ -174,7 +174,7 @@ const AgendarServico = () => {
 
       if (foundCompany) {
         setCompany(foundCompany);
-        setLikes(foundCompany.likes || 0);
+        setLikes(foundCompany.likes_count || 0);
 
         const { data: servicesData } = await supabase
           .from("services")
@@ -243,12 +243,12 @@ const AgendarServico = () => {
     try {
       const { data, error } = await supabase
         .from("companies")
-        .update({ likes: likes + 1 })
+        .update({ likes_count: likes + 1 })
         .eq("id", company.id)
-        .select("likes")
+        .select("likes_count")
         .single();
 
-      if (!error && data) setLikes(data.likes);
+      if (!error && data) setLikes(data.likes_count);
     } catch (error) {
       console.error("Erro curtida:", error);
     }
