@@ -41,6 +41,9 @@ type Service = {
   duration: number;
   description: string;
   professional_responsible: string;
+  is_promotion?: boolean;
+  promotional_price?: number;
+  promotion_valid_until?: string;
 };
 
 type Professional = {
@@ -51,6 +54,7 @@ type Professional = {
   phone: string;
   email: string;
   is_available: boolean;
+  created_at?: string;
 };
 
 type Appointment = {
@@ -115,40 +119,87 @@ export default function AgendarServico() {
     try {
       setLoading(true);
 
+      // Buscar empresa por slug
+      const slugToFind = slug?.replace(/-/g, " ");
+      console.log("Looking for slug:", slug);
+      
       const { data: companies, error: companyError } = await supabase
         .from("companies")
-        .select("*")
-        .ilike("name", `%${slug?.replace("-", " ")}%`);
+        .select("*");
 
       if (companyError) throw companyError;
+
+      console.log("Companies found:", companies);
 
       if (!companies || companies.length === 0) {
         toast.error("Empresa não encontrada");
         return;
       }
 
-      const companyData = companies[0];
+      // Encontrar empresa que corresponda ao slug
+      const companyData = companies.find(c => 
+        c.name?.toLowerCase().replace(/\s+/g, "-") === slug ||
+        c.name?.toLowerCase().includes(slugToFind?.toLowerCase() || "")
+      );
+
+      if (!companyData) {
+        toast.error("Empresa não encontrada");
+        return;
+      }
+
+      console.log("Comparing", slug, "with", companyData.name?.toLowerCase().replace(/\s+/g, "-"));
+      
       setCompany(companyData);
 
+      // Buscar serviços
       const { data: servicesData, error: servicesError } = await supabase
         .from("services")
         .select("*")
         .eq("company_id", companyData.id);
+      
+      console.log("Services data:", servicesData);
+      console.log("Services error:", servicesError);
+      
       if (servicesError) throw servicesError;
       setServices(servicesData || []);
 
+      // Buscar profissionais
       const { data: professionalsData, error: professionalsError } = await supabase
         .from("professionals")
         .select("*")
         .eq("company_id", companyData.id);
+      
+      console.log("Professionals data:", professionalsData);
+      console.log("Professionals error:", professionalsError);
+      
       if (professionalsError) throw professionalsError;
-      setProfessionals(professionalsData || []);
+      
+      // Se não há profissionais cadastrados, criar um profissional padrão baseado nos serviços
+      let professionalsToSet = professionalsData || [];
+      if (professionalsToSet.length === 0 && servicesData && servicesData.length > 0) {
+        // Criar profissionais padrão baseados nos responsáveis pelos serviços
+        const uniqueProfessionals = [...new Set(servicesData.map(s => s.professional_responsible).filter(Boolean))];
+        professionalsToSet = uniqueProfessionals.map((name, index) => ({
+          id: `default-${index}`,
+          company_id: companyData.id,
+          name: name,
+          specialty: "",
+          phone: "",
+          email: "",
+          is_available: true,
+          created_at: new Date().toISOString()
+        }));
+      }
+      
+      setProfessionals(professionalsToSet);
 
+      // Buscar agendamentos confirmados
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from("appointments")
         .select("*")
         .eq("company_id", companyData.id)
-        .eq("status", "confirmed");
+        .in("status", ["confirmed", "scheduled", "pending"]);
+      
       if (appointmentsError) throw appointmentsError;
       setAppointments(appointmentsData || []);
     } catch (error) {
@@ -160,9 +211,10 @@ export default function AgendarServico() {
   }
 
   const filteredProfessionals = professionals.filter((p) => {
-    if (!selectedServiceId) return true;
+    if (!selectedServiceId) return professionals.length > 0 ? professionals : [];
     const service = services.find((s) => s.id === selectedServiceId);
-    return service && service.professional_responsible === p.name;
+    if (!service?.professional_responsible) return professionals;
+    return service.professional_responsible === p.name;
   });
 
   const availableTimes = () => {
@@ -244,10 +296,29 @@ export default function AgendarServico() {
     try {
       const selectedService = services.find((s) => s.id === selectedServiceId);
 
-      const appointmentData = {
+      // Criar cliente se não existir
+      const { data: clientData, error: clientError } = await supabase
+        .from("clients")
+        .upsert({
+          name: fullName,
+          phone: whatsapp,
+          email: email || null
+        }, {
+          onConflict: 'phone'
+        })
+        .select()
+        .single();
+
+      if (clientError) {
+        console.error("Erro ao criar/atualizar cliente:", clientError);
+        // Continue sem client_id se houver erro
+      }
+
+      const appointmentData: any = {
         company_id: company.id,
         service_id: selectedServiceId!,
         professional_id: selectedProfessionalId!,
+        client_id: clientData?.id || null,
         client_name: fullName,
         client_whatsapp: whatsapp,
         client_email: email || null,
@@ -352,66 +423,73 @@ export default function AgendarServico() {
           <CardTitle className="text-center text-foreground">Agendar em {company.name}</CardTitle>
         </CardHeader>
 
+      </Card>
+
+      {/* Horários de Funcionamento */}
+      {company.business_hours && (
+        <Card className="mb-4 bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-foreground flex items-center gap-2">
+              🕒 Horários de Funcionamento
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Object.entries(company.business_hours).map(([day, hours]: [string, any]) => {
+                const dayNames: { [key: string]: string } = {
+                  monday: "Segunda-feira",
+                  tuesday: "Terça-feira", 
+                  wednesday: "Quarta-feira",
+                  thursday: "Quinta-feira",
+                  friday: "Sexta-feira",
+                  saturday: "Sábado",
+                  sunday: "Domingo"
+                };
+                
+                return (
+                  <div key={day} className="flex justify-between items-center p-2 rounded-lg bg-muted/50">
+                    <span className="font-medium text-foreground">{dayNames[day]}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {hours.isOpen ? `${hours.start} - ${hours.end}` : "Fechado"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Serviços e Preços */}
+      <Card className="mb-4 bg-card border-border">
+        <CardHeader>
+          <CardTitle className="text-foreground flex items-center gap-2">
+            💇‍♂️ Serviços e Preços
+          </CardTitle>
+        </CardHeader>
         <CardContent>
-          {/* BOTÕES DE AÇÃO */}
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-            {/* WhatsApp */}
-            <a
-              href={whatsappUrl || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-disabled={!whatsappUrl}
-              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--wa hover:scale-105 ${
-                whatsappUrl ? "" : "opacity-50 pointer-events-none"
-              }`}
-              style={{ backgroundColor: "#25D366" }}
-              title={whatsappUrl ? "Chamar no WhatsApp" : "WhatsApp não disponível"}
-            >
-              📱 WhatsApp
-            </a>
-
-            {/* Instagram */}
-            <a
-              href={instagramUrl || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-disabled={!instagramUrl}
-              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--ig hover:scale-105 ${
-                instagramUrl ? "" : "opacity-50 pointer-events-none"
-              }`}
-              style={{
-                backgroundImage:
-                  "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
-              }}
-              title={instagramUrl ? "Abrir Instagram" : "Instagram não disponível"}
-            >
-              📸 Instagram
-            </a>
-
-            {/* E-mail */}
-            <a
-              href={emailUrl || "#"}
-              aria-disabled={!emailUrl}
-              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--mail hover:scale-105 ${
-                emailUrl ? "" : "opacity-50 pointer-events-none"
-              }`}
-              style={{ backgroundColor: "#4285F4" }}
-              title={emailUrl ? "Enviar e-mail" : "E-mail não disponível"}
-            >
-              ✉️ E-mail
-            </a>
-
-            {/* GPS / Localização */}
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--maps hover:scale-105"
-              style={{ backgroundColor: "#EA4335" }}
-              title="Abrir no Google Maps"
-            >
-              📍 Localização
-            </a>
+          <div className="grid gap-3">
+            {services.map((service) => (
+              <div key={service.id} className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
+                <div>
+                  <h4 className="font-semibold text-foreground">{service.name}</h4>
+                  {service.description && (
+                    <p className="text-sm text-muted-foreground">{service.description}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">{service.duration} min</p>
+                </div>
+                <div className="text-right">
+                  {service.is_promotion ? (
+                    <div>
+                      <span className="text-sm line-through text-muted-foreground">R$ {service.price}</span>
+                      <span className="ml-2 text-lg font-bold text-primary">R$ {service.promotional_price}</span>
+                    </div>
+                  ) : (
+                    <span className="text-lg font-bold text-primary">R$ {service.price}</span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -565,8 +643,8 @@ export default function AgendarServico() {
             </div>
 
             <div className="flex justify-end">
-              <Button type="submit" disabled={submitting} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                {submitting ? "Confirmando..." : "Confirmar Agendamento"}
+              <Button type="submit" disabled={submitting} className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                {submitting ? "Confirmando..." : "Agendar Agora"}
               </Button>
             </div>
 
@@ -576,18 +654,6 @@ export default function AgendarServico() {
           </CardContent>
         </Card>
       </form>
-
-      {/* Leve glow nos botões de ação (sem piscar) */}
-      <style>{`
-        .neo {
-          transition: transform .2s ease, box-shadow .3s ease, filter .3s ease;
-          will-change: transform, box-shadow, filter;
-        }
-        .neo--wa:hover   { box-shadow: 0 0 18px rgba(37,211,102,.45), 0 0 36px rgba(37,211,102,.25);   filter: saturate(1.1); }
-        .neo--ig:hover   { box-shadow: 0 0 18px rgba(221,42,123,.45), 0 0 36px rgba(81,91,212,.30);    filter: saturate(1.1); }
-        .neo--mail:hover { box-shadow: 0 0 18px rgba(66,133,244,.45), 0 0 36px rgba(66,133,244,.25);    filter: saturate(1.1); }
-        .neo--maps:hover { box-shadow: 0 0 18px rgba(234,67,53,.45),  0 0 36px rgba(234,67,53,.25);     filter: saturate(1.1); }
-      `}</style>
     </div>
   );
 }
