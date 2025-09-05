@@ -1,3 +1,4 @@
+// AgendarServico.tsx
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -113,12 +114,11 @@ export default function AgendarServico() {
   async function fetchCompanyData() {
     try {
       setLoading(true);
-      
-      // Buscar empresa pelo slug
+
       const { data: companies, error: companyError } = await supabase
-        .from('companies')
-        .select('*')
-        .ilike('name', `%${slug?.replace('-', ' ')}%`);
+        .from("companies")
+        .select("*")
+        .ilike("name", `%${slug?.replace("-", " ")}%`);
 
       if (companyError) throw companyError;
 
@@ -130,89 +130,79 @@ export default function AgendarServico() {
       const companyData = companies[0];
       setCompany(companyData);
 
-      // Buscar serviços da empresa
       const { data: servicesData, error: servicesError } = await supabase
-        .from('services')
-        .select('*')
-        .eq('company_id', companyData.id);
-
+        .from("services")
+        .select("*")
+        .eq("company_id", companyData.id);
       if (servicesError) throw servicesError;
       setServices(servicesData || []);
 
-      // Buscar profissionais da empresa
       const { data: professionalsData, error: professionalsError } = await supabase
-        .from('professionals')
-        .select('*')
-        .eq('company_id', companyData.id);
-
+        .from("professionals")
+        .select("*")
+        .eq("company_id", companyData.id);
       if (professionalsError) throw professionalsError;
       setProfessionals(professionalsData || []);
 
-      // Buscar agendamentos existentes
       const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('company_id', companyData.id)
-        .eq('status', 'confirmed');
-
+        .from("appointments")
+        .select("*")
+        .eq("company_id", companyData.id)
+        .eq("status", "confirmed");
       if (appointmentsError) throw appointmentsError;
       setAppointments(appointmentsData || []);
-
     } catch (error) {
-      console.error('Erro ao buscar dados:', error);
+      console.error("Erro ao buscar dados:", error);
       toast.error("Erro ao carregar dados da empresa");
     } finally {
       setLoading(false);
     }
   }
 
-  const filteredProfessionals = professionals.filter(p => {
+  const filteredProfessionals = professionals.filter((p) => {
     if (!selectedServiceId) return true;
-    const service = services.find(s => s.id === selectedServiceId);
+    const service = services.find((s) => s.id === selectedServiceId);
     return service && service.professional_responsible === p.name;
   });
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
-    
+
     const businessHours = company.business_hours;
-    
     if (!businessHours) return [];
-    
+
     const date = new Date(selectedDate + "T00:00:00");
     const weekday = date.getDay();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const dayName = dayNames[weekday];
-    
+
     const daySchedule = businessHours[dayName];
     if (!daySchedule || !daySchedule.isOpen) return [];
-    
-    // Gerar horários disponíveis
-    const times = [];
+
+    const times: string[] = [];
     const start = daySchedule.start;
     const end = daySchedule.end;
-    
+
     let currentTime = start;
     while (currentTime < end) {
-      // Verificar se já tem agendamento neste horário
-      const hasAppointment = appointments.some(apt => 
-        apt.professional_id === selectedProfessionalId &&
-        apt.appointment_date === selectedDate &&
-        apt.appointment_time === currentTime
+      const hasAppointment = appointments.some(
+        (apt) =>
+          apt.professional_id === selectedProfessionalId &&
+          apt.appointment_date === selectedDate &&
+          apt.appointment_time === currentTime
       );
-      
+
       if (!hasAppointment) {
         times.push(currentTime);
       }
-      
-      // Incrementar 30 minutos
-      const [hours, minutes] = currentTime.split(':').map(Number);
+
+      const [hours, minutes] = currentTime.split(":").map(Number);
       const totalMinutes = hours * 60 + minutes + 30;
       const newHours = Math.floor(totalMinutes / 60);
       const newMinutes = totalMinutes % 60;
-      currentTime = `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
+      currentTime = `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
     }
-    
+
     return times;
   };
 
@@ -244,7 +234,7 @@ export default function AgendarServico() {
       toast.error(err);
       return;
     }
-    
+
     if (!company) {
       toast.error("Dados da empresa não encontrados");
       return;
@@ -252,9 +242,8 @@ export default function AgendarServico() {
 
     setSubmitting(true);
     try {
-      // Criar agendamento no banco
-      const selectedService = services.find(s => s.id === selectedServiceId);
-      
+      const selectedService = services.find((s) => s.id === selectedServiceId);
+
       const appointmentData = {
         company_id: company.id,
         service_id: selectedServiceId!,
@@ -265,40 +254,31 @@ export default function AgendarServico() {
         appointment_date: selectedDate!,
         appointment_time: selectedTime!,
         notes: notes || null,
-        status: 'pending',
+        status: "pending",
         total_price: selectedService?.price || 0,
-        payment_method: 'pending'
+        payment_method: "pending",
       };
 
-      const { error } = await supabase
-        .from('appointments')
-        .insert([appointmentData]);
-
+      const { error } = await supabase.from("appointments").insert([appointmentData]);
       if (error) throw error;
 
       if (saveForFuture) {
-        localStorage.setItem(
-          "agendamento_form_v1",
-          JSON.stringify({ fullName, whatsapp, email })
-        );
+        localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
       } else {
         localStorage.removeItem("agendamento_form_v1");
       }
 
       toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
 
-      // Limpar form
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
       setSelectedTime(undefined);
       setNotes("");
-      
-      // Atualizar lista de agendamentos
-      await fetchCompanyData();
 
+      await fetchCompanyData();
     } catch (error) {
-      console.error('Erro ao criar agendamento:', error);
+      console.error("Erro ao criar agendamento:", error);
       toast.error("Erro ao confirmar agendamento. Tente novamente.");
     } finally {
       setSubmitting(false);
@@ -309,6 +289,27 @@ export default function AgendarServico() {
     const t = new Date();
     return t.toISOString().split("T")[0];
   }
+
+  // ===== Links dinâmicos dos botões (WhatsApp, Instagram, Email, Maps) =====
+  const phoneDigits = (company?.phone || "").replace(/\D/g, "");
+  const whatsappUrl =
+    phoneDigits ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`}` : undefined;
+
+  const igHandle = (company?.instagram || "").trim();
+  const instagramUrl = igHandle
+    ? igHandle.startsWith("http")
+      ? igHandle
+      : `https://instagram.com/${igHandle.replace(/^@/, "")}`
+    : undefined;
+
+  const emailUrl = company?.email ? `mailto:${company.email}` : undefined;
+
+  const mapsQuery = encodeURIComponent(
+    [company?.address, company?.number, company?.neighborhood, company?.city, company?.state, company?.zip_code]
+      .filter(Boolean)
+      .join(", ")
+  );
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
 
   if (loading) {
     return (
@@ -339,7 +340,7 @@ export default function AgendarServico() {
 
       {/* Header card */}
       <Card className="mb-4 bg-card border-border">
-        <CardHeader className="flex flex-col items-center gap-2">
+        <CardHeader className="flex flex-col items-center gap-3">
           {/* Logo da empresa */}
           {company.logo_url && (
             <img
@@ -350,17 +351,67 @@ export default function AgendarServico() {
           )}
           <CardTitle className="text-center text-foreground">Agendar em {company.name}</CardTitle>
         </CardHeader>
+
         <CardContent>
-          <p className="text-sm mb-4 text-center text-muted-foreground">
-            Preencha os dados para confirmar seu agendamento
-          </p>
-          <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
-              📍 {company.address}, {company.number} - {company.neighborhood}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {company.city}, {company.state} - {company.zip_code}
-            </p>
+          {/* BOTÕES DE AÇÃO */}
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+            {/* WhatsApp */}
+            <a
+              href={whatsappUrl || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-disabled={!whatsappUrl}
+              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--wa hover:scale-105 ${
+                whatsappUrl ? "" : "opacity-50 pointer-events-none"
+              }`}
+              style={{ backgroundColor: "#25D366" }}
+              title={whatsappUrl ? "Chamar no WhatsApp" : "WhatsApp não disponível"}
+            >
+              📱 WhatsApp
+            </a>
+
+            {/* Instagram */}
+            <a
+              href={instagramUrl || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-disabled={!instagramUrl}
+              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--ig hover:scale-105 ${
+                instagramUrl ? "" : "opacity-50 pointer-events-none"
+              }`}
+              style={{
+                backgroundImage:
+                  "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
+              }}
+              title={instagramUrl ? "Abrir Instagram" : "Instagram não disponível"}
+            >
+              📸 Instagram
+            </a>
+
+            {/* E-mail */}
+            <a
+              href={emailUrl || "#"}
+              aria-disabled={!emailUrl}
+              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--mail hover:scale-105 ${
+                emailUrl ? "" : "opacity-50 pointer-events-none"
+              }`}
+              style={{ backgroundColor: "#4285F4" }}
+              title={emailUrl ? "Enviar e-mail" : "E-mail não disponível"}
+            >
+              ✉️ E-mail
+            </a>
+
+            {/* GPS / Localização */}
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--maps hover:scale-105"
+              style={{ backgroundColor: "#EA4335" }}
+              title="Abrir no Google Maps"
+            >
+              📍 Localização
+            </a>
           </div>
         </CardContent>
       </Card>
@@ -464,9 +515,7 @@ export default function AgendarServico() {
                   disabled={!selectedProfessionalId}
                 />
                 {!selectedProfessionalId && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Selecione um profissional primeiro
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">Selecione um profissional primeiro</p>
                 )}
               </div>
               <div>
@@ -479,7 +528,9 @@ export default function AgendarServico() {
                     {selectedProfessionalId && selectedDate ? (
                       availableTimes().length ? (
                         availableTimes().map((t) => (
-                          <SelectItem key={t} value={t} className="text-foreground">{t}</SelectItem>
+                          <SelectItem key={t} value={t} className="text-foreground">
+                            {t}
+                          </SelectItem>
                         ))
                       ) : (
                         <SelectItem value="none" disabled>
@@ -499,7 +550,7 @@ export default function AgendarServico() {
             {/* Observações */}
             <div className="mb-4">
               <Label className="text-foreground">Observações (opcional)</Label>
-              <Textarea 
+              <Textarea
                 placeholder="Ex: Preferência de estilo, alguma observação especial..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -514,11 +565,7 @@ export default function AgendarServico() {
             </div>
 
             <div className="flex justify-end">
-              <Button 
-                type="submit" 
-                disabled={submitting}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
+              <Button type="submit" disabled={submitting} className="bg-primary text-primary-foreground hover:bg-primary/90">
                 {submitting ? "Confirmando..." : "Confirmar Agendamento"}
               </Button>
             </div>
@@ -529,6 +576,18 @@ export default function AgendarServico() {
           </CardContent>
         </Card>
       </form>
+
+      {/* Leve glow nos botões de ação (sem piscar) */}
+      <style>{`
+        .neo {
+          transition: transform .2s ease, box-shadow .3s ease, filter .3s ease;
+          will-change: transform, box-shadow, filter;
+        }
+        .neo--wa:hover   { box-shadow: 0 0 18px rgba(37,211,102,.45), 0 0 36px rgba(37,211,102,.25);   filter: saturate(1.1); }
+        .neo--ig:hover   { box-shadow: 0 0 18px rgba(221,42,123,.45), 0 0 36px rgba(81,91,212,.30);    filter: saturate(1.1); }
+        .neo--mail:hover { box-shadow: 0 0 18px rgba(66,133,244,.45), 0 0 36px rgba(66,133,244,.25);    filter: saturate(1.1); }
+        .neo--maps:hover { box-shadow: 0 0 18px rgba(234,67,53,.45),  0 0 36px rgba(234,67,53,.25);     filter: saturate(1.1); }
+      `}</style>
     </div>
   );
 }
