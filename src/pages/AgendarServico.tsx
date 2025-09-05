@@ -1,5 +1,5 @@
-// AgendarServico.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,62 +13,73 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+type Company = {
+  id: string;
+  name: string;
+  address: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  business_hours: any;
+  likes_count: number;
+  instagram: string;
+  logo_url: string;
+  email: string;
+  phone?: string;
+};
 
 type Service = {
   id: string;
-  title: string;
-  durationMinutes: number;
-  price?: number;
+  name: string;
+  price: number;
+  duration: number;
+  description: string;
+  professional_responsible: string;
 };
 
 type Professional = {
   id: string;
+  company_id: string;
   name: string;
-  servicesIds: string[];
-  availability: Record<number, string[]>;
+  specialty: string;
+  phone: string;
+  email: string;
+  is_available: boolean;
 };
 
-const MOCK_SERVICES: Service[] = [
-  { id: "s1", title: "Corte Masculino", durationMinutes: 30, price: 30 },
-  { id: "s2", title: "Barba", durationMinutes: 20, price: 20 },
-  { id: "s3", title: "Corte + Barba", durationMinutes: 50, price: 45 },
-];
-
-const MOCK_PROFESSIONALS: Professional[] = [
-  {
-    id: "p1",
-    name: "Pedro",
-    servicesIds: ["s1", "s2", "s3"],
-    availability: {
-      1: ["08:00", "09:00", "10:00", "14:00", "15:00"],
-      2: ["08:00", "09:00", "10:00", "14:00", "15:00"],
-      3: ["08:00", "09:00", "10:00", "14:00", "15:00"],
-      4: ["08:00", "09:00", "10:00", "14:00", "15:00"],
-      5: ["08:00", "09:00", "10:00", "14:00", "15:00"],
-      6: ["09:00", "10:00"],
-      0: [],
-    },
-  },
-  {
-    id: "p2",
-    name: "Lucas",
-    servicesIds: ["s1", "s3"],
-    availability: {
-      1: ["09:00", "10:00", "11:00", "16:00"],
-      2: ["09:00", "10:00", "11:00", "16:00"],
-      3: ["09:00", "10:00", "11:00", "16:00"],
-      4: ["09:00", "10:00", "11:00", "16:00"],
-      5: ["09:00", "10:00", "11:00", "16:00"],
-      6: [],
-      0: [],
-    },
-  },
-];
+type Appointment = {
+  id?: string;
+  company_id: string;
+  service_id: string;
+  professional_id: string;
+  client_id?: string;
+  client_name?: string;
+  client_whatsapp?: string;
+  client_email?: string;
+  appointment_date: string;
+  appointment_time: string;
+  notes?: string;
+  status: string;
+  total_price?: number;
+  payment_method?: string;
+};
 
 export default function AgendarServico() {
+  const { slug } = useParams();
+  const [company, setCompany] = useState<Company | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+
   const [fullName, setFullName] = useState<string>("");
   const [whatsapp, setWhatsapp] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
@@ -77,7 +88,7 @@ export default function AgendarServico() {
 
   const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [message, setMessage] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     try {
@@ -93,23 +104,117 @@ export default function AgendarServico() {
     }
   }, []);
 
-  const services = useMemo(() => MOCK_SERVICES, []);
-  const professionals = useMemo(() => MOCK_PROFESSIONALS, []);
+  useEffect(() => {
+    if (slug) {
+      fetchCompanyData();
+    }
+  }, [slug]);
 
-  const filteredProfessionals = useMemo(() => {
-    if (!selectedServiceId) return professionals;
-    return professionals.filter((p) => p.servicesIds.includes(selectedServiceId));
-  }, [professionals, selectedServiceId]);
+  async function fetchCompanyData() {
+    try {
+      setLoading(true);
+      
+      // Buscar empresa pelo slug
+      const { data: companies, error: companyError } = await supabase
+        .from('companies')
+        .select('*')
+        .ilike('name', `%${slug?.replace('-', ' ')}%`);
 
-  const availableTimes = useMemo(() => {
-    if (!selectedProfessionalId || !selectedDate) return [];
-    const prof = professionals.find((p) => p.id === selectedProfessionalId);
-    if (!prof) return [];
-    const dt = new Date(selectedDate + "T00:00:00");
-    if (Number.isNaN(dt.getTime())) return [];
-    const weekday = dt.getDay();
-    return prof.availability[weekday] ?? [];
-  }, [selectedProfessionalId, selectedDate, professionals]);
+      if (companyError) throw companyError;
+
+      if (!companies || companies.length === 0) {
+        toast.error("Empresa não encontrada");
+        return;
+      }
+
+      const companyData = companies[0];
+      setCompany(companyData);
+
+      // Buscar serviços da empresa
+      const { data: servicesData, error: servicesError } = await supabase
+        .from('services')
+        .select('*')
+        .eq('company_id', companyData.id);
+
+      if (servicesError) throw servicesError;
+      setServices(servicesData || []);
+
+      // Buscar profissionais da empresa
+      const { data: professionalsData, error: professionalsError } = await supabase
+        .from('professionals')
+        .select('*')
+        .eq('company_id', companyData.id);
+
+      if (professionalsError) throw professionalsError;
+      setProfessionals(professionalsData || []);
+
+      // Buscar agendamentos existentes
+      const { data: appointmentsData, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('company_id', companyData.id)
+        .eq('status', 'confirmed');
+
+      if (appointmentsError) throw appointmentsError;
+      setAppointments(appointmentsData || []);
+
+    } catch (error) {
+      console.error('Erro ao buscar dados:', error);
+      toast.error("Erro ao carregar dados da empresa");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const filteredProfessionals = professionals.filter(p => {
+    if (!selectedServiceId) return true;
+    const service = services.find(s => s.id === selectedServiceId);
+    return service && service.professional_responsible === p.name;
+  });
+
+  const availableTimes = () => {
+    if (!selectedProfessionalId || !selectedDate || !company) return [];
+    
+    const businessHours = company.business_hours;
+    
+    if (!businessHours) return [];
+    
+    const date = new Date(selectedDate + "T00:00:00");
+    const weekday = date.getDay();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = dayNames[weekday];
+    
+    const daySchedule = businessHours[dayName];
+    if (!daySchedule || !daySchedule.isOpen) return [];
+    
+    // Gerar horários disponíveis
+    const times = [];
+    const start = daySchedule.start;
+    const end = daySchedule.end;
+    
+    let currentTime = start;
+    while (currentTime < end) {
+      // Verificar se já tem agendamento neste horário
+      const hasAppointment = appointments.some(apt => 
+        apt.professional_id === selectedProfessionalId &&
+        apt.appointment_date === selectedDate &&
+        apt.appointment_time === currentTime
+      );
+      
+      if (!hasAppointment) {
+        times.push(currentTime);
+      }
+      
+      // Incrementar 30 minutos
+      const [hours, minutes] = currentTime.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes + 30;
+      const newHours = Math.floor(totalMinutes / 60);
+      const newMinutes = totalMinutes % 60;
+      currentTime = `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
+    }
+    
+    return times;
+  };
 
   useEffect(() => {
     setSelectedProfessionalId(undefined);
@@ -134,15 +239,42 @@ export default function AgendarServico() {
 
   async function handleConfirm(e?: React.FormEvent) {
     e?.preventDefault();
-    setMessage(null);
     const err = validate();
     if (err) {
-      setMessage({ type: "error", text: err });
+      toast.error(err);
       return;
     }
+    
+    if (!company) {
+      toast.error("Dados da empresa não encontrados");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await new Promise((r) => setTimeout(r, 900));
+      // Criar agendamento no banco
+      const selectedService = services.find(s => s.id === selectedServiceId);
+      
+      const appointmentData = {
+        company_id: company.id,
+        service_id: selectedServiceId!,
+        professional_id: selectedProfessionalId!,
+        client_name: fullName,
+        client_whatsapp: whatsapp,
+        client_email: email || null,
+        appointment_date: selectedDate!,
+        appointment_time: selectedTime!,
+        notes: notes || null,
+        status: 'pending',
+        total_price: selectedService?.price || 0,
+        payment_method: 'pending'
+      };
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert([appointmentData]);
+
+      if (error) throw error;
 
       if (saveForFuture) {
         localStorage.setItem(
@@ -153,18 +285,21 @@ export default function AgendarServico() {
         localStorage.removeItem("agendamento_form_v1");
       }
 
-      setMessage({
-        type: "success",
-        text: `🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`,
-      });
+      toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
 
+      // Limpar form
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
       setSelectedTime(undefined);
-    } catch (err) {
-      console.error(err);
-      setMessage({ type: "error", text: "Erro ao confirmar agendamento. Tente novamente." });
+      setNotes("");
+      
+      // Atualizar lista de agendamentos
+      await fetchCompanyData();
+
+    } catch (error) {
+      console.error('Erro ao criar agendamento:', error);
+      toast.error("Erro ao confirmar agendamento. Tente novamente.");
     } finally {
       setSubmitting(false);
     }
@@ -175,116 +310,119 @@ export default function AgendarServico() {
     return t.toISOString().split("T")[0];
   }
 
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
+        <div className="text-center">
+          <div className="animate-pulse">Carregando...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!company) {
+    return (
+      <div className="max-w-3xl mx-auto p-4 text-center">
+        <p className="text-muted-foreground">Empresa não encontrada</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto p-4">
       {/* Voltar */}
       <div className="mb-4">
-        <Button size="sm" className="mb-2 hover:scale-105 transition-transform" onClick={() => window.history.back()}>
+        <Button size="sm" className="mb-2" onClick={() => window.history.back()}>
           🔙 Voltar
         </Button>
       </div>
 
       {/* Header card */}
-      <Card className="mb-4 bg-neutral-800">
+      <Card className="mb-4 bg-card border-border">
         <CardHeader className="flex flex-col items-center gap-2">
           {/* Logo da empresa */}
-          <img
-            src="/logo.png" // coloque sua logo em public/logo.png
-            alt="Logo da Barbearia"
-            className="w-16 h-16 rounded-full object-cover border-2 border-yellow-600"
-          />
-          <CardTitle className="text-center">Agendar em Barbearia Teste</CardTitle>
+          {company.logo_url && (
+            <img
+              src={company.logo_url}
+              alt={`Logo da ${company.name}`}
+              className="w-16 h-16 rounded-full object-cover border-2 border-primary"
+            />
+          )}
+          <CardTitle className="text-center text-foreground">Agendar em {company.name}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm mb-2 text-center">Preencha os dados para confirmar seu agendamento</p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            <a
-              href="https://wa.me/5511944887878"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-green-500 dark:bg-green-600 transition-transform"
-            >
-              📱 WhatsApp
-            </a>
-
-            <a
-              href="https://instagram.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 transition-transform"
-            >
-              📸 Instagram
-            </a>
-
-            <a
-              href="mailto:teste52@gmail.com"
-              className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-blue-500 dark:bg-blue-600 transition-transform"
-            >
-              ✉️ E-mail
-            </a>
-
-            <a
-              href="https://www.google.com/maps/search/?api=1&query=Rua+Rubens+Lopes+da+Silva,+250,+Jandira,+São+Paulo"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg font-semibold text-white hover:scale-105 hover:shadow-lg glow bg-red-500 dark:bg-red-600 transition-transform"
-            >
-              📍 Localização
-            </a>
+          <p className="text-sm mb-4 text-center text-muted-foreground">
+            Preencha os dados para confirmar seu agendamento
+          </p>
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">
+              📍 {company.address}, {company.number} - {company.neighborhood}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {company.city}, {company.state} - {company.zip_code}
+            </p>
           </div>
         </CardContent>
       </Card>
 
       {/* Form */}
       <form onSubmit={handleConfirm}>
-        <Card className="bg-neutral-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Dados do Agendamento</CardTitle>
+            <CardTitle className="text-foreground">Dados do Agendamento</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="mb-4">
-              <h3 className="font-semibold mb-2">Seus Dados</h3>
+              <h3 className="font-semibold mb-2 text-foreground">Seus Dados</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Label>Nome completo *</Label>
+                  <Label className="text-foreground">Nome completo *</Label>
                   <Input
-                    placeholder="Ex: Elizeu Matos"
+                    placeholder="Ex: João Silva"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    className="bg-background border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <Label>WhatsApp *</Label>
+                  <Label className="text-foreground">WhatsApp *</Label>
                   <Input
                     placeholder="+55 11 9xxxx-xxxx"
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value)}
+                    className="bg-background border-border text-foreground"
                   />
                 </div>
                 <div>
-                  <Label>E-mail (opcional)</Label>
+                  <Label className="text-foreground">E-mail (opcional)</Label>
                   <Input
                     placeholder="seuemail@exemplo.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="bg-background border-border text-foreground"
                   />
                 </div>
               </div>
             </div>
 
-            <hr className="my-4" />
+            <hr className="my-4 border-border" />
 
             {/* Serviço */}
             <div className="mb-4">
-              <Label>Escolha o Serviço *</Label>
+              <Label className="text-foreground">Escolha o Serviço *</Label>
               <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-background border-border text-foreground">
                   <SelectValue placeholder="Selecione um serviço" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border-border">
+                  {services.length === 0 && (
+                    <SelectItem value="none" disabled>
+                      Nenhum serviço disponível
+                    </SelectItem>
+                  )}
                   {services.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.title}
+                    <SelectItem key={s.id} value={s.id} className="text-foreground">
+                      {s.name} - R$ {s.price} ({s.duration}min)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -293,19 +431,19 @@ export default function AgendarServico() {
 
             {/* Profissional */}
             <div className="mb-4">
-              <Label>Profissional *</Label>
+              <Label className="text-foreground">Profissional *</Label>
               <Select value={selectedProfessionalId} onValueChange={(v) => setSelectedProfessionalId(v || undefined)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-background border-border text-foreground">
                   <SelectValue placeholder="Selecione um profissional" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border-border">
                   {filteredProfessionals.length === 0 && (
                     <SelectItem value="none" disabled>
                       Nenhum profissional disponível
                     </SelectItem>
                   )}
                   {filteredProfessionals.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
+                    <SelectItem key={p.id} value={p.id} className="text-foreground">
                       {p.name}
                     </SelectItem>
                   ))}
@@ -316,13 +454,13 @@ export default function AgendarServico() {
             {/* Data e Horário */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               <div>
-                <Label>Data *</Label>
+                <Label className="text-foreground">Data *</Label>
                 <Input
                   type="date"
                   min={todayIso()}
                   value={selectedDate ?? ""}
                   onChange={(e) => setSelectedDate(e.target.value || undefined)}
-                  className="bg-neutral-700 text-white rounded-md"
+                  className="bg-background border-border text-foreground"
                   disabled={!selectedProfessionalId}
                 />
                 {!selectedProfessionalId && (
@@ -332,16 +470,16 @@ export default function AgendarServico() {
                 )}
               </div>
               <div>
-                <Label>Horário *</Label>
+                <Label className="text-foreground">Horário *</Label>
                 <Select value={selectedTime} onValueChange={(v) => setSelectedTime(v || undefined)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background border-border text-foreground">
                     <SelectValue placeholder="Selecione horário" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border-border">
                     {selectedProfessionalId && selectedDate ? (
-                      availableTimes.length ? (
-                        availableTimes.map((t) => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                      availableTimes().length ? (
+                        availableTimes().map((t) => (
+                          <SelectItem key={t} value={t} className="text-foreground">{t}</SelectItem>
                         ))
                       ) : (
                         <SelectItem value="none" disabled>
@@ -360,44 +498,37 @@ export default function AgendarServico() {
 
             {/* Observações */}
             <div className="mb-4">
-              <Label>Observações (opcional)</Label>
-              <Textarea placeholder="Ex: Preferência de estilo, alguma observação especial..." />
+              <Label className="text-foreground">Observações (opcional)</Label>
+              <Textarea 
+                placeholder="Ex: Preferência de estilo, alguma observação especial..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="bg-background border-border text-foreground"
+              />
             </div>
 
             {/* Salvar info */}
             <div className="flex items-center gap-2 mb-4">
               <Checkbox checked={saveForFuture} onCheckedChange={(v) => setSaveForFuture(Boolean(v))} />
-              <span className="text-sm">Salvar minhas informações para agendamentos futuros</span>
+              <span className="text-sm text-foreground">Salvar minhas informações para agendamentos futuros</span>
             </div>
 
-            {message && (
-              <div className={`p-3 rounded mb-4 ${message.type === "error" ? "bg-red-600" : "bg-green-600"}`}>
-                <span className="text-sm">{message.text}</span>
-              </div>
-            )}
-
             <div className="flex justify-end">
-              <Button type="submit" disabled={submitting}>
+              <Button 
+                type="submit" 
+                disabled={submitting}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
                 {submitting ? "Confirmando..." : "Confirmar Agendamento"}
               </Button>
             </div>
 
-            <div className="text-xs mt-4 p-3 bg-neutral-900 rounded">
+            <div className="text-xs mt-4 p-3 bg-muted rounded text-muted-foreground">
               Importante: Este é um pré-agendamento. A barbearia entrará em contato via WhatsApp para confirmar a disponibilidade do horário solicitado.
             </div>
           </CardContent>
         </Card>
       </form>
-
-      <style>{`
-        .glow {
-          box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(255, 255, 255, 0.2);
-          transition: box-shadow 0.3s ease-in-out;
-        }
-        .glow:hover {
-          box-shadow: 0 0 20px #f0f, 0 0 40px #0ff, 0 0 60px #ff0;
-        }
-      `}</style>
     </div>
   );
 }
