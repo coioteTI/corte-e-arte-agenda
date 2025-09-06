@@ -28,10 +28,10 @@ type Company = {
   zip_code: string;
   business_hours: any;
   likes_count: number;
-  instagram: string;
-  logo_url: string;
+  instagram: string | null;
+  logo_url: string | null;
   email: string;
-  phone?: string;
+  phone: string;
 };
 
 type Service = {
@@ -39,17 +39,17 @@ type Service = {
   name: string;
   price: number;
   duration: number;
-  description: string;
-  professional_responsible: string;
+  description: string | null;
+  professional_responsible: string | null;
 };
 
 type Professional = {
   id: string;
   company_id: string;
   name: string;
-  specialty: string;
-  phone: string;
-  email: string;
+  specialty: string | null;
+  phone: string | null;
+  email: string | null;
   is_available: boolean;
 };
 
@@ -58,16 +58,13 @@ type Appointment = {
   company_id: string;
   service_id: string;
   professional_id: string;
-  client_id?: string;
-  client_name?: string;
-  client_whatsapp?: string;
-  client_email?: string;
+  client_id?: string | null;
   appointment_date: string;
   appointment_time: string;
-  notes?: string;
+  notes?: string | null;
   status: string;
-  total_price?: number;
-  payment_method?: string;
+  total_price?: number | null;
+  payment_method?: string | null;
 };
 
 export default function AgendarServico() {
@@ -146,9 +143,15 @@ export default function AgendarServico() {
 
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from("appointments")
-        .select("*")
+        .select(`
+          *,
+          clients (
+            name,
+            phone
+          )
+        `)
         .eq("company_id", companyData.id)
-        .eq("status", "confirmed");
+        .in("status", ["confirmed", "scheduled", "pending"]);
       if (appointmentsError) throw appointmentsError;
       setAppointments(appointmentsData || []);
     } catch (error) {
@@ -244,13 +247,31 @@ export default function AgendarServico() {
     try {
       const selectedService = services.find((s) => s.id === selectedServiceId);
 
+      // Criar/obter cliente primeiro
+      let clientId = null;
+      
+      // Tentar criar cliente
+      const { data: clientData, error: clientError } = await supabase
+        .from("clients")
+        .insert([{
+          name: fullName,
+          phone: whatsapp,
+          email: email || null,
+        }])
+        .select()
+        .single();
+
+      if (clientError) {
+        console.warn("Erro ao criar cliente:", clientError);
+      } else {
+        clientId = clientData.id;
+      }
+
       const appointmentData = {
         company_id: company.id,
         service_id: selectedServiceId!,
         professional_id: selectedProfessionalId!,
-        client_name: fullName,
-        client_whatsapp: whatsapp,
-        client_email: email || null,
+        client_id: clientId,
         appointment_date: selectedDate!,
         appointment_time: selectedTime!,
         notes: notes || null,
@@ -315,7 +336,7 @@ export default function AgendarServico() {
     return (
       <div className="max-w-3xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
         <div className="text-center">
-          <div className="animate-pulse">Carregando...</div>
+          <div className="animate-pulse text-foreground">Carregando...</div>
         </div>
       </div>
     );
