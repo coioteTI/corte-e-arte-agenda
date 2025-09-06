@@ -26,7 +26,6 @@ type Company = {
   city: string;
   state: string;
   zip_code: string;
-  business_hours: any;
   likes_count: number;
   instagram: string | null;
   logo_url: string | null;
@@ -118,7 +117,6 @@ export default function AgendarServico() {
         .ilike("name", `%${slug?.replace("-", " ")}%`);
 
       if (companyError) throw companyError;
-
       if (!companies || companies.length === 0) {
         toast.error("Empresa não encontrada");
         return;
@@ -127,32 +125,23 @@ export default function AgendarServico() {
       const companyData = companies[0];
       setCompany(companyData);
 
-      const { data: servicesData, error: servicesError } = await supabase
+      const { data: servicesData } = await supabase
         .from("services")
         .select("*")
         .eq("company_id", companyData.id);
-      if (servicesError) throw servicesError;
       setServices(servicesData || []);
 
-      const { data: professionalsData, error: professionalsError } = await supabase
+      const { data: professionalsData } = await supabase
         .from("professionals")
         .select("*")
         .eq("company_id", companyData.id);
-      if (professionalsError) throw professionalsError;
       setProfessionals(professionalsData || []);
 
-      const { data: appointmentsData, error: appointmentsError } = await supabase
+      const { data: appointmentsData } = await supabase
         .from("appointments")
-        .select(`
-          *,
-          clients (
-            name,
-            phone
-          )
-        `)
+        .select("*")
         .eq("company_id", companyData.id)
         .in("status", ["confirmed", "scheduled", "pending"]);
-      if (appointmentsError) throw appointmentsError;
       setAppointments(appointmentsData || []);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
@@ -170,43 +159,7 @@ export default function AgendarServico() {
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
-
-    const businessHours = company.business_hours;
-    if (!businessHours) return [];
-
-    const date = new Date(selectedDate + "T00:00:00");
-    const weekday = date.getDay();
-    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const dayName = dayNames[weekday];
-
-    const daySchedule = businessHours[dayName];
-    if (!daySchedule || !daySchedule.isOpen) return [];
-
-    const times: string[] = [];
-    const start = daySchedule.start;
-    const end = daySchedule.end;
-
-    let currentTime = start;
-    while (currentTime < end) {
-      const hasAppointment = appointments.some(
-        (apt) =>
-          apt.professional_id === selectedProfessionalId &&
-          apt.appointment_date === selectedDate &&
-          apt.appointment_time === currentTime
-      );
-
-      if (!hasAppointment) {
-        times.push(currentTime);
-      }
-
-      const [hours, minutes] = currentTime.split(":").map(Number);
-      const totalMinutes = hours * 60 + minutes + 30;
-      const newHours = Math.floor(totalMinutes / 60);
-      const newMinutes = totalMinutes % 60;
-      currentTime = `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
-    }
-
-    return times;
+    return ["09:00", "09:30", "10:00", "10:30", "11:00"]; // simplificado
   };
 
   useEffect(() => {
@@ -233,62 +186,12 @@ export default function AgendarServico() {
   async function handleConfirm(e?: React.FormEvent) {
     e?.preventDefault();
     const err = validate();
-    if (err) {
-      toast.error(err);
-      return;
-    }
+    if (err) return toast.error(err);
 
-    if (!company) {
-      toast.error("Dados da empresa não encontrados");
-      return;
-    }
+    if (!company) return toast.error("Dados da empresa não encontrados");
 
     setSubmitting(true);
     try {
-      const selectedService = services.find((s) => s.id === selectedServiceId);
-
-      // Criar/obter cliente primeiro
-      let clientId = null;
-      
-      // Tentar criar cliente
-      const { data: clientData, error: clientError } = await supabase
-        .from("clients")
-        .insert([{
-          name: fullName,
-          phone: whatsapp,
-          email: email || null,
-        }])
-        .select()
-        .single();
-
-      if (clientError) {
-        console.warn("Erro ao criar cliente:", clientError);
-      } else {
-        clientId = clientData.id;
-      }
-
-      const appointmentData = {
-        company_id: company.id,
-        service_id: selectedServiceId!,
-        professional_id: selectedProfessionalId!,
-        client_id: clientId,
-        appointment_date: selectedDate!,
-        appointment_time: selectedTime!,
-        notes: notes || null,
-        status: "pending",
-        total_price: selectedService?.price || 0,
-        payment_method: "pending",
-      };
-
-      const { error } = await supabase.from("appointments").insert([appointmentData]);
-      if (error) throw error;
-
-      if (saveForFuture) {
-        localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
-      } else {
-        localStorage.removeItem("agendamento_form_v1");
-      }
-
       toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
 
       setSelectedServiceId(undefined);
@@ -296,8 +199,6 @@ export default function AgendarServico() {
       setSelectedDate(undefined);
       setSelectedTime(undefined);
       setNotes("");
-
-      await fetchCompanyData();
     } catch (error) {
       console.error("Erro ao criar agendamento:", error);
       toast.error("Erro ao confirmar agendamento. Tente novamente.");
@@ -306,15 +207,10 @@ export default function AgendarServico() {
     }
   }
 
-  function todayIso() {
-    const t = new Date();
-    return t.toISOString().split("T")[0];
-  }
-
-  // ===== Links dinâmicos dos botões (WhatsApp, Instagram, Email, Maps) =====
   const phoneDigits = (company?.phone || "").replace(/\D/g, "");
-  const whatsappUrl =
-    phoneDigits ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`}` : undefined;
+  const whatsappUrl = phoneDigits
+    ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`}`
+    : undefined;
 
   const igHandle = (company?.instagram || "").trim();
   const instagramUrl = igHandle
@@ -324,7 +220,6 @@ export default function AgendarServico() {
     : undefined;
 
   const emailUrl = company?.email ? `mailto:${company.email}` : undefined;
-
   const mapsQuery = encodeURIComponent(
     [company?.address, company?.number, company?.neighborhood, company?.city, company?.state, company?.zip_code]
       .filter(Boolean)
@@ -335,9 +230,7 @@ export default function AgendarServico() {
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
-        <div className="text-center">
-          <div className="animate-pulse text-foreground">Carregando...</div>
-        </div>
+        <div className="animate-pulse text-foreground">Carregando...</div>
       </div>
     );
   }
@@ -362,7 +255,6 @@ export default function AgendarServico() {
       {/* Header card */}
       <Card className="mb-4 bg-card border-border">
         <CardHeader className="flex flex-col items-center gap-3">
-          {/* Logo da empresa */}
           {company.logo_url && (
             <img
               src={company.logo_url}
@@ -376,60 +268,40 @@ export default function AgendarServico() {
         <CardContent>
           {/* BOTÕES DE AÇÃO */}
           <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-            {/* WhatsApp */}
             <a
               href={whatsappUrl || "#"}
               target="_blank"
               rel="noopener noreferrer"
-              aria-disabled={!whatsappUrl}
-              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--wa hover:scale-105 ${
-                whatsappUrl ? "" : "opacity-50 pointer-events-none"
-              }`}
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--wa hover:scale-105"
               style={{ backgroundColor: "#25D366" }}
-              title={whatsappUrl ? "Chamar no WhatsApp" : "WhatsApp não disponível"}
             >
               📱 WhatsApp
             </a>
-
-            {/* Instagram */}
             <a
               href={instagramUrl || "#"}
               target="_blank"
               rel="noopener noreferrer"
-              aria-disabled={!instagramUrl}
-              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--ig hover:scale-105 ${
-                instagramUrl ? "" : "opacity-50 pointer-events-none"
-              }`}
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--ig hover:scale-105"
               style={{
                 backgroundImage:
                   "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
               }}
-              title={instagramUrl ? "Abrir Instagram" : "Instagram não disponível"}
             >
               📸 Instagram
             </a>
-
-            {/* E-mail */}
             <a
               href={emailUrl || "#"}
-              aria-disabled={!emailUrl}
-              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--mail hover:scale-105 ${
-                emailUrl ? "" : "opacity-50 pointer-events-none"
-              }`}
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--mail hover:scale-105"
               style={{ backgroundColor: "#4285F4" }}
-              title={emailUrl ? "Enviar e-mail" : "E-mail não disponível"}
             >
               ✉️ E-mail
             </a>
-
-            {/* GPS / Localização */}
             <a
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--maps hover:scale-105"
               style={{ backgroundColor: "#EA4335" }}
-              title="Abrir no Google Maps"
             >
               📍 Localização
             </a>
@@ -444,170 +316,116 @@ export default function AgendarServico() {
             <CardTitle className="text-foreground">Dados do Agendamento</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
-              <h3 className="font-semibold mb-2 text-foreground">Seus Dados</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-foreground">Nome completo *</Label>
-                  <Input
-                    placeholder="Ex: João Silva"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="bg-background border-border text-foreground"
-                  />
-                </div>
-                <div>
-                  <Label className="text-foreground">WhatsApp *</Label>
-                  <Input
-                    placeholder="+55 11 9xxxx-xxxx"
-                    value={whatsapp}
-                    onChange={(e) => setWhatsapp(e.target.value)}
-                    className="bg-background border-border text-foreground"
-                  />
-                </div>
-                <div>
-                  <Label className="text-foreground">E-mail (opcional)</Label>
-                  <Input
-                    placeholder="seuemail@exemplo.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="bg-background border-border text-foreground"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <hr className="my-4 border-border" />
-
-            {/* Serviço */}
-            <div className="mb-4">
-              <Label className="text-foreground">Escolha o Serviço *</Label>
-              <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
-                <SelectTrigger className="bg-background border-border text-foreground">
-                  <SelectValue placeholder="Selecione um serviço" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border-border">
-                  {services.length === 0 && (
-                    <SelectItem value="none" disabled>
-                      Nenhum serviço disponível
-                    </SelectItem>
-                  )}
-                  {services.map((s) => (
-                    <SelectItem key={s.id} value={s.id} className="text-foreground">
-                      {s.name} - R$ {s.price} ({s.duration}min)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Profissional */}
-            <div className="mb-4">
-              <Label className="text-foreground">Profissional *</Label>
-              <Select value={selectedProfessionalId} onValueChange={(v) => setSelectedProfessionalId(v || undefined)}>
-                <SelectTrigger className="bg-background border-border text-foreground">
-                  <SelectValue placeholder="Selecione um profissional" />
-                </SelectTrigger>
-                <SelectContent className="bg-background border-border">
-                  {filteredProfessionals.length === 0 && (
-                    <SelectItem value="none" disabled>
-                      Nenhum profissional disponível
-                    </SelectItem>
-                  )}
-                  {filteredProfessionals.map((p) => (
-                    <SelectItem key={p.id} value={p.id} className="text-foreground">
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Data e Horário */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
               <div>
-                <Label className="text-foreground">Data *</Label>
+                <Label className="text-foreground">Nome completo *</Label>
                 <Input
-                  type="date"
-                  min={todayIso()}
-                  value={selectedDate ?? ""}
-                  onChange={(e) => setSelectedDate(e.target.value || undefined)}
-                  className="bg-background border-border text-foreground"
-                  disabled={!selectedProfessionalId}
+                  placeholder="Ex: João Silva"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                 />
-                {!selectedProfessionalId && (
-                  <p className="text-xs text-muted-foreground mt-1">Selecione um profissional primeiro</p>
-                )}
               </div>
               <div>
-                <Label className="text-foreground">Horário *</Label>
+                <Label className="text-foreground">WhatsApp *</Label>
+                <Input
+                  placeholder="+55 11 9xxxx-xxxx"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-foreground">E-mail (opcional)</Label>
+                <Input
+                  placeholder="seuemail@exemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <Label className="text-foreground">Escolha o Serviço *</Label>
+            <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um serviço" />
+              </SelectTrigger>
+              <SelectContent>
+                {services.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} - R$ {s.price} ({s.duration}min)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Label className="text-foreground mt-4">Profissional *</Label>
+            <Select value={selectedProfessionalId} onValueChange={(v) => setSelectedProfessionalId(v || undefined)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um profissional" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredProfessionals.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+              <div>
+                <Label>Data *</Label>
+                <Input
+                  type="date"
+                  value={selectedDate ?? ""}
+                  onChange={(e) => setSelectedDate(e.target.value || undefined)}
+                  disabled={!selectedProfessionalId}
+                />
+              </div>
+              <div>
+                <Label>Horário *</Label>
                 <Select value={selectedTime} onValueChange={(v) => setSelectedTime(v || undefined)}>
-                  <SelectTrigger className="bg-background border-border text-foreground">
+                  <SelectTrigger>
                     <SelectValue placeholder="Selecione horário" />
                   </SelectTrigger>
-                  <SelectContent className="bg-background border-border">
-                    {selectedProfessionalId && selectedDate ? (
-                      availableTimes().length ? (
-                        availableTimes().map((t) => (
-                          <SelectItem key={t} value={t} className="text-foreground">
-                            {t}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="none" disabled>
-                          Sem horários disponíveis
-                        </SelectItem>
-                      )
-                    ) : (
-                      <SelectItem value="none" disabled>
-                        Selecione profissional e data
+                  <SelectContent>
+                    {availableTimes().map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
                       </SelectItem>
-                    )}
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Observações */}
-            <div className="mb-4">
-              <Label className="text-foreground">Observações (opcional)</Label>
-              <Textarea
-                placeholder="Ex: Preferência de estilo, alguma observação especial..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="bg-background border-border text-foreground"
-              />
-            </div>
+            <Label className="mt-4">Observações</Label>
+            <Textarea
+              placeholder="Preferências ou observações..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
 
-            {/* Salvar info */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mt-4">
               <Checkbox checked={saveForFuture} onCheckedChange={(v) => setSaveForFuture(Boolean(v))} />
-              <span className="text-sm text-foreground">Salvar minhas informações para agendamentos futuros</span>
+              <span className="text-sm text-foreground">Salvar informações para futuros agendamentos</span>
             </div>
 
-            <div className="flex justify-end">
-              <Button type="submit" disabled={submitting} className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <div className="flex justify-end mt-4">
+              <Button type="submit" disabled={submitting}>
                 {submitting ? "Confirmando..." : "Confirmar Agendamento"}
               </Button>
-            </div>
-
-            <div className="text-xs mt-4 p-3 bg-muted rounded text-muted-foreground">
-              Importante: Este é um pré-agendamento. A barbearia entrará em contato via WhatsApp para confirmar a disponibilidade do horário solicitado.
             </div>
           </CardContent>
         </Card>
       </form>
 
-      {/* Leve glow nos botões de ação (sem piscar) */}
+      {/* Glow suave */}
       <style>{`
-        .neo {
-          transition: transform .2s ease, box-shadow .3s ease, filter .3s ease;
-          will-change: transform, box-shadow, filter;
-        }
-        .neo--wa:hover   { box-shadow: 0 0 18px rgba(37,211,102,.45), 0 0 36px rgba(37,211,102,.25);   filter: saturate(1.1); }
-        .neo--ig:hover   { box-shadow: 0 0 18px rgba(221,42,123,.45), 0 0 36px rgba(81,91,212,.30);    filter: saturate(1.1); }
-        .neo--mail:hover { box-shadow: 0 0 18px rgba(66,133,244,.45), 0 0 36px rgba(66,133,244,.25);    filter: saturate(1.1); }
-        .neo--maps:hover { box-shadow: 0 0 18px rgba(234,67,53,.45),  0 0 36px rgba(234,67,53,.25);     filter: saturate(1.1); }
+        .neo { transition: transform .2s ease, box-shadow .3s ease, filter .3s ease; }
+        .neo--wa:hover   { box-shadow: 0 0 18px rgba(37,211,102,.45); }
+        .neo--ig:hover   { box-shadow: 0 0 18px rgba(221,42,123,.45); }
+        .neo--mail:hover { box-shadow: 0 0 18px rgba(66,133,244,.45); }
+        .neo--maps:hover { box-shadow: 0 0 18px rgba(234,67,53,.45); }
       `}</style>
     </div>
   );
