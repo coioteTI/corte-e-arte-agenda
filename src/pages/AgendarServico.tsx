@@ -159,7 +159,11 @@ export default function AgendarServico() {
     }
   }
 
-  const filteredProfessionals = professionals.filter((p) => p.is_available);
+  const filteredProfessionals = professionals.filter((p) => {
+    if (!selectedServiceId) return true;
+    const service = services.find((s) => s.id === selectedServiceId);
+    return service && service.professional_responsible === p.name;
+  });
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
@@ -264,7 +268,7 @@ export default function AgendarServico() {
         localStorage.removeItem("agendamento_form_v1");
       }
 
-      toast.success(`Agendamento realizado com sucesso! Obrigado, ${fullName}.`);
+      toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
 
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
@@ -286,6 +290,26 @@ export default function AgendarServico() {
     return t.toISOString().split("T")[0];
   }
 
+  // ===== Links dinâmicos dos botões (WhatsApp, Instagram, Email, Maps) =====
+  const phoneDigits = (company?.phone || "").replace(/\D/g, "");
+  const whatsappUrl =
+    phoneDigits ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`}` : undefined;
+
+  const igHandle = (company?.instagram || "").trim();
+  const instagramUrl = igHandle
+    ? igHandle.startsWith("http")
+      ? igHandle
+      : `https://instagram.com/${igHandle.replace(/^@/, "")}`
+    : undefined;
+
+  const emailUrl = company?.email ? `mailto:${company.email}` : undefined;
+
+  const mapsQuery = encodeURIComponent(
+    [company?.address, company?.number, company?.neighborhood, company?.city, company?.state, company?.zip_code]
+      .filter(Boolean)
+      .join(", ")
+  );
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
 
   if (loading) {
     return (
@@ -329,12 +353,65 @@ export default function AgendarServico() {
         </CardHeader>
 
         <CardContent>
-          <div className="text-center text-muted-foreground">
-            <div className="space-y-1">
-              <p className="font-medium">{company.address}, {company.number}</p>
-              <p>{company.neighborhood} - {company.city}, {company.state}</p>
-              <p>CEP: {company.zip_code}</p>
-            </div>
+          {/* BOTÕES DE AÇÃO */}
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+            {/* WhatsApp */}
+            <a
+              href={whatsappUrl || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-disabled={!whatsappUrl}
+              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--wa hover:scale-105 ${
+                whatsappUrl ? "" : "opacity-50 pointer-events-none"
+              }`}
+              style={{ backgroundColor: "#25D366" }}
+              title={whatsappUrl ? "Chamar no WhatsApp" : "WhatsApp não disponível"}
+            >
+              📱 WhatsApp
+            </a>
+
+            {/* Instagram */}
+            <a
+              href={instagramUrl || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-disabled={!instagramUrl}
+              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--ig hover:scale-105 ${
+                instagramUrl ? "" : "opacity-50 pointer-events-none"
+              }`}
+              style={{
+                backgroundImage:
+                  "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
+              }}
+              title={instagramUrl ? "Abrir Instagram" : "Instagram não disponível"}
+            >
+              📸 Instagram
+            </a>
+
+            {/* E-mail */}
+            <a
+              href={emailUrl || "#"}
+              aria-disabled={!emailUrl}
+              className={`px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--mail hover:scale-105 ${
+                emailUrl ? "" : "opacity-50 pointer-events-none"
+              }`}
+              style={{ backgroundColor: "#4285F4" }}
+              title={emailUrl ? "Enviar e-mail" : "E-mail não disponível"}
+            >
+              ✉️ E-mail
+            </a>
+
+            {/* GPS / Localização */}
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--maps hover:scale-105"
+              style={{ backgroundColor: "#EA4335" }}
+              title="Abrir no Google Maps"
+            >
+              📍 Localização
+            </a>
           </div>
         </CardContent>
       </Card>
@@ -500,6 +577,17 @@ export default function AgendarServico() {
         </Card>
       </form>
 
+      {/* Leve glow nos botões de ação (sem piscar) */}
+      <style>{`
+        .neo {
+          transition: transform .2s ease, box-shadow .3s ease, filter .3s ease;
+          will-change: transform, box-shadow, filter;
+        }
+        .neo--wa:hover   { box-shadow: 0 0 18px rgba(37,211,102,.45), 0 0 36px rgba(37,211,102,.25);   filter: saturate(1.1); }
+        .neo--ig:hover   { box-shadow: 0 0 18px rgba(221,42,123,.45), 0 0 36px rgba(81,91,212,.30);    filter: saturate(1.1); }
+        .neo--mail:hover { box-shadow: 0 0 18px rgba(66,133,244,.45), 0 0 36px rgba(66,133,244,.25);    filter: saturate(1.1); }
+        .neo--maps:hover { box-shadow: 0 0 18px rgba(234,67,53,.45),  0 0 36px rgba(234,67,53,.25);     filter: saturate(1.1); }
+      `}</style>
     </div>
   );
 }
