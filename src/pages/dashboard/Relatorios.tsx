@@ -294,7 +294,8 @@ const Relatorios = () => {
                             backgroundColor: '#ffffff',
                             border: '1px solid #e5e7eb',
                             borderRadius: '8px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            color: '#000000'
                           }}
                           formatter={(value: number) => [
                             `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
@@ -344,7 +345,8 @@ const Relatorios = () => {
                             backgroundColor: '#ffffff',
                             border: '1px solid #e5e7eb',
                             borderRadius: '8px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            color: '#000000'
                           }}
                           formatter={(value: number, name: string) => [
                             `${value} agendamentos (${servicosPopulares.find(s => s.quantidade === value)?.percentual}%)`,
@@ -392,7 +394,8 @@ const Relatorios = () => {
                             backgroundColor: '#ffffff',
                             border: '1px solid #e5e7eb',
                             borderRadius: '8px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            color: '#000000'
                           }}
                           formatter={(value: number, name: string) => [
                             name === 'atendimentos' ? `${value} atendimentos` : `R$ ${value}`,
@@ -438,7 +441,8 @@ const Relatorios = () => {
                           backgroundColor: '#ffffff',
                           border: '1px solid #e5e7eb',
                           borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                          color: '#000000'
                         }}
                         formatter={(value: number) => [`${value} agendamentos`, "Total"]}
                       />
