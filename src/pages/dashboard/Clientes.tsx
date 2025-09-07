@@ -43,16 +43,44 @@ const Clientes = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load only clients belonging to the current user
-      const { data: clientsData } = await supabase
-        .from('clients')
-        .select('*')
+      // Get company ID first
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .single();
 
-      setClientes(clientsData || []);
+      if (!company) return;
+
+      // Get all appointments for this company to find associated clients
+      const { data: appointments } = await supabase
+        .from('appointments')
+        .select('client_id')
+        .eq('company_id', company.id);
+
+      if (!appointments || appointments.length === 0) {
+        setClientes([]);
+        return;
+      }
+
+      // Get unique client IDs
+      const clientIds = [...new Set(appointments.map(a => a.client_id).filter(Boolean))];
+
+      if (clientIds.length > 0) {
+        // Fetch all clients that have appointments with this company
+        const { data: clientsData } = await supabase
+          .from('clients')
+          .select('*')
+          .in('id', clientIds)
+          .order('created_at', { ascending: false });
+
+        setClientes(clientsData || []);
+      } else {
+        setClientes([]);
+      }
     } catch (error) {
       console.error('Error loading clients:', error);
+      setClientes([]);
     } finally {
       setLoading(false);
     }

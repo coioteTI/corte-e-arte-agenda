@@ -53,11 +53,10 @@ const Agenda = () => {
       
       setCompanyId(company.id);
 
-      // Load services, professionals, clients and appointments
-      const [servicesData, professionalsData, clientsData, appointmentsData] = await Promise.all([
+      // Load services, professionals and appointments
+      const [servicesData, professionalsData, appointmentsData] = await Promise.all([
         supabase.from('services').select('*').eq('company_id', company.id),
         supabase.from('professionals').select('*').eq('company_id', company.id),
-        supabase.from('clients').select('*'),
         supabase
           .from('appointments')
           .select(`
@@ -71,8 +70,21 @@ const Agenda = () => {
 
       setServices(servicesData.data || []);
       setProfessionals(professionalsData.data || []);
-      setClients(clientsData.data || []);
       setAgendamentos(appointmentsData.data || []);
+
+      // Load clients that have appointments with this company
+      if (appointmentsData.data && appointmentsData.data.length > 0) {
+        const clientIds = [...new Set(appointmentsData.data.map(apt => apt.client_id).filter(Boolean))];
+        
+        if (clientIds.length > 0) {
+          const { data: clientsData } = await supabase
+            .from('clients')
+            .select('*')
+            .in('id', clientIds);
+
+          setClients(clientsData || []);
+        }
+      }
     } catch (error) {
       console.error('Error loading company data:', error);
     }

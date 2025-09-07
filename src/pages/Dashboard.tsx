@@ -45,7 +45,6 @@ const Dashboard = () => {
       // Load all dashboard data in parallel
       const [
         appointmentsToday,
-        totalClients,
         totalServices,
         totalProfessionals,
         totalAppointments
@@ -61,15 +60,23 @@ const Dashboard = () => {
           .eq('company_id', company.id)
           .eq('appointment_date', today)
           .order('appointment_time'),
-        supabase.from('clients').select('id', { count: 'exact', head: true }),
         supabase.from('services').select('id', { count: 'exact', head: true }).eq('company_id', company.id),
         supabase.from('professionals').select('id', { count: 'exact', head: true }).eq('company_id', company.id),
         supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', company.id)
       ]);
 
+      // Count unique clients that have appointments with this company
+      const { data: allAppointments } = await supabase
+        .from('appointments')
+        .select('client_id')
+        .eq('company_id', company.id);
+
+      const uniqueClientIds = [...new Set(allAppointments?.map(apt => apt.client_id).filter(Boolean) || [])];
+      const totalClientes = uniqueClientIds.length;
+
       setDashboardData({
         agendamentosHoje: appointmentsToday.data || [],
-        totalClientes: totalClients.count || 0,
+        totalClientes,
         totalServicos: totalServices.count || 0,
         totalProfissionais: totalProfessionals.count || 0,
         totalAgendamentos: totalAppointments.count || 0
