@@ -38,7 +38,13 @@ const BuscarBarbearias = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    initializeData();
+    const cleanup = initializeData();
+    
+    return () => {
+      if (cleanup instanceof Promise) {
+        cleanup.then(cleanupFn => cleanupFn && cleanupFn());
+      }
+    };
   }, []);
 
   const initializeData = async () => {
@@ -52,6 +58,37 @@ const BuscarBarbearias = () => {
         fetchCompanies(),
         fetchTopRankings()
       ]);
+
+      // Subscribe to realtime changes for companies (likes_count updates)
+      const channel = supabase
+        .channel('companies-likes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'companies'
+          },
+          (payload) => {
+            // Update the local state when companies data changes
+            setResultados(prev => prev.map(company => 
+              company.id === (payload.new as any)?.id 
+                ? { ...company, likes_count: (payload.new as any)?.likes_count || company.likes_count }
+                : company
+            ));
+            setTopBarbearias(prev => prev.map(company => 
+              company.id === (payload.new as any)?.id 
+                ? { ...company, likes_count: (payload.new as any)?.likes_count || company.likes_count }
+                : company
+            ));
+          }
+        )
+        .subscribe();
+
+      // Cleanup function
+      return () => {
+        supabase.removeChannel(channel);
+      };
     } catch (error) {
       console.error('Error initializing data:', error);
     } finally {
