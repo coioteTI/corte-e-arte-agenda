@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { validateAppointment } from "@/utils/validation";
 import { useSupabaseOperations } from "@/hooks/useSupabaseOperations";
+import { GallerySection } from "@/components/GallerySection";
 
 type Company = {
   id: string;
@@ -648,6 +649,9 @@ export default function AgendarServico() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Gallery Section */}
+      <GallerySection companyId={company.id} />
 
       {/* Form */}
       <form onSubmit={handleConfirm}>

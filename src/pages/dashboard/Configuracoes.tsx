@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, MessageSquare, User, Settings, Palette } from "lucide-react";
+import { Bell, MessageSquare, User, Settings, Palette, Images } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { NotificacoesSection } from "@/components/configuracoes/NotificacoesSection";
@@ -14,6 +14,7 @@ import { MensagensAutomaticasSection } from "@/components/configuracoes/Mensagen
 import { MessageEditDialog } from "@/components/configuracoes/MessageEditDialog";
 import { ContaEmpresaSection } from "@/components/configuracoes/ContaEmpresaSection";
 import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSection";
+import { GaleriaSection } from "@/components/configuracoes/GaleriaSection";
 
 import {
   ConfiguracoesState,
@@ -529,7 +530,7 @@ const Configuracoes = () => {
         </div>
 
         <Tabs defaultValue="notificacoes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="notificacoes" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
               Notificações
@@ -541,6 +542,10 @@ const Configuracoes = () => {
             <TabsTrigger value="personalizacao" className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
               Personalização
+            </TabsTrigger>
+            <TabsTrigger value="galeria" className="flex items-center gap-2">
+              <Images className="h-4 w-4" />
+              Galeria
             </TabsTrigger>
             <TabsTrigger value="conta" className="flex items-center gap-2">
               <User className="h-4 w-4" />
@@ -571,6 +576,10 @@ const Configuracoes = () => {
               />
               <HorariosFuncionamentoSection companyId={companyId} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="galeria">
+            <GaleriaSection companyId={companyId} />
           </TabsContent>
 
           <TabsContent value="conta">
