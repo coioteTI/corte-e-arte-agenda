@@ -57,6 +57,7 @@ const Configuracoes = () => {
     email: "",
     telefone: "",
     endereco: "",
+    numero: "",
     cidade: "",
     estado: "",
     cep: "",
@@ -218,6 +219,7 @@ const Configuracoes = () => {
         email: company.email,
         telefone: company.phone,
         endereco: company.address,
+        numero: company.number,
         cidade: company.city,
         estado: company.state,
         cep: company.zip_code,
@@ -386,7 +388,7 @@ const Configuracoes = () => {
           email: contaEmpresa.email,
           phone: contaEmpresa.telefone,
           address: contaEmpresa.endereco,
-          number: "", // Limpar campo number se não estiver sendo usado
+          number: contaEmpresa.numero,
           neighborhood: "", // Limpar campo neighborhood se não estiver sendo usado
           city: contaEmpresa.cidade,
           state: contaEmpresa.estado,

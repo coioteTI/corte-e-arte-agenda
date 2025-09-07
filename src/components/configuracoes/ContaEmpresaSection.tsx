@@ -159,17 +159,29 @@ export const ContaEmpresaSection = ({ contaEmpresa, onInputChange, onSalvar, sav
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="endereco-empresa" className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            Endereço
-          </Label>
-          <Input
-            id="endereco-empresa"
-            value={contaEmpresa.endereco}
-            onChange={(e) => onInputChange("endereco", e.target.value)}
-            placeholder="Rua, número"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="endereco-empresa" className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Endereço
+            </Label>
+            <Input
+              id="endereco-empresa"
+              value={contaEmpresa.endereco}
+              onChange={(e) => onInputChange("endereco", e.target.value)}
+              placeholder="Nome da rua"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="numero-empresa">Número</Label>
+            <Input
+              id="numero-empresa"
+              value={contaEmpresa.numero}
+              onChange={(e) => onInputChange("numero", e.target.value)}
+              placeholder="123"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

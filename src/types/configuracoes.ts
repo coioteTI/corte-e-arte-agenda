@@ -57,6 +57,7 @@ export interface ContaEmpresaConfig {
   email: string;
   telefone: string;
   endereco: string;
+  numero: string;
   cidade: string;
   estado: string;
   cep: string;
