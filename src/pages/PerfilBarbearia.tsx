@@ -207,49 +207,6 @@ const PerfilBarbearia = () => {
           </div>
         </div>
 
-        {/* Informações de Contato */}
-        <Card className="mb-6 animate-scale-in">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Localização e Contato
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {(company.address || company.city || company.state) ? (
-              <div>
-                <h4 className="font-medium mb-1">Endereço</h4>
-                {company.address && (
-                  <p className="text-muted-foreground text-sm">
-                    {company.address}{company.number && `, ${company.number}`}
-                  </p>
-                )}
-                {(company.neighborhood || company.city || company.state) && (
-                  <p className="text-muted-foreground text-sm">
-                    {[company.neighborhood, company.city, company.state].filter(Boolean).join(' - ')}
-                  </p>
-                )}
-                {company.zip_code && (
-                  <p className="text-muted-foreground text-sm">
-                    CEP: {company.zip_code}
-                  </p>
-                )}
-                <Button 
-                  variant="link" 
-                  onClick={abrirMaps}
-                  className="p-0 h-auto text-primary hover:underline"
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  Ver no Google Maps
-                </Button>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-muted-foreground">Endereço não informado</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Profissionais */}
         {professionals.length > 0 && (
@@ -346,7 +303,10 @@ const PerfilBarbearia = () => {
           <CardContent>
             {company?.business_hours ? (
               <div className="space-y-3">
-                {Object.entries(company.business_hours).map(([day, hours]: [string, any]) => {
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                  const hours = company.business_hours[day];
+                  if (!hours) return null;
+                  
                   const dayNames: { [key: string]: string } = {
                     'monday': 'Segunda-feira',
                     'tuesday': 'Terça-feira', 
