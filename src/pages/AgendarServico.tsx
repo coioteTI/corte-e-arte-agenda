@@ -14,8 +14,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type Company = {
   id: string;
@@ -81,7 +91,7 @@ export default function AgendarServico() {
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
-  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
 
   const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
@@ -160,13 +170,13 @@ export default function AgendarServico() {
       const { data: professionalsData, error: professionalsError } = await supabase
         .from("professionals")
         .select("*")
-        .eq("company_id", companyData.id)
-        .eq("is_available", true); // Apenas profissionais disponíveis
+        .eq("company_id", companyData.id);
       
       if (professionalsError) {
         console.error("Erro ao buscar profissionais:", professionalsError);
       }
-      console.log("Profissionais encontrados:", professionalsData);
+      console.log("Todos profissionais encontrados:", professionalsData);
+      console.log("Profissionais filtrados por disponibilidade:", professionalsData?.filter(p => p.is_available));
       setProfessionals(professionalsData || []);
 
       // Buscar agendamentos
@@ -189,7 +199,7 @@ export default function AgendarServico() {
     }
   }
 
-  const filteredProfessionals = professionals;
+  const filteredProfessionals = professionals.filter(p => p.is_available === true);
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
@@ -197,7 +207,7 @@ export default function AgendarServico() {
     const businessHours = company.business_hours;
     if (!businessHours) return [];
 
-    const date = new Date(selectedDate + "T00:00:00");
+    const date = selectedDate;
     const weekday = date.getDay();
     const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const dayName = dayNames[weekday];
@@ -214,7 +224,7 @@ export default function AgendarServico() {
       const hasAppointment = appointments.some(
         (apt) =>
           apt.professional_id === selectedProfessionalId &&
-          apt.appointment_date === selectedDate &&
+          apt.appointment_date === format(selectedDate, "yyyy-MM-dd") &&
           apt.appointment_time === currentTime
       );
 
@@ -308,7 +318,7 @@ export default function AgendarServico() {
         service_id: selectedServiceId!,
         professional_id: selectedProfessionalId!,
         client_id: clientId,
-        appointment_date: selectedDate!,
+        appointment_date: format(selectedDate!, "yyyy-MM-dd"),
         appointment_time: selectedTime!,
         notes: notes || null,
         status: "pending",
@@ -517,37 +527,59 @@ export default function AgendarServico() {
                 <SelectValue placeholder="Selecione um profissional" />
               </SelectTrigger>
               <SelectContent>
-                {(() => {
-                  console.log("Profissionais disponíveis:", filteredProfessionals.length, filteredProfessionals);
-                  return filteredProfessionals.length === 0 ? (
-                    <SelectItem value="none" disabled>
-                      {professionals.length === 0 ? 
-                        "Nenhum profissional cadastrado" : 
-                        selectedServiceId ? 
-                          "Nenhum profissional disponível para este serviço" : 
-                          "Nenhum profissional disponível"
-                      }
+                {professionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional cadastrado
+                  </SelectItem>
+                ) : filteredProfessionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional disponível para este serviço
+                  </SelectItem>
+                ) : (
+                  filteredProfessionals.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} {p.specialty && `- ${p.specialty}`}
                     </SelectItem>
-                  ) : (
-                    filteredProfessionals.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} {p.specialty && `- ${p.specialty}`}
-                      </SelectItem>
-                    ))
-                  );
-                })()}
+                  ))
+                )}
               </SelectContent>
             </Select>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
               <div>
                 <Label>Data *</Label>
-                <Input
-                  type="date"
-                  value={selectedDate ?? ""}
-                  onChange={(e) => setSelectedDate(e.target.value || undefined)}
-                  disabled={!selectedProfessionalId}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                      disabled={!selectedProfessionalId}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                      className="pointer-events-auto rounded-md border bg-card"
+                      classNames={{
+                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                        day_today: "bg-accent text-accent-foreground font-semibold",
+                        day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground",
+                        head_cell: "text-muted-foreground font-medium text-sm w-9",
+                        cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <Label>Horário *</Label>
