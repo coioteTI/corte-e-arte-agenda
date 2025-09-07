@@ -301,6 +301,8 @@ const Relatorios = () => {
                             `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
                             "Faturamento"
                           ]}
+                          labelStyle={{ color: '#000000' }}
+                          labelFormatter={(label) => `Mês: ${label}`}
                         />
                         <Area 
                           type="monotone" 
@@ -352,12 +354,14 @@ const Relatorios = () => {
                             `${value} agendamentos (${servicosPopulares.find(s => s.quantidade === value)?.percentual}%)`,
                             name
                           ]}
+                          labelStyle={{ color: '#000000' }}
+                          itemStyle={{ color: '#000000' }}
                         />
                         <Legend 
                           verticalAlign="bottom" 
                           height={36}
                           formatter={(value, entry) => (
-                            <span style={{ color: entry.color, fontSize: '12px' }}>
+                            <span style={{ color: '#000000', fontSize: '12px' }}>
                               {value}
                             </span>
                           )}
@@ -401,6 +405,8 @@ const Relatorios = () => {
                             name === 'atendimentos' ? `${value} atendimentos` : `R$ ${value}`,
                             name === 'atendimentos' ? 'Atendimentos' : 'Faturamento'
                           ]}
+                          labelStyle={{ color: '#000000' }}
+                          itemStyle={{ color: '#000000' }}
                         />
                         <Bar 
                           dataKey="atendimentos" 
@@ -445,6 +451,8 @@ const Relatorios = () => {
                           color: '#000000'
                         }}
                         formatter={(value: number) => [`${value} agendamentos`, "Total"]}
+                        labelStyle={{ color: '#000000' }}
+                        itemStyle={{ color: '#000000' }}
                       />
                       <Line 
                         type="monotone" 
