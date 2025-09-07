@@ -144,9 +144,9 @@ export default function LikeButton({ targetType, targetId, className }: Props) {
       variant={liked ? "default" : "outline"}
       onClick={toggleLike}
       disabled={busy}
-      className={className}
+      className={`${className} ${busy ? 'opacity-70' : ''}`}
     >
-      <Heart className={`h-4 w-4 mr-2 ${liked ? "fill-current" : ""}`} />
+      <Heart className={`h-4 w-4 mr-2 ${liked ? "fill-current text-red-500" : ""} transition-colors`} />
       {liked ? "Curtido" : "Curtir"} • {count}
     </Button>
   );
