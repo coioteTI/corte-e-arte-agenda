@@ -60,9 +60,10 @@ type Professional = {
   company_id: string;
   name: string;
   specialty: string | null;
-  phone: string | null;
-  email: string | null;
+  phone?: string | null;
+  email?: string | null;
   is_available: boolean;
+  created_at?: string;
 };
 
 type Appointment = {
@@ -168,19 +169,35 @@ export default function AgendarServico() {
       console.log("Serviços encontrados:", servicesData);
       setServices(servicesData || []);
 
-      // Buscar profissionais
-      console.log("Buscando profissionais para empresa ID:", companyData.id);
-      const { data: professionalsData, error: professionalsError } = await supabase
-        .from("professionals")
-        .select("*")
-        .eq("company_id", companyData.id);
-      
-      if (professionalsError) {
-        console.error("Erro ao buscar profissionais:", professionalsError);
-      }
-      console.log("Todos profissionais encontrados:", professionalsData);
-      console.log("Profissionais filtrados por disponibilidade:", professionalsData?.filter(p => p.is_available));
-      setProfessionals(professionalsData || []);
+  // Buscar profissionais usando função pública
+  console.log("Buscando profissionais para empresa ID:", companyData.id);
+  
+  // Usar função que ignora RLS para busca pública
+  const { data: professionalsData, error: professionalsError } = await supabase
+    .rpc("get_professionals_for_booking", { 
+      company_uuid: companyData.id 
+    });
+  
+  if (professionalsError) {
+    console.error("Erro ao buscar profissionais:", professionalsError);
+    // Fallback para query direta se a função falhar
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("professionals")
+      .select("*")
+      .eq("company_id", companyData.id);
+    
+    if (!fallbackError) {
+      console.log("Profissionais encontrados via fallback:", fallbackData);
+      setProfessionals(fallbackData || []);
+    } else {
+      console.error("Erro no fallback também:", fallbackError);
+      setProfessionals([]);
+    }
+  } else {
+    console.log("Profissionais encontrados via RPC:", professionalsData);
+    console.log("Profissionais disponíveis:", professionalsData?.filter(p => p.is_available));
+    setProfessionals(professionalsData || []);
+  }
 
       // Buscar agendamentos
       const { data: appointmentsData, error: appointmentsError } = await supabase
@@ -204,7 +221,7 @@ export default function AgendarServico() {
 
   // Filtrar profissionais disponíveis
   const availableProfessionals = professionals.filter(p => {
-    console.log("Verificando profissional:", p.name, "is_available:", p.is_available, "tipo:", typeof p.is_available);
+    console.log("🔍 Verificando profissional:", p.name, "is_available:", p.is_available, "tipo:", typeof p.is_available);
     const isAvailable = p.is_available;
     
     // Suportar diferentes tipos de valores para is_available
@@ -220,14 +237,18 @@ export default function AgendarServico() {
     return false;
   });
 
+  console.log("📊 RESUMO PROFISSIONAIS:");
+  console.log("- Total cadastrados:", professionals.length);
+  console.log("- Total disponíveis:", availableProfessionals.length);
+
   // Filtrar profissionais com base no serviço selecionado
   const filteredProfessionals = selectedServiceId ? (() => {
     const selectedService = services.find(s => s.id === selectedServiceId);
-    console.log("Serviço selecionado:", selectedService);
+    console.log("🎯 Serviço selecionado:", selectedService);
     
     // Se o serviço tem um profissional responsável específico
     if (selectedService?.professional_responsible?.trim()) {
-      console.log("Serviço tem profissional responsável:", selectedService.professional_responsible);
+      console.log("👤 Serviço tem profissional responsável:", selectedService.professional_responsible);
       
       // Filtrar por nome do profissional responsável
       const responsibleProfessionals = availableProfessionals.filter(p => 
@@ -236,18 +257,21 @@ export default function AgendarServico() {
         selectedService.professional_responsible.toLowerCase().includes(p.name.toLowerCase())
       );
       
-      console.log("Profissionais responsáveis encontrados:", responsibleProfessionals);
+      console.log("✅ Profissionais responsáveis encontrados:", responsibleProfessionals);
       
       // Se não encontrar profissional responsável específico, mostrar todos disponíveis
-      return responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
+      const finalList = responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
+      console.log("📋 Lista final de profissionais:", finalList.map(p => p.name));
+      return finalList;
     }
     
     // Se não tem profissional responsável, mostrar todos disponíveis
+    console.log("📋 Usando todos profissionais disponíveis");
     return availableProfessionals;
   })() : availableProfessionals;
 
-  console.log("Profissionais disponíveis:", availableProfessionals);
-  console.log("Profissionais filtrados:", filteredProfessionals);
+  console.log("🎭 Profissionais para exibição:", filteredProfessionals.map(p => p.name));
+  console.log("Profissionais após filtro:", filteredProfessionals);
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
@@ -656,16 +680,23 @@ export default function AgendarServico() {
                   <SelectItem value="none" disabled>
                     Nenhum profissional cadastrado
                   </SelectItem>
+                ) : availableProfessionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional disponível (Total: {professionals.length})
+                  </SelectItem>
                 ) : filteredProfessionals.length === 0 ? (
                   <SelectItem value="none" disabled>
-                    Nenhum profissional disponível (Cadastrados: {professionals.length}, Disponíveis: {availableProfessionals.length})
+                    Nenhum profissional para este serviço (Disponíveis: {availableProfessionals.length})
                   </SelectItem>
                 ) : (
-                  filteredProfessionals.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.specialty && `- ${p.specialty}`}
-                    </SelectItem>
-                  ))
+                  filteredProfessionals.map((p) => {
+                    console.log("Renderizando profissional:", p.name, p.id);
+                    return (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} {p.specialty && `- ${p.specialty}`}
+                      </SelectItem>
+                    );
+                  })
                 )}
               </SelectContent>
             </Select>
