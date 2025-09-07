@@ -265,6 +265,8 @@ const Agenda = () => {
         return "bg-green-500";
       case "cancelled":
         return "bg-red-500";
+      case "pending":
+        return "bg-yellow-500";
       default:
         return "bg-gray-500";
     }
@@ -278,6 +280,8 @@ const Agenda = () => {
         return "Concluído";
       case "cancelled":
         return "Cancelado";
+      case "pending":
+        return "Em Andamento";
       default:
         return status;
     }
@@ -474,7 +478,7 @@ const Agenda = () => {
                           >
                             Editar
                           </Button>
-                          {agendamento.status === "scheduled" && (
+                          {(agendamento.status === "scheduled" || agendamento.status === "pending") && (
                             <Button 
                               size="sm" 
                               variant="outline"
