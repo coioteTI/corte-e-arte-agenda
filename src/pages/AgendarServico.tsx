@@ -111,16 +111,23 @@ export default function AgendarServico() {
   async function fetchCompanyData() {
     try {
       setLoading(true);
+      console.log("Buscando empresa com slug:", slug);
 
       // Try to find company by slug - convert slug back to name for search
       const searchName = slug?.replace(/-/g, " ") || "";
+      console.log("Nome de busca convertido:", searchName);
       
       const { data: companies, error: companyError } = await supabase
         .from("companies")
         .select("*")
         .ilike("name", `%${searchName}%`);
 
-      if (companyError) throw companyError;
+      if (companyError) {
+        console.error("Erro ao buscar empresa:", companyError);
+        throw companyError;
+      }
+      
+      console.log("Empresas encontradas:", companies);
       
       if (!companies || companies.length === 0) {
         toast.error("Empresa não encontrada");
@@ -132,25 +139,47 @@ export default function AgendarServico() {
         c.name.toLowerCase().replace(/\s+/g, '-') === slug?.toLowerCase()
       ) || companies[0];
       
+      console.log("Empresa selecionada:", companyData);
       setCompany(companyData);
 
-      const { data: servicesData } = await supabase
+      // Buscar serviços
+      console.log("Buscando serviços para empresa ID:", companyData.id);
+      const { data: servicesData, error: servicesError } = await supabase
         .from("services")
         .select("*")
         .eq("company_id", companyData.id);
+      
+      if (servicesError) {
+        console.error("Erro ao buscar serviços:", servicesError);
+      }
+      console.log("Serviços encontrados:", servicesData);
       setServices(servicesData || []);
 
-      const { data: professionalsData } = await supabase
+      // Buscar profissionais
+      console.log("Buscando profissionais para empresa ID:", companyData.id);
+      const { data: professionalsData, error: professionalsError } = await supabase
         .from("professionals")
         .select("*")
-        .eq("company_id", companyData.id);
+        .eq("company_id", companyData.id)
+        .eq("is_available", true); // Apenas profissionais disponíveis
+      
+      if (professionalsError) {
+        console.error("Erro ao buscar profissionais:", professionalsError);
+      }
+      console.log("Profissionais encontrados:", professionalsData);
       setProfessionals(professionalsData || []);
 
-      const { data: appointmentsData } = await supabase
+      // Buscar agendamentos
+      const { data: appointmentsData, error: appointmentsError } = await supabase
         .from("appointments")
         .select("*")
         .eq("company_id", companyData.id)
         .in("status", ["confirmed", "scheduled", "pending"]);
+      
+      if (appointmentsError) {
+        console.error("Erro ao buscar agendamentos:", appointmentsError);
+      }
+      console.log("Agendamentos encontrados:", appointmentsData);
       setAppointments(appointmentsData || []);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
@@ -160,13 +189,7 @@ export default function AgendarServico() {
     }
   }
 
-  const filteredProfessionals = professionals.filter((p) => {
-    // Always show available professionals first
-    if (!p.is_available) return false;
-    
-    // Show all available professionals (simplified logic to avoid name matching issues)
-    return true;
-  });
+  const filteredProfessionals = professionals;
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
