@@ -464,7 +464,15 @@ export default function AgendarServico() {
         payment_method: "pending",
       };
 
-      console.log("Dados do agendamento:", appointmentData);
+      console.log("🔄 Criando agendamento com dados:", appointmentData);
+      console.log("🔍 Validando dados do agendamento:", {
+        company_exists: !!company.id,
+        service_exists: !!selectedServiceId,
+        professional_exists: !!selectedProfessionalId,
+        client_exists: !!clientId,
+        date_valid: !!selectedDate,
+        time_valid: !!selectedTime
+      });
 
       const { data: appointmentResult, error: appointmentError } = await supabase
         .from("appointments")
@@ -473,11 +481,18 @@ export default function AgendarServico() {
         .single();
 
       if (appointmentError) {
-        console.error("Erro ao criar agendamento:", appointmentError);
+        console.error("❌ Erro completo ao criar agendamento:", appointmentError);
+        console.error("📋 Detalhes do erro:", {
+          message: appointmentError.message,
+          details: appointmentError.details,
+          hint: appointmentError.hint,
+          code: appointmentError.code
+        });
+        console.error("📊 Dados que causaram erro:", appointmentData);
         throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
       }
 
-      console.log("Agendamento criado com sucesso!", appointmentResult);
+      console.log("✅ Agendamento criado com sucesso!", appointmentResult);
 
       // Salvar dados para futuro se solicitado
       if (saveForFuture) {
