@@ -303,6 +303,7 @@ const Relatorios = () => {
                           ]}
                           labelStyle={{ color: '#000000' }}
                           labelFormatter={(label) => `Mês: ${label}`}
+                          itemStyle={{ color: '#000000' }}
                         />
                         <Area 
                           type="monotone" 
