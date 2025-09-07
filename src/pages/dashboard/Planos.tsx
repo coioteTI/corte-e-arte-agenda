@@ -21,8 +21,8 @@ const Planos = () => {
     }
     
     const kiwifyUrls = {
-      mensal: 'https://pay.kiwify.com.br/cmCYZ6A',
-      anual: 'https://pay.kiwify.com.br/kHeXa3O',
+      mensal: 'https://pay.kiwify.com.br/vNAkJ7c',
+      anual: 'https://pay.kiwify.com.br/eXKTLmI',
       teste: 'https://pay.kiwify.com.br/9oNOaqB'
     };
     

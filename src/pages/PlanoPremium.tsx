@@ -12,44 +12,26 @@ const PlanoPremium = () => {
   const { toast } = useToast();
   const nomeBarbearia = localStorage.getItem('nomeBarbearia') || '';
 
-  const handleSubscribe = async () => {
-    setIsLoading(true);
-    
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast({
-          title: "Erro de autenticação",
-          description: "Você precisa estar logado para continuar.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data.url) {
-        // Abrir Stripe checkout em nova aba
-        window.open(data.url, '_blank');
-      }
-    } catch (error: any) {
-      toast({
-        title: "Erro ao processar pagamento",
-        description: error.message || "Ocorreu um erro ao criar a sessão de pagamento.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+  const handleSubscribe = async (planType: 'mensal' | 'anual' = 'mensal') => {
+    // Salvar dados no localStorage para o webhook usar
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      localStorage.setItem('user_email_for_kiwify', user.email || '');
+      localStorage.setItem('selected_plan', planType === 'mensal' ? 'premium_mensal' : 'premium_anual');
     }
+    
+    const kiwifyUrls = {
+      mensal: 'https://pay.kiwify.com.br/vNAkJ7c',
+      anual: 'https://pay.kiwify.com.br/eXKTLmI'
+    };
+    
+    // Abrir o checkout do Kiwify em nova aba
+    window.open(kiwifyUrls[planType], '_blank');
+    
+    toast({
+      title: "Redirecionamento para pagamento",
+      description: "Você será redirecionado para o Kiwify para finalizar sua assinatura.",
+    });
   };
 
   return (
@@ -110,12 +92,22 @@ const PlanoPremium = () => {
               </div>
 
               <Button 
-                onClick={handleSubscribe}
+                onClick={() => handleSubscribe('mensal')}
                 className="w-full" 
                 size="lg"
                 disabled={isLoading}
               >
-                {isLoading ? "Processando..." : "Assinar Agora"}
+                {isLoading ? "Processando..." : "Assinar Mensal - R$ 59,90"}
+              </Button>
+              
+              <Button 
+                onClick={() => handleSubscribe('anual')}
+                className="w-full mt-3" 
+                size="lg"
+                disabled={isLoading}
+                variant="outline"
+              >
+                {isLoading ? "Processando..." : "Assinar Anual - R$ 770,00"}
               </Button>
             </div>
 
