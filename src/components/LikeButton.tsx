@@ -17,57 +17,67 @@ export default function LikeButton({ targetType, targetId, className }: Props) {
   const [clientKey, setClientKey] = useState<string>("");
 
   const fetchData = useCallback(async () => {
-    const ck = await getClientKey();
-    setClientKey(ck);
+    try {
+      const ck = await getClientKey();
+      setClientKey(ck);
 
-    // total de likes
-    const { count: total } = await supabase
-      .from("likes")
-      .select("*", { count: "exact", head: true })
-      .eq("target_type", targetType)
-      .eq("target_id", targetId);
+      // total de likes
+      const { count: total, error: countError } = await supabase
+        .from("likes")
+        .select("*", { count: "exact", head: true })
+        .eq("target_type", targetType)
+        .eq("target_id", targetId);
 
-    setCount(total ?? 0);
+      if (countError) {
+        console.error("Error fetching likes count:", countError);
+        return;
+      }
 
-    // se este cliente já curtiu
-    const { data: mine, error } = await supabase
-      .from("likes")
-      .select("id")
-      .eq("target_type", targetType)
-      .eq("target_id", targetId)
-      .eq("client_key", ck)
-      .maybeSingle();
+      setCount(total ?? 0);
 
-    if (!error && mine) setLiked(true);
-    else setLiked(false);
+      // se este cliente já curtiu
+      const { data: mine, error } = await supabase
+        .from("likes")
+        .select("id")
+        .eq("target_type", targetType)
+        .eq("target_id", targetId)
+        .eq("client_key", ck)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking user like:", error);
+        setLiked(false);
+      } else {
+        setLiked(!!mine);
+      }
+    } catch (error) {
+      console.error("Error in fetchData:", error);
+    }
   }, [targetType, targetId]);
 
   useEffect(() => {
     fetchData();
 
-    // Subscribe to realtime updates for likes count
+    // Subscribe to realtime updates for likes
     const channel = supabase
-      .channel('likes-changes')
+      .channel(`likes-${targetType}-${targetId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public', 
           table: 'likes',
-          filter: `target_type=eq.${targetType}`
+          filter: `target_type=eq.${targetType}.and.target_id=eq.${targetId}`
         },
         (payload) => {
-          // Only update if it's for our target
-          const newTargetId = (payload.new as any)?.target_id;
-          const oldTargetId = (payload.old as any)?.target_id;
-          
-          if (newTargetId === targetId || oldTargetId === targetId) {
-            // Refetch the count to ensure accuracy
-            fetchData();
-          }
+          console.log('Like realtime update:', payload);
+          // Refetch data to ensure accuracy
+          fetchData();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -78,43 +88,54 @@ export default function LikeButton({ targetType, targetId, className }: Props) {
     if (!clientKey || busy) return;
     setBusy(true);
 
-    // otimista
-    if (!liked) {
-      setLiked(true);
-      setCount((c) => c + 1);
-
-      const { error } = await supabase.from("likes").insert({
-        target_type: targetType,
-        target_id: targetId,
-        client_key: clientKey,
-      });
-
-      if (error) {
-        // desfaz otimista
-        setLiked(false);
-        setCount((c) => Math.max(0, c - 1));
-        console.error("like error:", error);
-      }
-    } else {
-      setLiked(false);
-      setCount((c) => Math.max(0, c - 1));
-
-      const { error } = await supabase
-        .from("likes")
-        .delete()
-        .eq("target_type", targetType)
-        .eq("target_id", targetId)
-        .eq("client_key", clientKey);
-
-      if (error) {
-        // desfaz otimista
+    try {
+      if (!liked) {
+        // Optimistic update
         setLiked(true);
         setCount((c) => c + 1);
-        console.error("unlike error:", error);
-      }
-    }
 
-    setBusy(false);
+        const { error } = await supabase.from("likes").insert({
+          target_type: targetType,
+          target_id: targetId,
+          client_key: clientKey,
+        });
+
+        if (error) {
+          console.error("Like error:", error);
+          // Rollback optimistic update
+          setLiked(false);
+          setCount((c) => Math.max(0, c - 1));
+        } else {
+          console.log("Like added successfully");
+        }
+      } else {
+        // Optimistic update
+        setLiked(false);
+        setCount((c) => Math.max(0, c - 1));
+
+        const { error } = await supabase
+          .from("likes")
+          .delete()
+          .eq("target_type", targetType)
+          .eq("target_id", targetId)
+          .eq("client_key", clientKey);
+
+        if (error) {
+          console.error("Unlike error:", error);
+          // Rollback optimistic update
+          setLiked(true);
+          setCount((c) => c + 1);
+        } else {
+          console.log("Like removed successfully");
+        }
+      }
+    } catch (error) {
+      console.error("Toggle like error:", error);
+      // Refresh data to sync with actual state
+      fetchData();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

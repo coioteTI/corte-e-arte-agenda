@@ -60,34 +60,42 @@ const BuscarBarbearias = () => {
       ]);
 
       // Subscribe to realtime changes for companies (likes_count updates)
-      const channel = supabase
-        .channel('companies-likes')
+      const companiesChannel = supabase
+        .channel('companies-likes-updates')
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'UPDATE',
             schema: 'public',
-            table: 'companies'
+            table: 'companies',
+            filter: 'likes_count=neq.null'
           },
           (payload) => {
-            // Update the local state when companies data changes
+            console.log('Company likes_count updated:', payload);
+            const updatedCompany = payload.new as any;
+            
+            // Update resultados
             setResultados(prev => prev.map(company => 
-              company.id === (payload.new as any)?.id 
-                ? { ...company, likes_count: (payload.new as any)?.likes_count || company.likes_count }
+              company.id === updatedCompany.id 
+                ? { ...company, likes_count: updatedCompany.likes_count }
                 : company
             ));
+            
+            // Update topBarbearias
             setTopBarbearias(prev => prev.map(company => 
-              company.id === (payload.new as any)?.id 
-                ? { ...company, likes_count: (payload.new as any)?.likes_count || company.likes_count }
+              company.id === updatedCompany.id 
+                ? { ...company, likes_count: updatedCompany.likes_count }
                 : company
             ));
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('Companies realtime subscription status:', status);
+        });
 
       // Cleanup function
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(companiesChannel);
       };
     } catch (error) {
       console.error('Error initializing data:', error);
