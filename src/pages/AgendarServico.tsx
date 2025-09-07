@@ -354,8 +354,8 @@ export default function AgendarServico() {
     setSubmitting(true);
     
     try {
-      console.log("Iniciando processo de agendamento...");
-      console.log("Dados do formulário:", {
+      console.log("🚀 INICIANDO TESTE COMPLETO DO AGENDAMENTO");
+      console.log("📋 Dados do formulário:", {
         fullName,
         whatsapp,
         email,
@@ -366,11 +366,25 @@ export default function AgendarServico() {
         notes
       });
 
+      // Teste de conexão com Supabase
+      console.log("🔌 Testando conexão com Supabase...");
+      const { data: testData, error: testError } = await supabase
+        .from("companies")
+        .select("id, name")
+        .eq("id", company.id)
+        .single();
+
+      if (testError) {
+        console.error("❌ Erro na conexão Supabase:", testError);
+        throw new Error(`Erro de conexão: ${testError.message}`);
+      }
+      console.log("✅ Conexão Supabase OK:", testData);
+
       const selectedService = services.find((s) => s.id === selectedServiceId);
       const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
       
-      console.log("Serviço selecionado:", selectedService);
-      console.log("Profissional selecionado:", selectedProfessional);
+      console.log("🔍 Serviço selecionado:", selectedService);
+      console.log("👤 Profissional selecionado:", selectedProfessional);
 
       if (!selectedService) {
         throw new Error("Serviço não encontrado");
@@ -380,17 +394,11 @@ export default function AgendarServico() {
         throw new Error("Profissional não encontrado");
       }
 
-      // Verificar se o profissional é responsável pelo serviço (se especificado)
-      if (selectedService.professional_responsible?.trim() && 
-          !selectedProfessional.name.toLowerCase().includes(selectedService.professional_responsible.toLowerCase()) &&
-          !selectedService.professional_responsible.toLowerCase().includes(selectedProfessional.name.toLowerCase())) {
-        console.warn("Profissional selecionado não é o responsável pelo serviço, mas permitindo agendamento");
-      }
-
-      // Primeiro criar/buscar o cliente
+      // ETAPA 1: Gerenciar cliente
+      console.log("\n📝 ETAPA 1: CRIANDO/BUSCANDO CLIENTE");
       let clientId: string | undefined;
       
-      console.log("Buscando cliente existente com phone:", whatsapp);
+      console.log("🔍 Buscando cliente existente com phone:", whatsapp);
       const { data: existingClients, error: searchError } = await supabase
         .from("clients")
         .select("id, name, email")
@@ -398,43 +406,38 @@ export default function AgendarServico() {
         .order("created_at", { ascending: false });
 
       if (searchError) {
-        console.error("Erro ao buscar cliente:", searchError);
+        console.error("❌ Erro ao buscar cliente:", searchError);
         throw new Error(`Erro ao buscar cliente: ${searchError.message}`);
       }
 
-      console.log("Clientes encontrados:", existingClients);
+      console.log("📊 Clientes encontrados:", existingClients);
 
       if (existingClients && existingClients.length > 0) {
-        // Usar o cliente mais recente se houver múltiplos
         const existingClient = existingClients[0];
-        console.log("Cliente existente encontrado (mais recente):", existingClient);
+        console.log("✅ Cliente existente encontrado (mais recente):", existingClient);
         clientId = existingClient.id;
         
-        // Se houver múltiplos clientes com mesmo telefone, avisar no console
         if (existingClients.length > 1) {
-          console.warn(`Múltiplos clientes encontrados com telefone ${whatsapp}. Usando o mais recente.`);
+          console.warn(`⚠️ Múltiplos clientes encontrados com telefone ${whatsapp}. Usando o mais recente.`);
         }
       } else {
-        console.log("Criando novo cliente...");
-        console.log("Dados do cliente:", {
+        console.log("➕ Criando novo cliente...");
+        const clientData = {
           name: fullName.trim(),
           phone: whatsapp.trim(),
           email: email?.trim() || null,
-        });
+        };
+        console.log("📝 Dados do cliente:", clientData);
         
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
-          .insert({
-            name: fullName.trim(),
-            phone: whatsapp.trim(),
-            email: email?.trim() || null,
-          })
+          .insert(clientData)
           .select("id")
           .single();
 
         if (clientError) {
-          console.error("Erro completo ao criar cliente:", clientError);
-          console.error("Detalhes do erro:", {
+          console.error("❌ Erro completo ao criar cliente:", clientError);
+          console.error("📋 Detalhes do erro:", {
             message: clientError.message,
             details: clientError.details,
             hint: clientError.hint,
@@ -442,7 +445,7 @@ export default function AgendarServico() {
           });
           throw new Error(`Erro ao criar cliente: ${clientError.message}`);
         }
-        console.log("Novo cliente criado com sucesso:", newClient);
+        console.log("✅ Novo cliente criado com sucesso:", newClient);
         clientId = newClient.id;
       }
 
@@ -450,7 +453,10 @@ export default function AgendarServico() {
         throw new Error("Não foi possível obter ID do cliente");
       }
 
-      // Criar o agendamento
+      console.log("✅ Cliente OK - ID:", clientId);
+
+      // ETAPA 2: Criar agendamento
+      console.log("\n📅 ETAPA 2: CRIANDO AGENDAMENTO");
       const appointmentData = {
         company_id: company.id,
         service_id: selectedServiceId!,
@@ -464,16 +470,18 @@ export default function AgendarServico() {
         payment_method: "pending",
       };
 
-      console.log("🔄 Criando agendamento com dados:", appointmentData);
-      console.log("🔍 Validando dados do agendamento:", {
-        company_exists: !!company.id,
-        service_exists: !!selectedServiceId,
-        professional_exists: !!selectedProfessionalId,
-        client_exists: !!clientId,
-        date_valid: !!selectedDate,
-        time_valid: !!selectedTime
+      console.log("📋 Dados completos do agendamento:", appointmentData);
+      console.log("🔍 Validação dos dados:", {
+        company_id_valid: !!appointmentData.company_id,
+        service_id_valid: !!appointmentData.service_id,
+        professional_id_valid: !!appointmentData.professional_id,
+        client_id_valid: !!appointmentData.client_id,
+        date_valid: !!appointmentData.appointment_date,
+        time_valid: !!appointmentData.appointment_time,
+        status_valid: !!appointmentData.status
       });
 
+      console.log("💾 Enviando dados para Supabase...");
       const { data: appointmentResult, error: appointmentError } = await supabase
         .from("appointments")
         .insert([appointmentData])
@@ -481,18 +489,18 @@ export default function AgendarServico() {
         .single();
 
       if (appointmentError) {
-        console.error("❌ Erro completo ao criar agendamento:", appointmentError);
-        console.error("📋 Detalhes do erro:", {
+        console.error("❌ ERRO CRÍTICO ao criar agendamento:", appointmentError);
+        console.error("📋 Detalhes completos do erro:", {
           message: appointmentError.message,
           details: appointmentError.details,
           hint: appointmentError.hint,
-          code: appointmentError.code
+          code: appointmentError.code,
+          data_sent: appointmentData
         });
-        console.error("📊 Dados que causaram erro:", appointmentData);
         throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
       }
 
-      console.log("✅ Agendamento criado com sucesso!", appointmentResult);
+      console.log("🎉 AGENDAMENTO CRIADO COM SUCESSO!", appointmentResult);
 
       // Salvar dados para futuro se solicitado
       if (saveForFuture) {
