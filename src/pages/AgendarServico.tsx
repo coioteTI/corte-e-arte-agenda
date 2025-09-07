@@ -202,9 +202,11 @@ export default function AgendarServico() {
     }
   }
 
-  const filteredProfessionals = professionals.filter(p => {
+  // Filtrar profissionais disponíveis
+  const availableProfessionals = professionals.filter(p => {
     console.log("Verificando profissional:", p.name, "is_available:", p.is_available, "tipo:", typeof p.is_available);
     const isAvailable = p.is_available;
+    
     // Suportar diferentes tipos de valores para is_available
     if (typeof isAvailable === 'boolean') {
       return isAvailable === true;
@@ -218,7 +220,34 @@ export default function AgendarServico() {
     return false;
   });
 
-  console.log("Profissionais após filtro:", filteredProfessionals);
+  // Filtrar profissionais com base no serviço selecionado
+  const filteredProfessionals = selectedServiceId ? (() => {
+    const selectedService = services.find(s => s.id === selectedServiceId);
+    console.log("Serviço selecionado:", selectedService);
+    
+    // Se o serviço tem um profissional responsável específico
+    if (selectedService?.professional_responsible?.trim()) {
+      console.log("Serviço tem profissional responsável:", selectedService.professional_responsible);
+      
+      // Filtrar por nome do profissional responsável
+      const responsibleProfessionals = availableProfessionals.filter(p => 
+        p.name.toLowerCase().trim() === selectedService.professional_responsible.toLowerCase().trim() ||
+        p.specialty?.toLowerCase().includes(selectedService.name.toLowerCase()) ||
+        selectedService.professional_responsible.toLowerCase().includes(p.name.toLowerCase())
+      );
+      
+      console.log("Profissionais responsáveis encontrados:", responsibleProfessionals);
+      
+      // Se não encontrar profissional responsável específico, mostrar todos disponíveis
+      return responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
+    }
+    
+    // Se não tem profissional responsável, mostrar todos disponíveis
+    return availableProfessionals;
+  })() : availableProfessionals;
+
+  console.log("Profissionais disponíveis:", availableProfessionals);
+  console.log("Profissionais filtrados:", filteredProfessionals);
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
@@ -299,9 +328,40 @@ export default function AgendarServico() {
     if (!company) return toast.error("Dados da empresa não encontrados");
 
     setSubmitting(true);
+    
     try {
       console.log("Iniciando processo de agendamento...");
+      console.log("Dados do formulário:", {
+        fullName,
+        whatsapp,
+        email,
+        selectedServiceId,
+        selectedProfessionalId,
+        selectedDate,
+        selectedTime,
+        notes
+      });
+
       const selectedService = services.find((s) => s.id === selectedServiceId);
+      const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
+      
+      console.log("Serviço selecionado:", selectedService);
+      console.log("Profissional selecionado:", selectedProfessional);
+
+      if (!selectedService) {
+        throw new Error("Serviço não encontrado");
+      }
+
+      if (!selectedProfessional) {
+        throw new Error("Profissional não encontrado");
+      }
+
+      // Verificar se o profissional é responsável pelo serviço (se especificado)
+      if (selectedService.professional_responsible?.trim() && 
+          !selectedProfessional.name.toLowerCase().includes(selectedService.professional_responsible.toLowerCase()) &&
+          !selectedService.professional_responsible.toLowerCase().includes(selectedProfessional.name.toLowerCase())) {
+        console.warn("Profissional selecionado não é o responsável pelo serviço, mas permitindo agendamento");
+      }
 
       // Primeiro criar/buscar o cliente
       let clientId: string | undefined;
@@ -315,6 +375,7 @@ export default function AgendarServico() {
 
       if (searchError) {
         console.error("Erro ao buscar cliente:", searchError);
+        throw new Error(`Erro ao buscar cliente: ${searchError.message}`);
       }
 
       if (existingClient) {
@@ -325,19 +386,23 @@ export default function AgendarServico() {
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
           .insert({
-            name: fullName,
-            phone: whatsapp,
-            email: email || null,
+            name: fullName.trim(),
+            phone: whatsapp.trim(),
+            email: email?.trim() || null,
           })
           .select("id")
           .single();
 
         if (clientError) {
           console.error("Erro ao criar cliente:", clientError);
-          throw clientError;
+          throw new Error(`Erro ao criar cliente: ${clientError.message}`);
         }
         console.log("Novo cliente criado:", newClient.id);
         clientId = newClient.id;
+      }
+
+      if (!clientId) {
+        throw new Error("Não foi possível obter ID do cliente");
       }
 
       // Criar o agendamento
@@ -348,30 +413,40 @@ export default function AgendarServico() {
         client_id: clientId,
         appointment_date: format(selectedDate!, "yyyy-MM-dd"),
         appointment_time: selectedTime!,
-        notes: notes || null,
+        notes: notes?.trim() || null,
         status: "pending",
-        total_price: selectedService?.price || 0,
+        total_price: selectedService.price || 0,
         payment_method: "pending",
       };
 
       console.log("Dados do agendamento:", appointmentData);
 
-      const { error: appointmentError } = await supabase
+      const { data: appointmentResult, error: appointmentError } = await supabase
         .from("appointments")
-        .insert([appointmentData]);
+        .insert([appointmentData])
+        .select("id")
+        .single();
 
       if (appointmentError) {
         console.error("Erro ao criar agendamento:", appointmentError);
-        throw appointmentError;
+        throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
       }
 
-      console.log("Agendamento criado com sucesso!");
+      console.log("Agendamento criado com sucesso!", appointmentResult);
 
       // Salvar dados para futuro se solicitado
       if (saveForFuture) {
-        localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
+        try {
+          localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
+        } catch (storageError) {
+          console.warn("Erro ao salvar no localStorage:", storageError);
+        }
       } else {
-        localStorage.removeItem("agendamento_form_v1");
+        try {
+          localStorage.removeItem("agendamento_form_v1");
+        } catch (storageError) {
+          console.warn("Erro ao remover do localStorage:", storageError);
+        }
       }
 
       toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
@@ -384,10 +459,21 @@ export default function AgendarServico() {
       setNotes("");
 
       // Recarregar dados para refletir novo agendamento
-      await fetchCompanyData();
+      try {
+        await fetchCompanyData();
+      } catch (reloadError) {
+        console.warn("Erro ao recarregar dados:", reloadError);
+      }
+
     } catch (error) {
-      console.error("Erro ao criar agendamento:", error);
-      toast.error(`Erro ao confirmar agendamento: ${error instanceof Error ? error.message : 'Tente novamente.'}`);
+      console.error("Erro completo ao criar agendamento:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido. Tente novamente.';
+      toast.error(`Erro ao confirmar agendamento: ${errorMessage}`);
+      
+      // Log adicional para debug
+      console.error("Stack trace:", error instanceof Error ? error.stack : 'Sem stack trace');
+      
     } finally {
       setSubmitting(false);
     }
@@ -554,6 +640,7 @@ export default function AgendarServico() {
               value={selectedProfessionalId || ""} 
               onValueChange={(value) => {
                 console.log("Profissional selecionado:", value);
+                console.log("Profissionais disponíveis para seleção:", filteredProfessionals);
                 setSelectedProfessionalId(value || undefined);
               }}
             >
@@ -571,7 +658,7 @@ export default function AgendarServico() {
                   </SelectItem>
                 ) : filteredProfessionals.length === 0 ? (
                   <SelectItem value="none" disabled>
-                    Nenhum profissional disponível (Todos: {professionals.length})
+                    Nenhum profissional disponível (Cadastrados: {professionals.length}, Disponíveis: {availableProfessionals.length})
                   </SelectItem>
                 ) : (
                   filteredProfessionals.map((p) => (
