@@ -407,6 +407,12 @@ export default function AgendarServico() {
         clientId = existingClient.id;
       } else {
         console.log("Criando novo cliente...");
+        console.log("Dados do cliente:", {
+          name: fullName.trim(),
+          phone: whatsapp.trim(),
+          email: email?.trim() || null,
+        });
+        
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
           .insert({
@@ -418,10 +424,16 @@ export default function AgendarServico() {
           .single();
 
         if (clientError) {
-          console.error("Erro ao criar cliente:", clientError);
+          console.error("Erro completo ao criar cliente:", clientError);
+          console.error("Detalhes do erro:", {
+            message: clientError.message,
+            details: clientError.details,
+            hint: clientError.hint,
+            code: clientError.code
+          });
           throw new Error(`Erro ao criar cliente: ${clientError.message}`);
         }
-        console.log("Novo cliente criado:", newClient.id);
+        console.log("Novo cliente criado com sucesso:", newClient);
         clientId = newClient.id;
       }
 
