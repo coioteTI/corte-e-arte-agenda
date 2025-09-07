@@ -376,31 +376,45 @@ const Configuracoes = () => {
     
     setSaving(true);
     try {
-      const { error } = await supabase
+      console.log('Salvando dados da conta para empresa:', companyId);
+      console.log('Dados a serem salvos:', contaEmpresa);
+      
+      const { data, error } = await supabase
         .from('companies')
         .update({
           name: contaEmpresa.nome,
           email: contaEmpresa.email,
           phone: contaEmpresa.telefone,
           address: contaEmpresa.endereco,
+          number: "", // Limpar campo number se não estiver sendo usado
+          neighborhood: "", // Limpar campo neighborhood se não estiver sendo usado
           city: contaEmpresa.cidade,
           state: contaEmpresa.estado,
           zip_code: contaEmpresa.cep,
           logo_url: contaEmpresa.logoUrl,
         })
-        .eq('id', companyId);
+        .eq('id', companyId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao salvar dados da empresa:', error);
+        throw error;
+      }
+
+      console.log('Dados salvos com sucesso:', data);
 
       toast({
-        title: "Dados salvos",
-        description: "Os dados da sua empresa foram atualizados com sucesso!"
+        title: "✅ Dados salvos com sucesso!",
+        description: "Os dados da sua empresa foram atualizados e já estão visíveis no sistema."
       });
+
+      // Recarregar os dados para garantir que estão atualizados
+      await loadCompanyData();
     } catch (error) {
       console.error('Error saving company data:', error);
       toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar os dados da empresa.",
+        title: "❌ Erro ao salvar dados",
+        description: "Não foi possível salvar os dados da empresa. Tente novamente.",
         variant: "destructive",
       });
     } finally {

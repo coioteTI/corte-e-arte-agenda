@@ -26,6 +26,7 @@ type Company = {
   city: string;
   state: string;
   zip_code: string;
+  business_hours: any;
   likes_count: number;
   instagram: string | null;
   logo_url: string | null;
@@ -152,14 +153,53 @@ export default function AgendarServico() {
   }
 
   const filteredProfessionals = professionals.filter((p) => {
-    if (!selectedServiceId) return true;
+    if (!selectedServiceId) return p.is_available;
     const service = services.find((s) => s.id === selectedServiceId);
-    return service && service.professional_responsible === p.name;
+    if (!service) return p.is_available;
+    // Se o serviço não tem profissional específico, mostra todos disponíveis
+    if (!service.professional_responsible) return p.is_available;
+    return service.professional_responsible === p.name && p.is_available;
   });
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
-    return ["09:00", "09:30", "10:00", "10:30", "11:00"]; // simplificado
+    
+    const businessHours = company.business_hours;
+    if (!businessHours) return [];
+
+    const date = new Date(selectedDate + "T00:00:00");
+    const weekday = date.getDay();
+    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const dayName = dayNames[weekday];
+
+    const daySchedule = businessHours[dayName];
+    if (!daySchedule || !daySchedule.isOpen) return [];
+
+    const times: string[] = [];
+    const start = daySchedule.start;
+    const end = daySchedule.end;
+
+    let currentTime = start;
+    while (currentTime < end) {
+      const hasAppointment = appointments.some(
+        (apt) =>
+          apt.professional_id === selectedProfessionalId &&
+          apt.appointment_date === selectedDate &&
+          apt.appointment_time === currentTime
+      );
+
+      if (!hasAppointment) {
+        times.push(currentTime);
+      }
+
+      const [hours, minutes] = currentTime.split(":").map(Number);
+      const totalMinutes = hours * 60 + minutes + 30; // Incrementa 30 minutos
+      const newHours = Math.floor(totalMinutes / 60);
+      const newMinutes = totalMinutes % 60;
+      currentTime = `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
+    }
+
+    return times;
   };
 
   useEffect(() => {
@@ -192,13 +232,72 @@ export default function AgendarServico() {
 
     setSubmitting(true);
     try {
+      const selectedService = services.find((s) => s.id === selectedServiceId);
+
+      // Primeiro criar/buscar o cliente
+      let clientId: string | undefined;
+      
+      const { data: existingClient } = await supabase
+        .from("clients")
+        .select("id")
+        .eq("phone", whatsapp)
+        .maybeSingle();
+
+      if (existingClient) {
+        clientId = existingClient.id;
+      } else {
+        const { data: newClient, error: clientError } = await supabase
+          .from("clients")
+          .insert({
+            name: fullName,
+            phone: whatsapp,
+            email: email || null,
+          })
+          .select("id")
+          .single();
+
+        if (clientError) throw clientError;
+        clientId = newClient.id;
+      }
+
+      // Criar o agendamento
+      const appointmentData = {
+        company_id: company.id,
+        service_id: selectedServiceId!,
+        professional_id: selectedProfessionalId!,
+        client_id: clientId,
+        appointment_date: selectedDate!,
+        appointment_time: selectedTime!,
+        notes: notes || null,
+        status: "pending",
+        total_price: selectedService?.price || 0,
+        payment_method: "pending",
+      };
+
+      const { error: appointmentError } = await supabase
+        .from("appointments")
+        .insert([appointmentData]);
+
+      if (appointmentError) throw appointmentError;
+
+      // Salvar dados para futuro se solicitado
+      if (saveForFuture) {
+        localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
+      } else {
+        localStorage.removeItem("agendamento_form_v1");
+      }
+
       toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
 
+      // Limpar formulário
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
       setSelectedTime(undefined);
       setNotes("");
+
+      // Recarregar dados para refletir novo agendamento
+      await fetchCompanyData();
     } catch (error) {
       console.error("Erro ao criar agendamento:", error);
       toast.error("Erro ao confirmar agendamento. Tente novamente.");
@@ -349,11 +448,17 @@ export default function AgendarServico() {
                 <SelectValue placeholder="Selecione um serviço" />
               </SelectTrigger>
               <SelectContent>
-                {services.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name} - R$ {s.price} ({s.duration}min)
+                {services.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum serviço disponível
                   </SelectItem>
-                ))}
+                ) : (
+                  services.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} - R$ {s.price} ({s.duration}min)
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
 
@@ -363,11 +468,17 @@ export default function AgendarServico() {
                 <SelectValue placeholder="Selecione um profissional" />
               </SelectTrigger>
               <SelectContent>
-                {filteredProfessionals.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
+                {filteredProfessionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    {selectedServiceId ? "Nenhum profissional disponível para este serviço" : "Selecione um serviço primeiro"}
                   </SelectItem>
-                ))}
+                ) : (
+                  filteredProfessionals.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} {p.specialty && `- ${p.specialty}`}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
 
@@ -388,11 +499,23 @@ export default function AgendarServico() {
                     <SelectValue placeholder="Selecione horário" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableTimes().map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
+                    {selectedProfessionalId && selectedDate ? (
+                      availableTimes().length ? (
+                        availableTimes().map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          Sem horários disponíveis nesta data
+                        </SelectItem>
+                      )
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        Selecione profissional e data primeiro
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>
