@@ -202,7 +202,23 @@ export default function AgendarServico() {
     }
   }
 
-  const filteredProfessionals = professionals.filter(p => p.is_available === true);
+  const filteredProfessionals = professionals.filter(p => {
+    console.log("Verificando profissional:", p.name, "is_available:", p.is_available, "tipo:", typeof p.is_available);
+    const isAvailable = p.is_available;
+    // Suportar diferentes tipos de valores para is_available
+    if (typeof isAvailable === 'boolean') {
+      return isAvailable === true;
+    }
+    if (typeof isAvailable === 'number') {
+      return isAvailable === 1;
+    }
+    if (typeof isAvailable === 'string') {
+      return isAvailable === "true" || isAvailable === "t";
+    }
+    return false;
+  });
+
+  console.log("Profissionais após filtro:", filteredProfessionals);
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) return [];
@@ -246,9 +262,11 @@ export default function AgendarServico() {
   };
 
   useEffect(() => {
-    setSelectedProfessionalId(undefined);
-    setSelectedDate(undefined);
-    setSelectedTime(undefined);
+    // Só resetar se já havia um serviço selecionado anteriormente
+    if (selectedServiceId) {
+      setSelectedDate(undefined);
+      setSelectedTime(undefined);
+    }
   }, [selectedServiceId]);
 
   useEffect(() => {
@@ -532,18 +550,28 @@ export default function AgendarServico() {
             </Select>
 
             <Label className="text-foreground mt-4">Profissional *</Label>
-            <Select value={selectedProfessionalId} onValueChange={(v) => setSelectedProfessionalId(v || undefined)}>
+            <Select 
+              value={selectedProfessionalId || ""} 
+              onValueChange={(value) => {
+                console.log("Profissional selecionado:", value);
+                setSelectedProfessionalId(value || undefined);
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um profissional" />
               </SelectTrigger>
               <SelectContent>
-                {professionals.length === 0 ? (
+                {loading ? (
+                  <SelectItem value="loading" disabled>
+                    Carregando profissionais...
+                  </SelectItem>
+                ) : professionals.length === 0 ? (
                   <SelectItem value="none" disabled>
                     Nenhum profissional cadastrado
                   </SelectItem>
                 ) : filteredProfessionals.length === 0 ? (
                   <SelectItem value="none" disabled>
-                    Nenhum profissional disponível para este serviço
+                    Nenhum profissional disponível (Todos: {professionals.length})
                   </SelectItem>
                 ) : (
                   filteredProfessionals.map((p) => (
