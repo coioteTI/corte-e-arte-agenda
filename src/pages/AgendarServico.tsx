@@ -26,6 +26,8 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { validateAppointment } from "@/utils/validation";
+import { useSupabaseOperations } from "@/hooks/useSupabaseOperations";
 
 type Company = {
   id: string;
@@ -79,6 +81,7 @@ type Appointment = {
 
 export default function AgendarServico() {
   const { slug } = useParams();
+  
   const [company, setCompany] = useState<Company | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -254,20 +257,27 @@ export default function AgendarServico() {
   }, [selectedProfessionalId]);
 
   function validate() {
-    if (!fullName.trim()) return "Preencha o nome completo.";
-    if (!whatsapp.trim()) return "Preencha o WhatsApp.";
-    if (!selectedServiceId) return "Selecione um serviço.";
-    if (!selectedProfessionalId) return "Selecione um profissional.";
-    if (!selectedDate) return "Selecione uma data.";
-    if (!selectedTime) return "Selecione um horário.";
-    return null;
+    const validation = validateAppointment({
+      clientName: fullName,
+      clientPhone: whatsapp,
+      serviceId: selectedServiceId,
+      professionalId: selectedProfessionalId,
+      date: selectedDate,
+      time: selectedTime
+    });
+
+    if (!validation.isValid) {
+      validation.errors.forEach(error => toast.error(error));
+      return false;
+    }
+    
+    return true;
   }
 
   async function handleConfirm(e?: React.FormEvent) {
     e?.preventDefault();
-    const err = validate();
-    if (err) return toast.error(err);
-
+    
+    if (!validate()) return;
     if (!company) return toast.error("Dados da empresa não encontrados");
 
     setSubmitting(true);
