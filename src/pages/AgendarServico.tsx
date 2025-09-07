@@ -164,19 +164,8 @@ export default function AgendarServico() {
     // Always show available professionals first
     if (!p.is_available) return false;
     
-    // If no service selected, show all available professionals
-    if (!selectedServiceId) return true;
-    
-    const service = services.find((s) => s.id === selectedServiceId);
-    if (!service) return true;
-    
-    // If service doesn't specify a professional, show all available
-    if (!service.professional_responsible || service.professional_responsible.trim() === "") {
-      return true;
-    }
-    
-    // Match professional by name
-    return service.professional_responsible.toLowerCase().trim() === p.name.toLowerCase().trim();
+    // Show all available professionals (simplified logic to avoid name matching issues)
+    return true;
   });
 
   const availableTimes = () => {
@@ -250,20 +239,28 @@ export default function AgendarServico() {
 
     setSubmitting(true);
     try {
+      console.log("Iniciando processo de agendamento...");
       const selectedService = services.find((s) => s.id === selectedServiceId);
 
       // Primeiro criar/buscar o cliente
       let clientId: string | undefined;
       
-      const { data: existingClient } = await supabase
+      console.log("Buscando cliente existente com phone:", whatsapp);
+      const { data: existingClient, error: searchError } = await supabase
         .from("clients")
         .select("id")
         .eq("phone", whatsapp)
         .maybeSingle();
 
+      if (searchError) {
+        console.error("Erro ao buscar cliente:", searchError);
+      }
+
       if (existingClient) {
+        console.log("Cliente existente encontrado:", existingClient.id);
         clientId = existingClient.id;
       } else {
+        console.log("Criando novo cliente...");
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
           .insert({
@@ -274,7 +271,11 @@ export default function AgendarServico() {
           .select("id")
           .single();
 
-        if (clientError) throw clientError;
+        if (clientError) {
+          console.error("Erro ao criar cliente:", clientError);
+          throw clientError;
+        }
+        console.log("Novo cliente criado:", newClient.id);
         clientId = newClient.id;
       }
 
@@ -292,11 +293,18 @@ export default function AgendarServico() {
         payment_method: "pending",
       };
 
+      console.log("Dados do agendamento:", appointmentData);
+
       const { error: appointmentError } = await supabase
         .from("appointments")
         .insert([appointmentData]);
 
-      if (appointmentError) throw appointmentError;
+      if (appointmentError) {
+        console.error("Erro ao criar agendamento:", appointmentError);
+        throw appointmentError;
+      }
+
+      console.log("Agendamento criado com sucesso!");
 
       // Salvar dados para futuro se solicitado
       if (saveForFuture) {
@@ -318,7 +326,7 @@ export default function AgendarServico() {
       await fetchCompanyData();
     } catch (error) {
       console.error("Erro ao criar agendamento:", error);
-      toast.error("Erro ao confirmar agendamento. Tente novamente.");
+      toast.error(`Erro ao confirmar agendamento: ${error instanceof Error ? error.message : 'Tente novamente.'}`);
     } finally {
       setSubmitting(false);
     }
@@ -486,17 +494,25 @@ export default function AgendarServico() {
                 <SelectValue placeholder="Selecione um profissional" />
               </SelectTrigger>
               <SelectContent>
-                {filteredProfessionals.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    {selectedServiceId ? "Nenhum profissional disponível para este serviço" : "Selecione um serviço primeiro"}
-                  </SelectItem>
-                ) : (
-                  filteredProfessionals.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.specialty && `- ${p.specialty}`}
+                {(() => {
+                  console.log("Profissionais disponíveis:", filteredProfessionals.length, filteredProfessionals);
+                  return filteredProfessionals.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      {professionals.length === 0 ? 
+                        "Nenhum profissional cadastrado" : 
+                        selectedServiceId ? 
+                          "Nenhum profissional disponível para este serviço" : 
+                          "Nenhum profissional disponível"
+                      }
                     </SelectItem>
-                  ))
-                )}
+                  ) : (
+                    filteredProfessionals.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} {p.specialty && `- ${p.specialty}`}
+                      </SelectItem>
+                    ))
+                  );
+                })()}
               </SelectContent>
             </Select>
 
