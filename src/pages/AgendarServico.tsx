@@ -391,20 +391,29 @@ export default function AgendarServico() {
       let clientId: string | undefined;
       
       console.log("Buscando cliente existente com phone:", whatsapp);
-      const { data: existingClient, error: searchError } = await supabase
+      const { data: existingClients, error: searchError } = await supabase
         .from("clients")
-        .select("id")
-        .eq("phone", whatsapp)
-        .maybeSingle();
+        .select("id, name, email")
+        .eq("phone", whatsapp.trim())
+        .order("created_at", { ascending: false });
 
       if (searchError) {
         console.error("Erro ao buscar cliente:", searchError);
         throw new Error(`Erro ao buscar cliente: ${searchError.message}`);
       }
 
-      if (existingClient) {
-        console.log("Cliente existente encontrado:", existingClient.id);
+      console.log("Clientes encontrados:", existingClients);
+
+      if (existingClients && existingClients.length > 0) {
+        // Usar o cliente mais recente se houver múltiplos
+        const existingClient = existingClients[0];
+        console.log("Cliente existente encontrado (mais recente):", existingClient);
         clientId = existingClient.id;
+        
+        // Se houver múltiplos clientes com mesmo telefone, avisar no console
+        if (existingClients.length > 1) {
+          console.warn(`Múltiplos clientes encontrados com telefone ${whatsapp}. Usando o mais recente.`);
+        }
       } else {
         console.log("Criando novo cliente...");
         console.log("Dados do cliente:", {
