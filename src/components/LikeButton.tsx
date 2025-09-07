@@ -44,7 +44,35 @@ export default function LikeButton({ targetType, targetId, className }: Props) {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+
+    // Subscribe to realtime updates for likes count
+    const channel = supabase
+      .channel('likes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public', 
+          table: 'likes',
+          filter: `target_type=eq.${targetType}`
+        },
+        (payload) => {
+          // Only update if it's for our target
+          const newTargetId = (payload.new as any)?.target_id;
+          const oldTargetId = (payload.old as any)?.target_id;
+          
+          if (newTargetId === targetId || oldTargetId === targetId) {
+            // Refetch the count to ensure accuracy
+            fetchData();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData, targetType, targetId]);
 
   const toggleLike = async () => {
     if (!clientKey || busy) return;

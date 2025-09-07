@@ -112,18 +112,26 @@ export default function AgendarServico() {
     try {
       setLoading(true);
 
+      // Try to find company by slug - convert slug back to name for search
+      const searchName = slug?.replace(/-/g, " ") || "";
+      
       const { data: companies, error: companyError } = await supabase
         .from("companies")
         .select("*")
-        .ilike("name", `%${slug?.replace("-", " ")}%`);
+        .ilike("name", `%${searchName}%`);
 
       if (companyError) throw companyError;
+      
       if (!companies || companies.length === 0) {
         toast.error("Empresa não encontrada");
         return;
       }
 
-      const companyData = companies[0];
+      // Find best match (exact name match preferred)
+      let companyData = companies.find(c => 
+        c.name.toLowerCase().replace(/\s+/g, '-') === slug?.toLowerCase()
+      ) || companies[0];
+      
       setCompany(companyData);
 
       const { data: servicesData } = await supabase
@@ -153,12 +161,22 @@ export default function AgendarServico() {
   }
 
   const filteredProfessionals = professionals.filter((p) => {
-    if (!selectedServiceId) return p.is_available;
+    // Always show available professionals first
+    if (!p.is_available) return false;
+    
+    // If no service selected, show all available professionals
+    if (!selectedServiceId) return true;
+    
     const service = services.find((s) => s.id === selectedServiceId);
-    if (!service) return p.is_available;
-    // Se o serviço não tem profissional específico, mostra todos disponíveis
-    if (!service.professional_responsible) return p.is_available;
-    return service.professional_responsible === p.name && p.is_available;
+    if (!service) return true;
+    
+    // If service doesn't specify a professional, show all available
+    if (!service.professional_responsible || service.professional_responsible.trim() === "") {
+      return true;
+    }
+    
+    // Match professional by name
+    return service.professional_responsible.toLowerCase().trim() === p.name.toLowerCase().trim();
   });
 
   const availableTimes = () => {
