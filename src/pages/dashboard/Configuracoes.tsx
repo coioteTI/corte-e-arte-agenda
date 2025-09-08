@@ -508,111 +508,214 @@ const Configuracoes = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sticky top-0 bg-background border-b pb-3 sm:pb-4 z-10 space-y-3 sm:space-y-0 px-2 sm:px-0">
-          <h1 className="text-xl sm:text-2xl font-semibold">Configurações</h1>
-          <div className="flex items-center gap-3">
-            {saving && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <div className="animate-spin h-3 w-3 sm:h-4 sm:w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                <span className="text-xs sm:text-sm">Salvando...</span>
-              </div>
-            )}
-            <Button 
-              onClick={handleSalvarConfiguracoes}
-              disabled={saving}
-              size="sm"
-              className="min-w-[120px] sm:min-w-[180px] hover:scale-105 transition-transform duration-200 text-xs sm:text-sm"
-            >
-              {saving ? "Salvando..." : "✅ Salvar"}
-            </Button>
+      <div className="space-y-6">
+        {/* Header melhorado */}
+        <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-4 sm:p-6 border">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Configurações</h1>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1">
+                Personalize e gerencie as configurações da sua barbearia
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {saving && (
+                <div className="flex items-center gap-2 text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+                  <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                  <span className="text-sm font-medium">Salvando...</span>
+                </div>
+              )}
+              <Button 
+                onClick={handleSalvarConfiguracoes}
+                disabled={saving}
+                size="lg"
+                className="min-w-[140px] sm:min-w-[180px] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-200 font-medium"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    ✅ Salvar Configurações
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
 
-        <div className="mx-2 sm:mx-0">
-          <Tabs defaultValue="notificacoes" className="space-y-4 sm:space-y-6">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1">
-              <TabsTrigger value="notificacoes" className="flex items-center gap-1 text-xs sm:text-sm">
-                <Bell className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Notificações</span>
-                <span className="sm:hidden">Notif.</span>
-              </TabsTrigger>
-              <TabsTrigger value="sistema" className="flex items-center gap-1 text-xs sm:text-sm">
-                <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Sistema</span>
-                <span className="sm:hidden">Sistema</span>
-              </TabsTrigger>
-              <TabsTrigger value="personalizacao" className="flex items-center gap-1 text-xs sm:text-sm">
-                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Personalização</span>
-                <span className="sm:hidden">Visual</span>
-              </TabsTrigger>
-              <TabsTrigger value="galeria" className="flex items-center gap-1 text-xs sm:text-sm">
-                <Images className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Galeria</span>
-                <span className="sm:hidden">Galeria</span>
-              </TabsTrigger>
-              <TabsTrigger value="conta" className="flex items-center gap-1 text-xs sm:text-sm">
-                <User className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Conta</span>
-                <span className="sm:hidden">Conta</span>
-              </TabsTrigger>
-            </TabsList>
-
-          <TabsContent value="notificacoes">
-            <NotificacoesSection
-              configuracoes={configuracoes.notificacoes}
-              onSwitchChange={(campo, valor) => handleSwitchChange("notificacoes", campo, valor)}
-            />
-          </TabsContent>
-
-          <TabsContent value="sistema">
-            <SistemaSection
-              configuracoes={configuracoes.sistema}
-              onSwitchChange={(campo, valor) => handleSwitchChange("sistema", campo, valor)}
-            />
-          </TabsContent>
-
-          <TabsContent value="personalizacao">
-            <div className="space-y-6">
-              <PersonalizacaoSection
-                configuracoes={configuracoes.personalizacao}
-                onInputChange={(campo, valor) => handleInputChange("personalizacao", campo, valor)}
-                companyId={companyId}
-              />
-              <HorariosFuncionamentoSection companyId={companyId} />
+        {/* Tabs melhoradas */}
+        <div className="bg-card rounded-lg border shadow-sm">
+          <Tabs defaultValue="notificacoes" className="w-full">
+            <div className="border-b bg-muted/30 rounded-t-lg">
+              <TabsList className="w-full h-auto p-1 bg-transparent">
+                <div className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1">
+                  <TabsTrigger 
+                    value="notificacoes" 
+                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                  >
+                    <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <div className="text-center">
+                      <div className="text-xs sm:text-sm font-medium">Notificações</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">Alertas e lembretes</div>
+                    </div>
+                  </TabsTrigger>
+                  
+                  <TabsTrigger 
+                    value="sistema" 
+                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                  >
+                    <Settings className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <div className="text-center">
+                      <div className="text-xs sm:text-sm font-medium">Sistema</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">Funcionalidades</div>
+                    </div>
+                  </TabsTrigger>
+                  
+                  <TabsTrigger 
+                    value="personalizacao" 
+                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                  >
+                    <Palette className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <div className="text-center">
+                      <div className="text-xs sm:text-sm font-medium">Visual</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">Cores e layout</div>
+                    </div>
+                  </TabsTrigger>
+                  
+                  <TabsTrigger 
+                    value="galeria" 
+                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                  >
+                    <Images className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <div className="text-center">
+                      <div className="text-xs sm:text-sm font-medium">Galeria</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">Fotos dos trabalhos</div>
+                    </div>
+                  </TabsTrigger>
+                  
+                  <TabsTrigger 
+                    value="conta" 
+                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                  >
+                    <User className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <div className="text-center">
+                      <div className="text-xs sm:text-sm font-medium">Conta</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">Dados da empresa</div>
+                    </div>
+                  </TabsTrigger>
+                </div>
+              </TabsList>
             </div>
-          </TabsContent>
 
-          <TabsContent value="galeria">
-            <GaleriaSection companyId={companyId} />
-          </TabsContent>
+            <div className="p-4 sm:p-6">
+              <TabsContent value="notificacoes" className="mt-0">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                      <Bell className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Notificações</h3>
+                      <p className="text-sm text-muted-foreground">Configure alertas e lembretes para você e seus clientes</p>
+                    </div>
+                  </div>
+                  <NotificacoesSection
+                    configuracoes={configuracoes.notificacoes}
+                    onSwitchChange={(campo, valor) => handleSwitchChange("notificacoes", campo, valor)}
+                  />
+                </div>
+              </TabsContent>
 
-          <TabsContent value="conta">
-            <div className="space-y-6">
-              <ContaEmpresaSection
-                contaEmpresa={contaEmpresa}
-                onInputChange={handleContaChange}
-                onSalvar={handleSalvarConta}
-                saving={saving}
-                companyId={companyId}
-              />
-              <ExcluirContaSection companyId={companyId} />
+              <TabsContent value="sistema" className="mt-0">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                      <Settings className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Sistema</h3>
+                      <p className="text-sm text-muted-foreground">Ative ou desative funcionalidades do sistema</p>
+                    </div>
+                  </div>
+                  <SistemaSection
+                    configuracoes={configuracoes.sistema}
+                    onSwitchChange={(campo, valor) => handleSwitchChange("sistema", campo, valor)}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="personalizacao" className="mt-0">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                      <Palette className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Personalização</h3>
+                      <p className="text-sm text-muted-foreground">Customize a aparência e informações da sua barbearia</p>
+                    </div>
+                  </div>
+                  <PersonalizacaoSection
+                    configuracoes={configuracoes.personalizacao}
+                    onInputChange={(campo, valor) => handleInputChange("personalizacao", campo, valor)}
+                    companyId={companyId}
+                  />
+                  <HorariosFuncionamentoSection companyId={companyId} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="galeria" className="mt-0">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                      <Images className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Galeria de Fotos</h3>
+                      <p className="text-sm text-muted-foreground">Adicione fotos dos seus trabalhos para impressionar clientes</p>
+                    </div>
+                  </div>
+                  <GaleriaSection companyId={companyId} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="conta" className="mt-0">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                      <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">Conta da Empresa</h3>
+                      <p className="text-sm text-muted-foreground">Gerencie os dados e informações da sua empresa</p>
+                    </div>
+                  </div>
+                  <ContaEmpresaSection
+                    contaEmpresa={contaEmpresa}
+                    onInputChange={handleContaChange}
+                    onSalvar={handleSalvarConta}
+                    saving={saving}
+                    companyId={companyId}
+                  />
+                  <ExcluirContaSection companyId={companyId} />
+                </div>
+              </TabsContent>
             </div>
-          </TabsContent>
-
           </Tabs>
-
-          <MessageEditDialog
-            isOpen={isMessageDialogOpen}
-            onOpenChange={setIsMessageDialogOpen}
-            messageTypes={messageTypes}
-            editingMessageType={editingMessageType}
-            tempMessage={tempMessage}
-            onTempMessageChange={setTempMessage}
-            onSaveMessage={handleSaveMessage}
-          />
         </div>
+
+        <MessageEditDialog
+          isOpen={isMessageDialogOpen}
+          onOpenChange={setIsMessageDialogOpen}
+          messageTypes={messageTypes}
+          editingMessageType={editingMessageType}
+          tempMessage={tempMessage}
+          onTempMessageChange={setTempMessage}
+          onSaveMessage={handleSaveMessage}
+        />
       </div>
     </DashboardLayout>
   );
