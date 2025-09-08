@@ -508,37 +508,37 @@ const Configuracoes = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header melhorado */}
-        <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-4 sm:p-6 border">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+        <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 sm:p-4 border">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Configurações</h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Configurações</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 Personalize e gerencie as configurações da sua barbearia
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {saving && (
-                <div className="flex items-center gap-2 text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
-                  <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                  <span className="text-sm font-medium">Salvando...</span>
+                <div className="flex items-center gap-2 text-muted-foreground bg-muted/50 rounded-md px-2 py-1">
+                  <div className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full"></div>
+                  <span className="text-xs font-medium">Salvando...</span>
                 </div>
               )}
               <Button 
                 onClick={handleSalvarConfiguracoes}
                 disabled={saving}
-                size="lg"
-                className="min-w-[140px] sm:min-w-[180px] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-200 font-medium"
+                size="sm"
+                className="min-w-[100px] sm:min-w-[140px] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-md hover:shadow-lg transition-all duration-200 font-medium text-xs sm:text-sm"
               >
                 {saving ? (
                   <>
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                    <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full mr-1"></div>
                     Salvando...
                   </>
                 ) : (
                   <>
-                    ✅ Salvar Configurações
+                    ✅ Salvar
                   </>
                 )}
               </Button>
@@ -551,75 +551,75 @@ const Configuracoes = () => {
           <Tabs defaultValue="notificacoes" className="w-full">
             <div className="border-b bg-muted/30 rounded-t-lg">
               <TabsList className="w-full h-auto p-1 bg-transparent">
-                <div className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1">
+                <div className="grid w-full grid-cols-3 sm:grid-cols-5 gap-0.5 sm:gap-1">
                   <TabsTrigger 
                     value="notificacoes" 
-                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                    className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
                   >
-                    <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
                     <div className="text-center">
-                      <div className="text-xs sm:text-sm font-medium">Notificações</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">Alertas e lembretes</div>
+                      <div className="text-xs font-medium">Notificações</div>
+                      <div className="text-xs text-muted-foreground hidden lg:block">Alertas</div>
                     </div>
                   </TabsTrigger>
                   
                   <TabsTrigger 
                     value="sistema" 
-                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                    className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
                   >
-                    <Settings className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
                     <div className="text-center">
-                      <div className="text-xs sm:text-sm font-medium">Sistema</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">Funcionalidades</div>
+                      <div className="text-xs font-medium">Sistema</div>
+                      <div className="text-xs text-muted-foreground hidden lg:block">Funções</div>
                     </div>
                   </TabsTrigger>
                   
                   <TabsTrigger 
                     value="personalizacao" 
-                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                    className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
                   >
-                    <Palette className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <Palette className="h-4 w-4 sm:h-5 sm:w-5" />
                     <div className="text-center">
-                      <div className="text-xs sm:text-sm font-medium">Visual</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">Cores e layout</div>
+                      <div className="text-xs font-medium">Visual</div>
+                      <div className="text-xs text-muted-foreground hidden lg:block">Cores</div>
                     </div>
                   </TabsTrigger>
                   
                   <TabsTrigger 
                     value="galeria" 
-                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                    className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
                   >
-                    <Images className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <Images className="h-4 w-4 sm:h-5 sm:w-5" />
                     <div className="text-center">
-                      <div className="text-xs sm:text-sm font-medium">Galeria</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">Fotos dos trabalhos</div>
+                      <div className="text-xs font-medium">Galeria</div>
+                      <div className="text-xs text-muted-foreground hidden lg:block">Fotos</div>
                     </div>
                   </TabsTrigger>
                   
                   <TabsTrigger 
                     value="conta" 
-                    className="flex flex-col items-center gap-2 p-3 sm:p-4 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                    className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
                   >
-                    <User className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <User className="h-4 w-4 sm:h-5 sm:w-5" />
                     <div className="text-center">
-                      <div className="text-xs sm:text-sm font-medium">Conta</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">Dados da empresa</div>
+                      <div className="text-xs font-medium">Conta</div>
+                      <div className="text-xs text-muted-foreground hidden lg:block">Empresa</div>
                     </div>
                   </TabsTrigger>
                 </div>
               </TabsList>
             </div>
 
-            <div className="p-4 sm:p-6">
+            <div className="p-3 sm:p-4">
               <TabsContent value="notificacoes" className="mt-0">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                      <Bell className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md">
+                      <Bell className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold">Notificações</h3>
-                      <p className="text-sm text-muted-foreground">Configure alertas e lembretes para você e seus clientes</p>
+                      <h3 className="text-base font-semibold">Notificações</h3>
+                      <p className="text-xs text-muted-foreground">Configure alertas e lembretes</p>
                     </div>
                   </div>
                   <NotificacoesSection
@@ -630,14 +630,14 @@ const Configuracoes = () => {
               </TabsContent>
 
               <TabsContent value="sistema" className="mt-0">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                      <Settings className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md">
+                      <Settings className="h-4 w-4 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold">Sistema</h3>
-                      <p className="text-sm text-muted-foreground">Ative ou desative funcionalidades do sistema</p>
+                      <h3 className="text-base font-semibold">Sistema</h3>
+                      <p className="text-xs text-muted-foreground">Funcionalidades do sistema</p>
                     </div>
                   </div>
                   <SistemaSection
@@ -648,14 +648,14 @@ const Configuracoes = () => {
               </TabsContent>
 
               <TabsContent value="personalizacao" className="mt-0">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                      <Palette className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-md">
+                      <Palette className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold">Personalização</h3>
-                      <p className="text-sm text-muted-foreground">Customize a aparência e informações da sua barbearia</p>
+                      <h3 className="text-base font-semibold">Personalização</h3>
+                      <p className="text-xs text-muted-foreground">Aparência da sua barbearia</p>
                     </div>
                   </div>
                   <PersonalizacaoSection
@@ -668,14 +668,14 @@ const Configuracoes = () => {
               </TabsContent>
 
               <TabsContent value="galeria" className="mt-0">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                      <Images className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-md">
+                      <Images className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold">Galeria de Fotos</h3>
-                      <p className="text-sm text-muted-foreground">Adicione fotos dos seus trabalhos para impressionar clientes</p>
+                      <h3 className="text-base font-semibold">Galeria de Fotos</h3>
+                      <p className="text-xs text-muted-foreground">Mostre seus trabalhos</p>
                     </div>
                   </div>
                   <GaleriaSection companyId={companyId} />
@@ -683,14 +683,14 @@ const Configuracoes = () => {
               </TabsContent>
 
               <TabsContent value="conta" className="mt-0">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                      <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-md">
+                      <User className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold">Conta da Empresa</h3>
-                      <p className="text-sm text-muted-foreground">Gerencie os dados e informações da sua empresa</p>
+                      <h3 className="text-base font-semibold">Conta da Empresa</h3>
+                      <p className="text-xs text-muted-foreground">Dados da sua empresa</p>
                     </div>
                   </div>
                   <ContaEmpresaSection
