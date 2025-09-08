@@ -1,5 +1,5 @@
 // AgendarServico.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,688 +49,586 @@ type Company = {
   phone: string;
 };
 
-type Service = {
-  id: string;
-  name: string;
-  price: number;
-  duration: number;
-  professional_services?: { professional_id: string }[];
-};
-
 type Professional = {
   id: string;
   name: string;
+  email?: string;
+  phone?: string;
   specialty?: string;
-  services?: string[];
-  business_hours?: any;
+  is_available: boolean;
+  company_id?: string;
+  created_at?: string;
+};
+
+type Service = {
+  id: string;
+  name: string;
+  description?: string;
+  duration: number;
+  price: number;
+  company_id?: string;
+  is_promotion?: boolean;
+  promotional_price?: number;
+  promotion_valid_until?: string;
+  professional_responsible?: string;
+  created_at?: string;
 };
 
 type Appointment = {
   id: string;
+  company_id: string;
   professional_id: string;
   service_id: string;
-  full_name: string;
-  whatsapp: string;
-  email?: string | null;
-  company_id: string;
-  client_id?: string | null;
   appointment_date: string;
   appointment_time: string;
-  notes?: string | null;
   status: string;
-  total_price?: number | null;
-  payment_method?: string | null;
+  client_id?: string;
+  full_name?: string;
+  whatsapp?: string;
+  email?: string;
+  total_price?: number;
+  notes?: string;
+  payment_method?: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export default function AgendarServico() {
-  const { slug } = useParams();
-
+  const { companyId } = useParams();
   const [company, setCompany] = useState<Company | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
+  // Form states
+  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [whatsapp, setWhatsapp] = useState<string>("");
   const [email, setEmail] = useState<string>("");
-  const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
-  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [saveForFuture, setSaveForFuture] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const { createAppointment, getUserByPhone } = useSupabaseOperations();
+  const { insertData } = useSupabaseOperations();
 
   // Use availability hook
   const {
-    availability: displayTimeSlots,
     loading: availabilityLoading,
-    getAvailabilityByProfessional
-  } = useAvailability({
-    companyId: company?.id,
-    professionalId: selectedProfessionalId,
-    serviceId: selectedServiceId,
-    date: selectedDate,
-    businessHours: company?.business_hours,
-    existingAppointments: appointments
-  });
+    getAvailableTimeSlots,
+    isTimeSlotAvailable
+  } = useAvailability(
+    company?.id,
+    selectedDate,
+    selectedServiceId,
+    professionals,
+    services
+  );
 
+  // Generate available time slots
+  const availableTimeSlots = useMemo(() => {
+    if (!company?.business_hours || !selectedDate || !selectedServiceId) return [];
+    
+    return getAvailableTimeSlots(company.business_hours);
+  }, [getAvailableTimeSlots, company?.business_hours, selectedDate, selectedServiceId]);
+
+  // Load company data
   useEffect(() => {
-    if (!slug) return;
+    const loadCompany = async () => {
+      if (!companyId) return;
 
-    const fetchCompanyData = async () => {
       try {
-        setLoading(true);
-
-        // Buscar empresa por slug
-        const { data: companyData, error: companyError } = await supabase
+        const { data, error } = await supabase
           .from("companies")
           .select("*")
-          .eq("slug", slug)
+          .eq("id", companyId)
           .single();
 
-        if (companyError) {
-          console.error("Erro ao buscar empresa:", companyError);
-          toast.error("Empresa não encontrada");
-          return;
-        }
+        if (error) throw error;
+        setCompany(data);
+      } catch (error) {
+        console.error("Erro ao carregar empresa:", error);
+        toast.error("Erro ao carregar dados da empresa");
+      }
+    };
 
-        setCompany(companyData);
+    loadCompany();
+  }, [companyId]);
 
-        // Buscar serviços da empresa
-        const { data: servicesData, error: servicesError } = await supabase
+  // Load services
+  useEffect(() => {
+    const loadServices = async () => {
+      if (!companyId) return;
+
+      try {
+        const { data, error } = await supabase
           .from("services")
-          .select(`
-            *,
-            professional_services (
-              professional_id
-            )
-          `)
-          .eq("company_id", companyData.id);
+          .select('*')
+          .eq("company_id", companyId);
 
-        if (servicesError) {
-          console.error("Erro ao buscar serviços:", servicesError);
-        } else {
-          setServices(servicesData || []);
-        }
+        if (error) throw error;
+        setServices((data || []).map(service => ({
+          ...service,
+          price: typeof service.price === 'string' ? parseFloat(service.price) : service.price
+        })));
+      } catch (error) {
+        console.error("Erro ao carregar serviços:", error);
+        toast.error("Erro ao carregar serviços");
+      }
+    };
 
-        // Buscar profissionais da empresa
-        const { data: professionalsData, error: professionalsError } = await supabase
+    loadServices();
+  }, [companyId]);
+
+  // Load professionals
+  useEffect(() => {
+    const loadProfessionals = async () => {
+      if (!companyId) return;
+
+      try {
+        const { data, error } = await supabase
           .from("professionals")
           .select("*")
-          .eq("company_id", companyData.id);
+          .eq("company_id", companyId)
+          .eq("is_available", true);
 
-        if (professionalsError) {
-          console.error("Erro ao buscar profissionais:", professionalsError);
-        } else {
-          setProfessionals(professionalsData || []);
-        }
+        if (error) throw error;
+        setProfessionals(data || []);
+      } catch (error) {
+        console.error("Erro ao carregar profissionais:", error);
+        toast.error("Erro ao carregar profissionais");
+      }
+    };
 
-        // Buscar agendamentos existentes
-        const { data: appointmentsData, error: appointmentsError } = await supabase
+    loadProfessionals();
+  }, [companyId]);
+
+  // Load appointments when date changes
+  useEffect(() => {
+    const loadAppointments = async () => {
+      if (!companyId || !selectedDate) {
+        setAppointments([]);
+        return;
+      }
+
+      try {
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        const { data, error } = await supabase
           .from("appointments")
           .select("*")
-          .eq("company_id", companyData.id)
-          .in("status", ["confirmed", "pending"]);
+          .eq("company_id", companyId)
+          .eq("appointment_date", dateStr)
+          .in("status", ["confirmed", "scheduled", "pending"]);
 
-        if (appointmentsError) {
-          console.error("Erro ao buscar agendamentos:", appointmentsError);
-        } else {
-          setAppointments(appointmentsData || []);
-        }
-
+        if (error) throw error;
+        setAppointments(data || []);
       } catch (error) {
-        console.error("Erro geral:", error);
-        toast.error("Erro ao carregar dados");
+        console.error("Erro ao carregar agendamentos:", error);
+        setAppointments([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCompanyData();
-  }, [slug]);
+    loadAppointments();
+  }, [companyId, selectedDate]);
 
-  const handleConfirm = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!company || !selectedServiceId || !selectedProfessionalId || !selectedDate || !selectedTime) {
+    if (!selectedServiceId || !selectedProfessionalId || !selectedDate || !selectedTime || !fullName || !whatsapp) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
     const validation = validateAppointment({
-      fullName,
-      whatsapp,
-      email,
-      selectedServiceId,
-      selectedProfessionalId,
-      selectedDate,
-      selectedTime,
-      services
+      clientName: fullName,
+      clientPhone: whatsapp,
+      serviceId: selectedServiceId,
+      professionalId: selectedProfessionalId,
+      date: selectedDate,
+      time: selectedTime,
     });
 
     if (!validation.isValid) {
-      toast.error(validation.message);
+      toast.error(validation.errors[0] || 'Dados inválidos');
       return;
     }
 
     try {
       setSubmitting(true);
 
-      // Verificar se já existe um usuário com este WhatsApp
-      let existingUser = null;
-      if (whatsapp) {
-        existingUser = await getUserByPhone(whatsapp);
-      }
-
+      // Check availability one more time
       const selectedService = services.find(s => s.id === selectedServiceId);
       if (!selectedService) {
         toast.error("Serviço não encontrado");
         return;
       }
 
+      const availabilityCheck = isTimeSlotAvailable(
+        selectedTime,
+        selectedProfessionalId,
+        selectedService.duration
+      );
+
+      if (!availabilityCheck.isAvailable) {
+        toast.error(availabilityCheck.conflictReason || "Horário não disponível");
+        return;
+      }
+
+      // Check for existing client
+      let existingClient = null;
+      if (whatsapp) {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('phone', whatsapp)
+          .single();
+        
+        existingClient = clientData;
+      }
+
+      // Create appointment data
       const appointmentData = {
-        company_id: company.id,
+        company_id: companyId,
         professional_id: selectedProfessionalId,
         service_id: selectedServiceId,
-        full_name: fullName,
-        whatsapp,
-        email: email || null,
         appointment_date: selectedDate.toISOString().split('T')[0],
         appointment_time: selectedTime,
+        total_price: selectedService.price,
+        client_id: existingClient?.id || null,
+        status: "confirmed",
         notes: notes || null,
-        total_price: parseFloat(selectedService.price),
-        client_id: existingUser?.id || null,
-        status: "confirmed"
+        payment_method: null
       };
 
-      const result = await createAppointment(appointmentData);
+      const result = await insertData('appointments', appointmentData, 'Agendamento criado com sucesso!');
 
       if (result.success) {
-        toast.success("Agendamento confirmado com sucesso!");
-
         // Reset form
+        setSelectedServiceId("");
+        setSelectedProfessionalId("");
+        setSelectedDate(undefined);
+        setSelectedTime("");
         setFullName("");
         setWhatsapp("");
         setEmail("");
-        setSelectedServiceId(undefined);
-        setSelectedProfessionalId(undefined);
-        setSelectedDate(undefined);
-        setSelectedTime("");
         setNotes("");
-        setSaveForFuture(false);
 
-        // Refresh appointments
-        const { data: updatedAppointments } = await supabase
-          .from("appointments")
-          .select("*")
-          .eq("company_id", company.id)
-          .in("status", ["confirmed", "pending"]);
+        // Reload appointments
+        if (selectedDate) {
+          const dateStr = format(selectedDate, 'yyyy-MM-dd');
+          const { data } = await supabase
+            .from("appointments")
+            .select("*")
+            .eq("company_id", companyId)
+            .eq("appointment_date", dateStr)
+            .in("status", ["confirmed", "scheduled", "pending"]);
 
-        if (updatedAppointments) {
-          setAppointments(updatedAppointments);
+          setAppointments(data || []);
         }
-      } else {
-        toast.error(result.message || "Erro ao confirmar agendamento");
       }
     } catch (error) {
-      console.error("Erro ao confirmar agendamento:", error);
-      toast.error("Erro inesperado ao confirmar agendamento");
+      console.error("Erro ao criar agendamento:", error);
+      toast.error("Erro ao criar agendamento");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Get available professionals (those with business hours configured)
-  const availableProfessionals = professionals.filter(prof =>
-    prof.business_hours &&
-    Object.keys(prof.business_hours).length > 0
-  );
-
-  console.log("Profissionais disponíveis:", availableProfessionals);
-
-  // Filter professionals by selected service
-  const filteredProfessionals = selectedServiceId
-    ? availableProfessionals.filter(prof => {
-        const selectedService = services.find(s => s.id === selectedServiceId);
-        if (!selectedService?.professional_services) return true;
-
-        const serviceProfessionals = selectedService.professional_services.map(ps => ps.professional_id);
-        return serviceProfessionals.length === 0 || serviceProfessionals.includes(prof.id);
-      })
-    : availableProfessionals;
-
-  console.log("Profissionais filtrados para o serviço:", filteredProfessionals);
-
-  // Construir endereço e link do Maps
-  const mapsQuery = encodeURIComponent(
-    [company?.address, company?.number, company?.neighborhood, company?.city, company?.state, company?.zip_code]
-      .filter(Boolean)
-      .join(", ")
-  );
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
-
-  if (loading) {
+  if (loading || !company) {
     return (
-      <div className="max-w-3xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
-        <div className="animate-pulse text-foreground">Carregando...</div>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background/50 to-primary/5 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
       </div>
     );
   }
 
-  if (!company) {
-    return (
-      <div className="max-w-3xl mx-auto p-4 text-center">
-        <p className="text-muted-foreground">Empresa não encontrada</p>
-      </div>
-    );
-  }
+  const selectedService = services.find(s => s.id === selectedServiceId);
+  const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
 
   return (
-    <div className="max-w-3xl mx-auto p-4">
-      {/* Voltar */}
-      <div className="mb-4">
-        <Button size="sm" className="mb-2" onClick={() => window.history.back()}>
-          🔙 Voltar
-        </Button>
-      </div>
-
-      {/* Company Info Card */}
-      <Card className="mb-4 bg-card border-border">
-        <CardContent className="p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background/50 to-primary/5">
+      {/* Header */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="container mx-auto px-4 py-6">
           <div className="flex items-center gap-4">
-            {company.logo_url ? (
-              <img 
-                src={company.logo_url} 
-                alt={`Logo da ${company.name}`}
-                className="w-16 h-16 object-cover rounded-lg"
+            {company.logo_url && (
+              <img
+                src={company.logo_url}
+                alt={company.name}
+                className="w-12 h-12 rounded-full object-cover"
               />
-            ) : (
-              <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                <span className="text-2xl">{company.name.charAt(0)}</span>
-              </div>
             )}
-            
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-foreground mb-1">{company.name}</h1>
-              <p className="text-sm text-muted-foreground mb-2">
-                {[company.address, company.number, company.neighborhood, company.city, company.state]
-                  .filter(Boolean)
-                  .join(", ")}
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">{company.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                {company.neighborhood}, {company.city} - {company.state}
               </p>
-              
-              <div className="flex items-center gap-3">
-                {/* WhatsApp */}
-                <a
-                  href={`https://wa.me/55${company.phone?.replace(/\D/g, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="neo neo--wa inline-flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
-                >
-                  📱 WhatsApp
-                </a>
-
-                {/* Instagram */}
-                {company.instagram && (
-                  <a
-                    href={company.instagram}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="neo neo--ig inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all"
-                  >
-                    📸 Instagram
-                  </a>
-                )}
-
-                {/* Email */}
-                <a
-                  href={`mailto:${company.email}`}
-                  className="neo neo--mail inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  ✉️ E-mail
-                </a>
-
-                {/* Google Maps */}
-                <a
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="neo neo--maps inline-flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  🗺️ Ver no Maps
-                </a>
-              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Gallery Section */}
-      <GallerySection companyId={company.id} />
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Booking Form */}
+          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <CalendarIcon className="w-5 h-5" />
+                Agendar Serviço
+              </CardTitle>
+            </CardHeader>
 
-      {/* Form */}
-      <form onSubmit={handleConfirm}>
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-foreground">Dados do Agendamento</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-              <div>
-                <Label className="text-foreground">Nome completo *</Label>
-                <Input
-                  placeholder="Ex: João Silva"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label className="text-foreground">WhatsApp *</Label>
-                <Input
-                  placeholder="+55 11 9xxxx-xxxx"
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label className="text-foreground">E-mail (opcional)</Label>
-                <Input
-                  placeholder="seuemail@exemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <Label className="text-foreground">Escolha o Serviço *</Label>
-            <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um serviço" />
-              </SelectTrigger>
-              <SelectContent>
-                {services.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum serviço disponível
-                  </SelectItem>
-                ) : (
-                  services.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} - R$ {s.price} ({s.duration}min)
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-
-            <Label className="text-foreground mt-4">Profissional *</Label>
-            <Select 
-              value={selectedProfessionalId || ""} 
-              onValueChange={(value) => {
-                console.log("Profissional selecionado:", value);
-                console.log("Profissionais disponíveis para seleção:", filteredProfessionals);
-                setSelectedProfessionalId(value || undefined);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um profissional" />
-              </SelectTrigger>
-              <SelectContent>
-                {loading ? (
-                  <SelectItem value="loading" disabled>
-                    Carregando profissionais...
-                  </SelectItem>
-                ) : professionals.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum profissional cadastrado
-                  </SelectItem>
-                ) : availableProfessionals.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum profissional disponível (Total: {professionals.length})
-                  </SelectItem>
-                ) : filteredProfessionals.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum profissional para este serviço (Disponíveis: {availableProfessionals.length})
-                  </SelectItem>
-                ) : (
-                  filteredProfessionals.map((p) => {
-                    console.log("Renderizando profissional:", p.name, p.id);
-                    return (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} {p.specialty && `- ${p.specialty}`}
-                      </SelectItem>
-                    );
-                  })
-                )}
-              </SelectContent>
-            </Select>
-
-            <div>
-              <Label>Data *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !selectedDate && "text-muted-foreground"
-                    )}
-                    disabled={!selectedProfessionalId}
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Service Selection */}
+                <div>
+                  <Label className="flex items-center gap-2">
+                    Serviço *
+                  </Label>
+                  <Select
+                    value={selectedServiceId}
+                    onValueChange={setSelectedServiceId}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    disabled={(date) => {
-                      const today = new Date();
-                      const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                      const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                      return normalizedDate < normalizedToday;
-                    }}
-                    initialFocus
-                    className="pointer-events-auto rounded-md border bg-card"
-                    classNames={{
-                      day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                      day_today: "bg-accent text-accent-foreground font-semibold",
-                      day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground",
-                      head_cell: "text-muted-foreground font-medium text-sm w-9",
-                      cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div>
-              <Label className="flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Horário *
-                {availabilityLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}
-              </Label>
-              
-              {selectedProfessionalId && selectedDate ? (
-                displayTimeSlots.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto">
-                    {displayTimeSlots.map((slot) => {
-                      const isSelected = selectedTime === slot.time;
-                      return (
-                        <Button
-                          key={slot.time}
-                          variant={isSelected ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedTime(slot.time)}
-                          disabled={!slot.isAvailable}
-                          className={cn(
-                            "text-xs flex flex-col gap-1 h-auto py-2",
-                            slot.isAvailable 
-                              ? "hover:bg-primary/10 border-primary/20" 
-                              : "opacity-50 cursor-not-allowed bg-muted"
-                          )}
-                        >
-                          <span className="font-medium">{slot.time}</span>
-                          {slot.isAvailable ? (
-                            <Badge variant="secondary" className="text-xs px-1">
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Disponível
-                            </Badge>
-                          ) : (
-                            <Badge variant="destructive" className="text-xs px-1">
-                              <XCircle className="w-3 h-3 mr-1" />
-                              Ocupado
-                            </Badge>
-                          )}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>Nenhum horário disponível</p>
-                    <p className="text-xs">Tente outra data ou profissional</p>
-                  </div>
-                )
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>Selecione profissional e data primeiro</p>
-                </div>
-              )}
-            </div>
-
-            {/* Informações do Serviço Selecionado */}
-            {selectedServiceId && (
-              <Card className="bg-accent/50 mt-4">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="font-medium">
-                        {services.find(s => s.id === selectedServiceId)?.name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Duração: {services.find(s => s.id === selectedServiceId)?.duration} minutos
-                      </p>
-                    </div>
-                    <div className="ml-auto">
-                      <Badge variant="secondary">
-                        R$ {services.find(s => s.id === selectedServiceId)?.price}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Disponibilidade Geral (quando nenhum profissional específico selecionado) */}
-            {selectedDate && selectedServiceId && !selectedProfessionalId && company && (
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Disponibilidade por Profissional
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {(() => {
-                    const professionalAvailability = getAvailabilityByProfessional(company.business_hours);
-                    const availableProfessionals = Object.keys(professionalAvailability).filter(
-                      profId => professionalAvailability[profId].some(slot => slot.isAvailable)
-                    );
-
-                    if (availableProfessionals.length === 0) {
-                      return (
-                        <div className="text-center py-6 text-muted-foreground">
-                          <XCircle className="w-8 h-8 mx-auto mb-2" />
-                          <p>Nenhum profissional disponível nesta data</p>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-3">
-                        {availableProfessionals.map(profId => {
-                          const professional = professionals.find(p => p.id === profId);
-                          const slots = professionalAvailability[profId].filter(slot => slot.isAvailable);
-                          
-                          if (!professional || slots.length === 0) return null;
-
-                          return (
-                            <div key={profId} className="border rounded-lg p-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <h4 className="font-medium">{professional.name}</h4>
-                                <Badge variant="outline">{slots.length} horários</Badge>
-                              </div>
-                              <div className="flex flex-wrap gap-1">
-                                {slots.slice(0, 6).map(slot => (
-                                  <Button
-                                    key={slot.time}
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedProfessionalId(profId);
-                                      setSelectedTime(slot.time);
-                                    }}
-                                    className="text-xs h-7"
-                                  >
-                                    {slot.time}
-                                  </Button>
-                                ))}
-                                {slots.length > 6 && (
-                                  <span className="text-xs text-muted-foreground self-center">
-                                    +{slots.length - 6} mais
-                                  </span>
-                                )}
-                              </div>
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Selecione o serviço" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {services.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          <div className="flex justify-between items-center w-full">
+                            <div>
+                              <p className="font-medium">{service.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {service.duration} min
+                              </p>
                             </div>
+                            <span className="font-bold text-primary">
+                              R$ {service.price.toFixed(2)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Professional Selection */}
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Profissional *
+                  </Label>
+                  <Select
+                    value={selectedProfessionalId}
+                    onValueChange={setSelectedProfessionalId}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Selecione o profissional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {professionals.map((professional) => (
+                        <SelectItem key={professional.id} value={professional.id}>
+                          <div>
+                            <p className="font-medium">{professional.name}</p>
+                            {professional.specialty && (
+                              <p className="text-xs text-muted-foreground">
+                                {professional.specialty}
+                              </p>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Date Selection */}
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <CalendarIcon className="w-4 h-4" />
+                    Data *
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal mt-2",
+                          !selectedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDate ? (
+                          format(selectedDate, "PPP", { locale: ptBR })
+                        ) : (
+                          <span>Selecione a data</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        disabled={(date) =>
+                          date < new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                        locale={ptBR}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {/* Time Selection */}
+                <div>
+                  <Label className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Horário *
+                    {availabilityLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}
+                  </Label>
+                  
+                  {selectedProfessionalId && selectedDate ? (
+                    availableTimeSlots.length > 0 ? (
+                      <div className="grid grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto">
+                        {availableTimeSlots.map((slot) => {
+                          const isSelected = selectedTime === slot.time;
+                          return (
+                            <Button
+                              key={slot.time}
+                              variant={isSelected ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSelectedTime(slot.time)}
+                              disabled={!slot.isAvailable}
+                              className={cn(
+                                "text-xs flex flex-col gap-1 h-auto py-2",
+                                slot.isAvailable 
+                                  ? "hover:bg-primary/10 border-primary/20" 
+                                  : "opacity-50 cursor-not-allowed bg-muted"
+                              )}
+                            >
+                              <span className="font-medium">{slot.time}</span>
+                              {slot.isAvailable ? (
+                                <Badge variant="secondary" className="text-xs px-1">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Disponível
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive" className="text-xs px-1">
+                                  <XCircle className="w-3 h-3 mr-1" />
+                                  Ocupado
+                                </Badge>
+                              )}
+                            </Button>
                           );
                         })}
                       </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
-            )}
-            
-            <Label className="mt-4">Observações</Label>
-            <Textarea
-              placeholder="Preferências ou observações..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
+                    ) : (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>Nenhum horário disponível</p>
+                        <p className="text-xs">Tente outra data ou profissional</p>
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground text-sm">
+                      Selecione um profissional e uma data primeiro
+                    </div>
+                  )}
+                </div>
 
-            <div className="flex items-center gap-2 mt-4">
-              <Checkbox checked={saveForFuture} onCheckedChange={(v) => setSaveForFuture(Boolean(v))} />
-              <span className="text-sm text-foreground">Salvar informações para futuros agendamentos</span>
-            </div>
+                {/* Client Information */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="fullName">Nome Completo *</Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Digite seu nome completo"
+                      required
+                    />
+                  </div>
 
-            <div className="flex justify-end mt-4">
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Confirmando..." : "Confirmar Agendamento"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </form>
+                  <div>
+                    <Label htmlFor="whatsapp">WhatsApp *</Label>
+                    <Input
+                      id="whatsapp"
+                      type="tel"
+                      value={whatsapp}
+                      onChange={(e) => setWhatsapp(e.target.value)}
+                      placeholder="(00) 00000-0000"
+                      required
+                    />
+                  </div>
 
-      {/* Galeria da empresa */}
-      {company && <GallerySection companyId={company.id} />}
+                  <div>
+                    <Label htmlFor="email">E-mail (opcional)</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="seu@email.com"
+                    />
+                  </div>
 
-      {/* Glow suave */}
-      <style>{`
-        .neo { transition: transform .2s ease, box-shadow .3s ease, filter .3s ease; }
-        .neo--wa:hover   { box-shadow: 0 0 18px rgba(37,211,102,.45); }
-        .neo--ig:hover   { box-shadow: 0 0 18px rgba(221,42,123,.45); }
-        .neo--mail:hover { box-shadow: 0 0 18px rgba(66,133,244,.45); }
-        .neo--maps:hover { box-shadow: 0 0 18px rgba(234,67,53,.45); }
-      `}</style>
+                  <div>
+                    <Label htmlFor="notes">Observações (opcional)</Label>
+                    <Textarea
+                      id="notes"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Alguma observação especial..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                {/* Summary */}
+                {selectedService && selectedProfessional && selectedDate && selectedTime && (
+                  <Card className="bg-primary/5 border-primary/20">
+                    <CardContent className="pt-4">
+                      <h4 className="font-semibold mb-2">Resumo do Agendamento</h4>
+                      <div className="space-y-1 text-sm">
+                        <p><strong>Serviço:</strong> {selectedService.name}</p>
+                        <p><strong>Profissional:</strong> {selectedProfessional.name}</p>
+                        <p><strong>Data:</strong> {format(selectedDate, "PPP", { locale: ptBR })}</p>
+                        <p><strong>Horário:</strong> {selectedTime}</p>
+                        <p><strong>Duração:</strong> {selectedService.duration} minutos</p>
+                        <p><strong>Valor:</strong> R$ {selectedService.price.toFixed(2)}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={submitting || !selectedServiceId || !selectedProfessionalId || !selectedDate || !selectedTime || !fullName || !whatsapp}
+                >
+                  {submitting ? "Agendando..." : "Confirmar Agendamento"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Gallery Section */}
+          <div>
+            <GallerySection companyId={company.id} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
