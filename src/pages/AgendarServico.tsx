@@ -398,10 +398,23 @@ export default function AgendarServico() {
       
       if (isTimeOccupied) {
         setSelectedTime(undefined);
-        toast.info("Este horário foi ocupado. Por favor, escolha outro.");
+        toast.error("⏰ Horário não disponível! Este horário já está ocupado. Por favor, escolha outro horário disponível.");
       }
     }
   }, [selectedTime, selectedProfessionalId, selectedDate, appointments]);
+
+  // Função para verificar se um horário está ocupado antes de permitir seleção
+  const isTimeSlotOccupied = useCallback((time: string) => {
+    if (!selectedProfessionalId || !selectedDate || !appointments.length) return false;
+    
+    const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
+    return appointments.some(apt => 
+      apt.professional_id === selectedProfessionalId &&
+      apt.appointment_date === appointmentDateStr &&
+      apt.appointment_time === time &&
+      ['scheduled', 'confirmed', 'pending'].includes(apt.status)
+    );
+  }, [selectedProfessionalId, selectedDate, appointments]);
 
   useEffect(() => {
     const timeoutId = setTimeout(checkTimeAvailability, 100); // Debounce de 100ms
@@ -668,10 +681,12 @@ export default function AgendarServico() {
         // Pode ser o índice único que criamos ou outras constraints
         if (appointmentError.message.includes('idx_unique_appointment_slot') || 
             appointmentError.message.includes('appointments_professional_datetime_unique')) {
-          throw new Error("Este horário acabou de ser ocupado por outro cliente. Por favor, escolha outro horário disponível.");
+          toast.error("⏰ Horário não disponível! Este horário acabou de ser ocupado por outro cliente. Por favor, escolha outro horário disponível.");
+          return;
         }
         // Outros erros de unique constraint
-        throw new Error("Este horário foi ocupado por outro cliente. Escolha outro horário.");
+        toast.error("🚫 Este horário foi ocupado por outro cliente. Escolha outro horário.");
+        return;
       } else if (appointmentError.code === '23503') {
         throw new Error("Dados inválidos. Recarregue a página e tente novamente.");
       } else {
@@ -1004,25 +1019,25 @@ export default function AgendarServico() {
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione horário" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {selectedProfessionalId && selectedDate ? (
-                      availableTimes().length ? (
-                        availableTimes().map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="none" disabled>
-                          Sem horários disponíveis nesta data
-                        </SelectItem>
-                      )
-                    ) : (
-                      <SelectItem value="none" disabled>
-                        Selecione profissional e data primeiro
-                      </SelectItem>
-                    )}
-                  </SelectContent>
+                   <SelectContent>
+                     {selectedProfessionalId && selectedDate ? (
+                       availableTimes().length ? (
+                         availableTimes().map((t) => (
+                           <SelectItem key={t} value={t}>
+                             {t}
+                           </SelectItem>
+                         ))
+                       ) : (
+                         <SelectItem value="none" disabled>
+                           🚫 Todos os horários estão ocupados nesta data
+                         </SelectItem>
+                       )
+                     ) : (
+                       <SelectItem value="none" disabled>
+                         Selecione profissional e data primeiro
+                       </SelectItem>
+                     )}
+                   </SelectContent>
                 </Select>
               </div>
             </div>
