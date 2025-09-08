@@ -1,5 +1,5 @@
 // AgendarServico.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -219,6 +219,37 @@ export default function AgendarServico() {
       setLoading(false);
     }
   }
+
+  // Função separada para recarregar apenas os agendamentos
+  const reloadAppointments = useCallback(async () => {
+    if (!company?.id) return;
+
+    try {
+      const { data: appointmentsData, error: appointmentsError } = await supabase
+        .from("appointments")
+        .select("*")
+        .eq("company_id", company.id)
+        .in("status", ["confirmed", "scheduled", "pending"]);
+      
+      if (appointmentsError) {
+        console.error("Erro ao recarregar agendamentos:", appointmentsError);
+        return;
+      }
+      
+      console.log("Agendamentos recarregados:", appointmentsData?.length || 0);
+      setAppointments(appointmentsData || []);
+    } catch (error) {
+      console.error("Erro ao recarregar agendamentos:", error);
+    }
+  }, [company?.id]);
+
+  // Recarregar agendamentos a cada 15 segundos quando há empresa selecionada
+  useEffect(() => {
+    if (!company?.id) return;
+    
+    const interval = setInterval(reloadAppointments, 15000);
+    return () => clearInterval(interval);
+  }, [company?.id, reloadAppointments]);
 
   // Filtrar profissionais disponíveis
   const availableProfessionals = professionals.filter(p => {
@@ -598,6 +629,11 @@ export default function AgendarServico() {
           code: appointmentError.code
         });
         
+        // Se for erro de constraint única (horário já ocupado)
+        if (appointmentError.code === '23505' && appointmentError.message.includes('appointments_professional_datetime_unique')) {
+          throw new Error("Este horário acabou de ser ocupado por outro cliente. Por favor, escolha outro horário disponível.");
+        }
+        
         // Tratamento específico para erros comuns
         if (appointmentError.code === '23505') {
           throw new Error("Este horário foi ocupado por outro cliente. Escolha outro horário.");
@@ -609,6 +645,9 @@ export default function AgendarServico() {
       }
 
       console.log("🎉 AGENDAMENTO CRIADO COM SUCESSO!", appointmentResult?.id);
+      
+      // Recarregar agendamentos para atualizar a interface imediatamente
+      await reloadAppointments();
 
       // Salvar dados para futuro se solicitado
       if (saveForFuture) {
