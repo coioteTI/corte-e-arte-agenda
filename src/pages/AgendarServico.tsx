@@ -174,9 +174,11 @@ export default function AgendarServico() {
         
         console.log('✅ Found company:', foundCompany);
         setCompany(foundCompany);
+        setLoading(false); // Set loading to false when company is found
       } catch (error) {
         console.error("❌ Erro ao carregar empresa:", error);
         toast.error("Erro ao carregar dados da empresa");
+        setLoading(false); // Set loading to false even on error
       }
     };
 
@@ -259,8 +261,6 @@ export default function AgendarServico() {
       } catch (error) {
         console.error("Erro ao carregar agendamentos:", error);
         setAppointments([]);
-      } finally {
-        setLoading(false);
       }
     };
 
