@@ -353,16 +353,17 @@ export default function AgendarServico() {
   };
 
   useEffect(() => {
-    // Só resetar se já havia um serviço selecionado anteriormente
-    if (selectedServiceId) {
-      setSelectedDate(undefined);
+    // Resetar horário quando serviço muda (mas manter a data)
+    if (selectedServiceId && selectedTime) {
       setSelectedTime(undefined);
     }
   }, [selectedServiceId]);
 
   useEffect(() => {
-    setSelectedDate(undefined);
-    setSelectedTime(undefined);
+    // Resetar horário quando profissional muda (mas manter a data)
+    if (selectedProfessionalId && selectedTime) {
+      setSelectedTime(undefined);
+    }
   }, [selectedProfessionalId]);
 
   function validate() {
