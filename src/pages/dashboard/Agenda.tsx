@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -11,7 +11,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ptBR } from "date-fns/locale";
-import { startOfWeek, endOfWeek, isSameDay, isWithinInterval, format } from "date-fns";
+import { startOfWeek, endOfWeek, isWithinInterval, format } from "date-fns";
+import { useAgendamentos } from "@/hooks/useAgendamentos";
 
 const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -26,71 +27,21 @@ const Agenda = () => {
     appointment_date: "",
     appointment_time: ""
   });
-  const [agendamentos, setAgendamentos] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
-  const [professionals, setProfessionals] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
-  const [companyId, setCompanyId] = useState<string>("");
+  
+  const { 
+    agendamentos, 
+    clients, 
+    services, 
+    professionals, 
+    companyId, 
+    loading, 
+    error, 
+    refreshData 
+  } = useAgendamentos();
+  
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadCompanyData();
-  }, []);
-
-  const loadCompanyData = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get company ID
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!company) return;
-      
-      setCompanyId(company.id);
-
-      // Load services, professionals and appointments
-      const [servicesData, professionalsData, appointmentsData] = await Promise.all([
-        supabase.from('services').select('*').eq('company_id', company.id),
-        supabase.from('professionals').select('*').eq('company_id', company.id),
-        supabase
-          .from('appointments')
-          .select(`
-            *,
-            clients(name),
-            services(name),
-            professionals(name)
-          `)
-          .eq('company_id', company.id)
-      ]);
-
-      setServices(servicesData.data || []);
-      setProfessionals(professionalsData.data || []);
-      setAgendamentos(appointmentsData.data || []);
-
-      // Load clients that have appointments with this company
-      if (appointmentsData.data && appointmentsData.data.length > 0) {
-        const clientIds = [...new Set(appointmentsData.data.map(apt => apt.client_id).filter(Boolean))];
-        
-        if (clientIds.length > 0) {
-          const { data: clientsData } = await supabase
-            .from('clients')
-            .select('*')
-            .in('id', clientIds);
-
-          setClients(clientsData || []);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading company data:', error);
-    }
-  };
-
-  const handleNovoAgendamento = async () => {
+  const handleNovoAgendamento = useCallback(async () => {
     if (!novoAgendamento.client_id || !novoAgendamento.service_id || !novoAgendamento.professional_id || !novoAgendamento.appointment_date || !novoAgendamento.appointment_time) {
       toast({
         title: "Erro",
@@ -110,7 +61,7 @@ const Agenda = () => {
     }
 
     try {
-      console.log('Adding appointment with company_id:', companyId); // Debug log
+      console.log('Adding appointment with company_id:', companyId);
       const { error } = await supabase
         .from('appointments')
         .insert({
@@ -133,7 +84,7 @@ const Agenda = () => {
         appointment_time: ""
       });
       setIsDialogOpen(false);
-      loadCompanyData(); // Reload data
+      await refreshData(); // Reload data
       
       toast({
         title: "Sucesso",
@@ -147,9 +98,9 @@ const Agenda = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [novoAgendamento, companyId, refreshData, toast]);
 
-  const handleConcluirAgendamento = async (id: string) => {
+  const handleConcluirAgendamento = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
         .from('appointments')
@@ -158,7 +109,7 @@ const Agenda = () => {
 
       if (error) throw error;
 
-      loadCompanyData(); // Reload data
+      await refreshData(); // Reload data
       toast({
         title: "Agendamento concluído",
         description: "Status atualizado com sucesso!"
@@ -171,14 +122,14 @@ const Agenda = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [refreshData, toast]);
 
-  const handleEditAgendamento = (agendamento: any) => {
+  const handleEditAgendamento = useCallback((agendamento: any) => {
     setEditingAgendamento(agendamento);
     setIsEditDialogOpen(true);
-  };
+  }, []);
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     if (!editingAgendamento) return;
     
     try {
@@ -194,7 +145,7 @@ const Agenda = () => {
 
       setIsEditDialogOpen(false);
       setEditingAgendamento(null);
-      loadCompanyData(); // Reload data
+      await refreshData(); // Reload data
       
       toast({
         title: "Agendamento atualizado",
@@ -208,9 +159,9 @@ const Agenda = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [editingAgendamento, refreshData, toast]);
 
-  const handleCancelAgendamento = async (id: string) => {
+  const handleCancelAgendamento = useCallback(async (id: string) => {
     try {
       const { error } = await supabase
         .from('appointments')
@@ -221,7 +172,7 @@ const Agenda = () => {
 
       setIsEditDialogOpen(false);
       setEditingAgendamento(null);
-      loadCompanyData(); // Reload data
+      await refreshData(); // Reload data
       
       toast({
         title: "Agendamento cancelado",
@@ -235,9 +186,9 @@ const Agenda = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [refreshData, toast]);
 
-  const getFilteredAgendamentos = () => {
+  const getFilteredAgendamentos = useMemo(() => {
     if (!selectedDate) return agendamentos;
     
     const selectedDateString = format(selectedDate, 'yyyy-MM-dd');
@@ -253,11 +204,11 @@ const Agenda = () => {
         return isWithinInterval(agDate, { start: weekStart, end: weekEnd });
       });
     }
-  };
+  }, [selectedDate, selectedView, agendamentos]);
 
-  const agendamentosDoDay = getFilteredAgendamentos();
+  const agendamentosDoDay = getFilteredAgendamentos;
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case "scheduled":
         return "bg-blue-500";
@@ -270,9 +221,9 @@ const Agenda = () => {
       default:
         return "bg-gray-500";
     }
-  };
+  }, []);
 
-  const getStatusText = (status: string) => {
+  const getStatusText = useCallback((status: string) => {
     switch (status) {
       case "scheduled":
         return "Agendado";
@@ -285,7 +236,7 @@ const Agenda = () => {
       default:
         return status;
     }
-  };
+  }, []);
 
   return (
     <DashboardLayout>
@@ -575,4 +526,4 @@ const Agenda = () => {
   );
 };
 
-export default Agenda;
+export default memo(Agenda);
