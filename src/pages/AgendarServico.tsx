@@ -308,32 +308,47 @@ export default function AgendarServico() {
     const end = daySchedule.end;
     const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
 
-    // Filtrar agendamentos para o profissional e data selecionados
-    const dayAppointments = appointments.filter(apt => 
-      apt.professional_id === selectedProfessionalId &&
+    // Buscar TODOS os agendamentos da data (não apenas do profissional selecionado)
+    const allDayAppointments = appointments.filter(apt => 
       apt.appointment_date === appointmentDateStr &&
       ["confirmed", "scheduled", "pending"].includes(apt.status)
     );
 
-    console.log(`📋 Filtering appointments for ${appointmentDateStr} and professional ${selectedProfessionalId}:`);
-    console.log(`📋 Total appointments found: ${dayAppointments.length}`);
-    console.log(`📋 Occupied times:`, dayAppointments.map(apt => apt.appointment_time));
+    console.log(`📋 All appointments for ${appointmentDateStr}:`, allDayAppointments.length);
 
     let currentTime = start;
     let iterations = 0;
     const maxIterations = 30; // Máximo 30 slots para segurança
 
     while (currentTime < end && iterations < maxIterations) {
-      // Verificar se existe algum agendamento neste horário
-      const isOccupied = dayAppointments.some(apt => 
+      // Verificar se o profissional selecionado está ocupado neste horário
+      const isSelectedProfessionalOccupied = allDayAppointments.some(apt => 
+        apt.professional_id === selectedProfessionalId &&
         apt.appointment_time === currentTime
       );
 
-      console.log(`⏰ Checking time ${currentTime}: ${isOccupied ? 'OCCUPIED' : 'AVAILABLE'}`);
-
-      // Só adicionar se não estiver ocupado
-      if (!isOccupied) {
+      // Se o profissional selecionado está livre, o horário está disponível
+      if (!isSelectedProfessionalOccupied) {
         availableSlots.push(currentTime);
+        console.log(`✅ Time ${currentTime}: Available for selected professional`);
+      } else {
+        // Se o profissional selecionado está ocupado,
+        // verificar se há outros profissionais disponíveis neste horário
+        const occupiedProfessionals = allDayAppointments
+          .filter(apt => apt.appointment_time === currentTime)
+          .map(apt => apt.professional_id);
+
+        const availableAlternativeProfessionals = filteredProfessionals.filter(prof => 
+          prof.id !== selectedProfessionalId && 
+          !occupiedProfessionals.includes(prof.id)
+        );
+
+        if (availableAlternativeProfessionals.length > 0) {
+          availableSlots.push(currentTime);
+          console.log(`✅ Time ${currentTime}: Available with alternative professionals (${availableAlternativeProfessionals.length})`);
+        } else {
+          console.log(`❌ Time ${currentTime}: No professionals available`);
+        }
       }
 
       // Incrementar 30 minutos
