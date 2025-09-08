@@ -35,12 +35,8 @@ export const validation = {
   futureDate: (date: Date | string): boolean => {
     const inputDate = typeof date === 'string' ? new Date(date) : date;
     const today = new Date();
-    
-    // Normalizar ambas as datas para meia-noite no timezone local
-    const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const normalizedInput = new Date(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate());
-    
-    return normalizedInput >= normalizedToday;
+    today.setHours(0, 0, 0, 0);
+    return inputDate >= today;
   }
 };
 

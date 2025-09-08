@@ -1,5 +1,5 @@
 // AgendarServico.tsx
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Clock, Users, CheckCircle, XCircle } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,8 +29,6 @@ import { cn } from "@/lib/utils";
 import { validateAppointment } from "@/utils/validation";
 import { useSupabaseOperations } from "@/hooks/useSupabaseOperations";
 import { GallerySection } from "@/components/GallerySection";
-import { useAvailability } from "@/hooks/useAvailability";
-import { Badge } from "@/components/ui/badge";
 
 type Company = {
   id: string;
@@ -45,580 +43,806 @@ type Company = {
   likes_count: number;
   instagram: string | null;
   logo_url: string | null;
-  email?: string;
-  phone?: string;
-  plan?: string;
-  primary_color?: string;
-  created_at?: string;
-  updated_at?: string;
-};
-
-type Professional = {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  specialty?: string;
-  is_available: boolean;
-  company_id?: string;
-  created_at?: string;
+  email: string;
+  phone: string;
 };
 
 type Service = {
   id: string;
   name: string;
-  description?: string;
-  duration: number;
   price: number;
-  company_id?: string;
-  is_promotion?: boolean;
-  promotional_price?: number;
-  promotion_valid_until?: string;
-  professional_responsible?: string;
+  duration: number;
+  description: string | null;
+  professional_responsible: string | null;
+};
+
+type Professional = {
+  id: string;
+  company_id: string;
+  name: string;
+  specialty: string | null;
+  phone?: string | null;
+  email?: string | null;
+  is_available: boolean;
   created_at?: string;
 };
 
 type Appointment = {
-  id: string;
+  id?: string;
   company_id: string;
-  professional_id: string;
   service_id: string;
+  professional_id: string;
+  client_id?: string | null;
   appointment_date: string;
   appointment_time: string;
+  notes?: string | null;
   status: string;
-  client_id?: string;
-  full_name?: string;
-  whatsapp?: string;
-  email?: string;
-  total_price?: number;
-  notes?: string;
-  payment_method?: string;
-  created_at?: string;
-  updated_at?: string;
+  total_price?: number | null;
+  payment_method?: string | null;
 };
 
 export default function AgendarServico() {
   const { slug } = useParams();
+  
   const [company, setCompany] = useState<Company | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
-  
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-  // Form states
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [whatsapp, setWhatsapp] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
-  const [saveForFuture, setSaveForFuture] = useState<boolean>(false);
+
+  const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
+
+  const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const { insertData } = useSupabaseOperations();
-
-  // Use availability hook
-  const {
-    loading: availabilityLoading,
-    getAvailableTimeSlots,
-    isTimeSlotAvailable
-  } = useAvailability(
-    company?.id,
-    selectedDate,
-    selectedServiceId,
-    professionals,
-    services
-  );
-
-  // Generate available time slots
-  const availableTimeSlots = useMemo(() => {
-    if (!company?.business_hours || !selectedDate || !selectedServiceId) return [];
-    
-    return getAvailableTimeSlots(company.business_hours);
-  }, [getAvailableTimeSlots, company?.business_hours, selectedDate, selectedServiceId]);
-
-  // Load company data
   useEffect(() => {
-    const loadCompany = async () => {
-      if (!slug) return;
-
-      try {
-        console.log('🔍 Looking for company with slug:', slug);
-        
-        // Get all companies and find by slug
-        const { data: companies, error } = await supabase
-          .rpc('get_public_company_data');
-
-        if (error) throw error;
-
-        console.log('📋 All companies:', companies);
-
-        // Find company by slug match
-        const foundCompany = companies?.find(c => {
-          const companySlug = c.name.toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') // Remove accents
-            .replace(/\s+/g, '-')
-            .replace(/[^\w-]/g, ''); // Remove special characters
-          console.log(`🔗 Comparing "${companySlug}" with "${slug}"`);
-          return companySlug === slug;
-        });
-
-        if (!foundCompany) {
-          console.error('❌ Company not found for slug:', slug);
-          toast.error("Empresa não encontrada");
-          return;
-        }
-        
-        console.log('✅ Found company:', foundCompany);
-        setCompany(foundCompany);
-      } catch (error) {
-        console.error("❌ Erro ao carregar empresa:", error);
-        toast.error("Erro ao carregar dados da empresa");
+    try {
+      const saved = localStorage.getItem("agendamento_form_v1");
+      if (saved) {
+        const obj = JSON.parse(saved);
+        setFullName(obj.fullName || "");
+        setWhatsapp(obj.whatsapp || "");
+        setEmail(obj.email || "");
       }
-    };
+    } catch (e) {
+      console.warn("Erro ao ler storage", e);
+    }
+  }, []);
 
-    loadCompany();
+  useEffect(() => {
+    if (slug) {
+      fetchCompanyData();
+    }
   }, [slug]);
 
-  // Load services
-  useEffect(() => {
-    const loadServices = async () => {
-      if (!company?.id) return;
+  async function fetchCompanyData() {
+    try {
+      setLoading(true);
+      console.log("Buscando empresa com slug:", slug);
 
-      try {
-        const { data, error } = await supabase
-          .from("services")
-          .select('*')
-          .eq("company_id", company.id);
+      // Try to find company by slug - convert slug back to name for search
+      const searchName = slug?.replace(/-/g, " ") || "";
+      console.log("Nome de busca convertido:", searchName);
+      
+      const { data: companies, error: companyError } = await supabase
+        .from("companies")
+        .select("*")
+        .ilike("name", `%${searchName}%`);
 
-        if (error) throw error;
-        setServices((data || []).map(service => ({
-          ...service,
-          price: typeof service.price === 'string' ? parseFloat(service.price) : service.price
-        })));
-      } catch (error) {
-        console.error("Erro ao carregar serviços:", error);
-        toast.error("Erro ao carregar serviços");
+      if (companyError) {
+        console.error("Erro ao buscar empresa:", companyError);
+        throw companyError;
       }
-    };
-
-    loadServices();
-  }, [company?.id]);
-
-  // Load professionals
-  useEffect(() => {
-    const loadProfessionals = async () => {
-      if (!company?.id) return;
-
-      try {
-        console.log('👥 Loading professionals for company:', company.id);
-        const { data, error } = await supabase
-          .from("professionals")
-          .select("*")
-          .eq("company_id", company.id)
-          .eq("is_available", true);
-
-        if (error) throw error;
-        
-        console.log('👥 Professionals loaded:', data);
-        setProfessionals(data || []);
-      } catch (error) {
-        console.error("Erro ao carregar profissionais:", error);
-        toast.error("Erro ao carregar profissionais");
+      
+      console.log("Empresas encontradas:", companies);
+      
+      if (!companies || companies.length === 0) {
+        toast.error("Empresa não encontrada");
+        return;
       }
-    };
 
-    loadProfessionals();
-  }, [company?.id]);
+      // Find best match (exact name match preferred)
+      let companyData = companies.find(c => 
+        c.name.toLowerCase().replace(/\s+/g, '-') === slug?.toLowerCase()
+      ) || companies[0];
+      
+      console.log("Empresa selecionada:", companyData);
+      setCompany(companyData);
 
-  // Set loading to false when company data is loaded
-  useEffect(() => {
-    if (company?.id) {
+      // Buscar serviços
+      console.log("Buscando serviços para empresa ID:", companyData.id);
+      const { data: servicesData, error: servicesError } = await supabase
+        .from("services")
+        .select("*")
+        .eq("company_id", companyData.id);
+      
+      if (servicesError) {
+        console.error("Erro ao buscar serviços:", servicesError);
+      }
+      console.log("Serviços encontrados:", servicesData);
+      setServices(servicesData || []);
+
+  // Buscar profissionais usando função pública
+  console.log("Buscando profissionais para empresa ID:", companyData.id);
+  
+  // Usar função que ignora RLS para busca pública
+  const { data: professionalsData, error: professionalsError } = await supabase
+    .rpc("get_professionals_for_booking", { 
+      company_uuid: companyData.id 
+    });
+  
+  if (professionalsError) {
+    console.error("Erro ao buscar profissionais:", professionalsError);
+    // Fallback para query direta se a função falhar
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("professionals")
+      .select("*")
+      .eq("company_id", companyData.id);
+    
+    if (!fallbackError) {
+      console.log("Profissionais encontrados via fallback:", fallbackData);
+      setProfessionals(fallbackData || []);
+    } else {
+      console.error("Erro no fallback também:", fallbackError);
+      setProfessionals([]);
+    }
+  } else {
+    console.log("Profissionais encontrados via RPC:", professionalsData);
+    console.log("Profissionais disponíveis:", professionalsData?.filter(p => p.is_available));
+    setProfessionals(professionalsData || []);
+  }
+
+      // Buscar agendamentos
+      const { data: appointmentsData, error: appointmentsError } = await supabase
+        .from("appointments")
+        .select("*")
+        .eq("company_id", companyData.id)
+        .in("status", ["confirmed", "scheduled", "pending"]);
+      
+      if (appointmentsError) {
+        console.error("Erro ao buscar agendamentos:", appointmentsError);
+      }
+      console.log("Agendamentos encontrados:", appointmentsData);
+      setAppointments(appointmentsData || []);
+    } catch (error) {
+      console.error("Erro ao buscar dados:", error);
+      toast.error("Erro ao carregar dados da empresa");
+    } finally {
       setLoading(false);
     }
-  }, [company?.id]);
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Filtrar profissionais disponíveis
+  const availableProfessionals = professionals.filter(p => {
+    console.log("🔍 Verificando profissional:", p.name, "is_available:", p.is_available, "tipo:", typeof p.is_available);
+    const isAvailable = p.is_available;
+    
+    // Suportar diferentes tipos de valores para is_available
+    if (typeof isAvailable === 'boolean') {
+      return isAvailable === true;
+    }
+    if (typeof isAvailable === 'number') {
+      return isAvailable === 1;
+    }
+    if (typeof isAvailable === 'string') {
+      return isAvailable === "true" || isAvailable === "t";
+    }
+    return false;
+  });
 
-    if (!selectedServiceId || !selectedProfessionalId || !selectedDate || !selectedTime || !fullName || !whatsapp) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
+  console.log("📊 RESUMO PROFISSIONAIS:");
+  console.log("- Total cadastrados:", professionals.length);
+  console.log("- Total disponíveis:", availableProfessionals.length);
+
+  // Filtrar profissionais com base no serviço selecionado
+  const filteredProfessionals = selectedServiceId ? (() => {
+    const selectedService = services.find(s => s.id === selectedServiceId);
+    console.log("🎯 Serviço selecionado:", selectedService);
+    
+    // Se o serviço tem um profissional responsável específico
+    if (selectedService?.professional_responsible?.trim()) {
+      console.log("👤 Serviço tem profissional responsável:", selectedService.professional_responsible);
+      
+      // Filtrar por nome do profissional responsável
+      const responsibleProfessionals = availableProfessionals.filter(p => 
+        p.name.toLowerCase().trim() === selectedService.professional_responsible.toLowerCase().trim() ||
+        p.specialty?.toLowerCase().includes(selectedService.name.toLowerCase()) ||
+        selectedService.professional_responsible.toLowerCase().includes(p.name.toLowerCase())
+      );
+      
+      console.log("✅ Profissionais responsáveis encontrados:", responsibleProfessionals);
+      
+      // Se não encontrar profissional responsável específico, mostrar todos disponíveis
+      const finalList = responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
+      console.log("📋 Lista final de profissionais:", finalList.map(p => p.name));
+      return finalList;
+    }
+    
+    // Se não tem profissional responsável, mostrar todos disponíveis
+    console.log("📋 Usando todos profissionais disponíveis");
+    return availableProfessionals;
+  })() : availableProfessionals;
+
+  console.log("🎭 Profissionais para exibição:", filteredProfessionals.map(p => p.name));
+  console.log("Profissionais após filtro:", filteredProfessionals);
+
+  const availableTimes = () => {
+    if (!selectedProfessionalId || !selectedDate || !company) return [];
+    
+    const businessHours = company.business_hours;
+    if (!businessHours) return [];
+
+    const date = selectedDate;
+    const weekday = date.getDay();
+    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const dayName = dayNames[weekday];
+
+    const daySchedule = businessHours[dayName];
+    if (!daySchedule || !daySchedule.isOpen) return [];
+
+    const times: string[] = [];
+    const start = daySchedule.start;
+    const end = daySchedule.end;
+
+    let currentTime = start;
+    while (currentTime < end) {
+      const hasAppointment = appointments.some(
+        (apt) =>
+          apt.professional_id === selectedProfessionalId &&
+          apt.appointment_date === format(selectedDate, "yyyy-MM-dd") &&
+          apt.appointment_time === currentTime
+      );
+
+      if (!hasAppointment) {
+        times.push(currentTime);
+      }
+
+      const [hours, minutes] = currentTime.split(":").map(Number);
+      const totalMinutes = hours * 60 + minutes + 30; // Incrementa 30 minutos
+      const newHours = Math.floor(totalMinutes / 60);
+      const newMinutes = totalMinutes % 60;
+      currentTime = `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
     }
 
+    return times;
+  };
+
+  useEffect(() => {
+    // Só resetar se já havia um serviço selecionado anteriormente
+    if (selectedServiceId) {
+      setSelectedDate(undefined);
+      setSelectedTime(undefined);
+    }
+  }, [selectedServiceId]);
+
+  useEffect(() => {
+    setSelectedDate(undefined);
+    setSelectedTime(undefined);
+  }, [selectedProfessionalId]);
+
+  function validate() {
     const validation = validateAppointment({
       clientName: fullName,
       clientPhone: whatsapp,
       serviceId: selectedServiceId,
       professionalId: selectedProfessionalId,
       date: selectedDate,
-      time: selectedTime,
+      time: selectedTime
     });
 
     if (!validation.isValid) {
-      toast.error(validation.errors[0] || 'Dados inválidos');
-      return;
+      validation.errors.forEach(error => toast.error(error));
+      return false;
     }
+    
+    return true;
+  }
 
+  async function handleConfirm(e?: React.FormEvent) {
+    e?.preventDefault();
+    
+    if (!validate()) return;
+    if (!company) return toast.error("Dados da empresa não encontrados");
+
+    setSubmitting(true);
+    
     try {
-      setSubmitting(true);
-
-      // Check availability one more time
-      const selectedService = services.find(s => s.id === selectedServiceId);
-      if (!selectedService) {
-        toast.error("Serviço não encontrado");
-        return;
-      }
-
-      const availabilityCheck = isTimeSlotAvailable(
-        selectedTime,
+      console.log("🚀 INICIANDO TESTE COMPLETO DO AGENDAMENTO");
+      console.log("📋 Dados do formulário:", {
+        fullName,
+        whatsapp,
+        email,
+        selectedServiceId,
         selectedProfessionalId,
-        selectedService.duration
-      );
+        selectedDate,
+        selectedTime,
+        notes
+      });
 
-      if (!availabilityCheck.isAvailable) {
-        toast.error(availabilityCheck.conflictReason || "Horário não disponível");
-        return;
+      // Teste de conexão com Supabase
+      console.log("🔌 Testando conexão com Supabase...");
+      const { data: testData, error: testError } = await supabase
+        .from("companies")
+        .select("id, name")
+        .eq("id", company.id)
+        .single();
+
+      if (testError) {
+        console.error("❌ Erro na conexão Supabase:", testError);
+        throw new Error(`Erro de conexão: ${testError.message}`);
+      }
+      console.log("✅ Conexão Supabase OK:", testData);
+
+      const selectedService = services.find((s) => s.id === selectedServiceId);
+      const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
+      
+      console.log("🔍 Serviço selecionado:", selectedService);
+      console.log("👤 Profissional selecionado:", selectedProfessional);
+
+      if (!selectedService) {
+        throw new Error("Serviço não encontrado");
       }
 
-      // Check for existing client
-      let existingClient = null;
-      if (whatsapp) {
-        const { data: clientData } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('phone', whatsapp)
-          .single();
+      if (!selectedProfessional) {
+        throw new Error("Profissional não encontrado");
+      }
+
+      // ETAPA 1: Gerenciar cliente
+      console.log("\n📝 ETAPA 1: CRIANDO/BUSCANDO CLIENTE");
+      let clientId: string | undefined;
+      
+      console.log("🔍 Buscando cliente existente com phone:", whatsapp);
+      const { data: existingClients, error: searchError } = await supabase
+        .from("clients")
+        .select("id, name, email")
+        .eq("phone", whatsapp.trim())
+        .order("created_at", { ascending: false });
+
+      if (searchError) {
+        console.error("❌ Erro ao buscar cliente:", searchError);
+        throw new Error(`Erro ao buscar cliente: ${searchError.message}`);
+      }
+
+      console.log("📊 Clientes encontrados:", existingClients);
+
+      if (existingClients && existingClients.length > 0) {
+        const existingClient = existingClients[0];
+        console.log("✅ Cliente existente encontrado (mais recente):", existingClient);
+        clientId = existingClient.id;
         
-        existingClient = clientData;
+        if (existingClients.length > 1) {
+          console.warn(`⚠️ Múltiplos clientes encontrados com telefone ${whatsapp}. Usando o mais recente.`);
+        }
+      } else {
+        console.log("➕ Criando novo cliente...");
+        const clientData = {
+          name: fullName.trim(),
+          phone: whatsapp.trim(),
+          email: email?.trim() || null,
+        };
+        console.log("📝 Dados do cliente:", clientData);
+        
+        const { data: newClient, error: clientError } = await supabase
+          .from("clients")
+          .insert(clientData)
+          .select("id")
+          .single();
+
+        if (clientError) {
+          console.error("❌ Erro completo ao criar cliente:", clientError);
+          console.error("📋 Detalhes do erro:", {
+            message: clientError.message,
+            details: clientError.details,
+            hint: clientError.hint,
+            code: clientError.code
+          });
+          throw new Error(`Erro ao criar cliente: ${clientError.message}`);
+        }
+        console.log("✅ Novo cliente criado com sucesso:", newClient);
+        clientId = newClient.id;
       }
 
-      // Create appointment data
+      if (!clientId) {
+        throw new Error("Não foi possível obter ID do cliente");
+      }
+
+      console.log("✅ Cliente OK - ID:", clientId);
+
+      // ETAPA 2: Criar agendamento
+      console.log("\n📅 ETAPA 2: CRIANDO AGENDAMENTO");
       const appointmentData = {
         company_id: company.id,
-        professional_id: selectedProfessionalId,
-        service_id: selectedServiceId,
-        appointment_date: selectedDate.toISOString().split('T')[0],
-        appointment_time: selectedTime,
-        total_price: selectedService.price,
-        client_id: existingClient?.id || null,
-        status: "confirmed",
-        notes: notes || null,
-        payment_method: null
+        service_id: selectedServiceId!,
+        professional_id: selectedProfessionalId!,
+        client_id: clientId,
+        appointment_date: format(selectedDate!, "yyyy-MM-dd"),
+        appointment_time: selectedTime!,
+        notes: notes?.trim() || null,
+        status: "pending",
+        total_price: selectedService.price || 0,
+        payment_method: "pending",
       };
 
-      const result = await insertData('appointments', appointmentData, 'Agendamento criado com sucesso!');
+      console.log("📋 Dados completos do agendamento:", appointmentData);
+      console.log("🔍 Validação dos dados:", {
+        company_id_valid: !!appointmentData.company_id,
+        service_id_valid: !!appointmentData.service_id,
+        professional_id_valid: !!appointmentData.professional_id,
+        client_id_valid: !!appointmentData.client_id,
+        date_valid: !!appointmentData.appointment_date,
+        time_valid: !!appointmentData.appointment_time,
+        status_valid: !!appointmentData.status
+      });
 
-      if (result.success) {
-        // Reset form
-        setSelectedServiceId("");
-        setSelectedProfessionalId("");
-        setSelectedDate(undefined);
-        setSelectedTime("");
-        setFullName("");
-        setWhatsapp("");
-        setEmail("");
-        setNotes("");
+      console.log("💾 Enviando dados para Supabase...");
+      const { data: appointmentResult, error: appointmentError } = await supabase
+        .from("appointments")
+        .insert([appointmentData])
+        .select("id")
+        .single();
 
-        // Refresh availability data by forcing hook to reload
-        if (selectedDate) {
-          const currentDate = selectedDate;
-          setSelectedDate(undefined);
-          setTimeout(() => setSelectedDate(currentDate), 100);
+      if (appointmentError) {
+        console.error("❌ ERRO CRÍTICO ao criar agendamento:", appointmentError);
+        console.error("📋 Detalhes completos do erro:", {
+          message: appointmentError.message,
+          details: appointmentError.details,
+          hint: appointmentError.hint,
+          code: appointmentError.code,
+          data_sent: appointmentData
+        });
+        throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
+      }
+
+      console.log("🎉 AGENDAMENTO CRIADO COM SUCESSO!", appointmentResult);
+
+      // Salvar dados para futuro se solicitado
+      if (saveForFuture) {
+        try {
+          localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
+        } catch (storageError) {
+          console.warn("Erro ao salvar no localStorage:", storageError);
+        }
+      } else {
+        try {
+          localStorage.removeItem("agendamento_form_v1");
+        } catch (storageError) {
+          console.warn("Erro ao remover do localStorage:", storageError);
         }
       }
+
+      toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
+
+      // Limpar formulário
+      setSelectedServiceId(undefined);
+      setSelectedProfessionalId(undefined);
+      setSelectedDate(undefined);
+      setSelectedTime(undefined);
+      setNotes("");
+
+      // Recarregar dados para refletir novo agendamento
+      try {
+        await fetchCompanyData();
+      } catch (reloadError) {
+        console.warn("Erro ao recarregar dados:", reloadError);
+      }
+
     } catch (error) {
-      console.error("Erro ao criar agendamento:", error);
-      toast.error("Erro ao criar agendamento");
+      console.error("Erro completo ao criar agendamento:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido. Tente novamente.';
+      toast.error(`Erro ao confirmar agendamento: ${errorMessage}`);
+      
+      // Log adicional para debug
+      console.error("Stack trace:", error instanceof Error ? error.stack : 'Sem stack trace');
+      
     } finally {
       setSubmitting(false);
     }
-  };
+  }
 
-  if (loading || !company) {
+  const phoneDigits = (company?.phone || "").replace(/\D/g, "");
+  const whatsappUrl = phoneDigits
+    ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`}`
+    : undefined;
+
+  const igHandle = (company?.instagram || "").trim();
+  const instagramUrl = igHandle
+    ? igHandle.startsWith("http")
+      ? igHandle
+      : `https://instagram.com/${igHandle.replace(/^@/, "")}`
+    : undefined;
+
+  const emailUrl = company?.email ? `mailto:${company.email}` : undefined;
+  const mapsQuery = encodeURIComponent(
+    [company?.address, company?.number, company?.neighborhood, company?.city, company?.state, company?.zip_code]
+      .filter(Boolean)
+      .join(", ")
+  );
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background/50 to-primary/5 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
+      <div className="max-w-3xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
+        <div className="animate-pulse text-foreground">Carregando...</div>
       </div>
     );
   }
 
-  const selectedService = services.find(s => s.id === selectedServiceId);
-  const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
+  if (!company) {
+    return (
+      <div className="max-w-3xl mx-auto p-4 text-center">
+        <p className="text-muted-foreground">Empresa não encontrada</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/50 to-primary/5">
-      {/* Header */}
-      <div className="bg-white border-b shadow-sm">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            {company.logo_url && (
-              <img
-                src={company.logo_url}
-                alt={company.name}
-                className="w-12 h-12 rounded-full object-cover"
-              />
-            )}
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{company.name}</h1>
-              <p className="text-sm text-muted-foreground">
-                {company.neighborhood}, {company.city} - {company.state}
-              </p>
+    <div className="max-w-3xl mx-auto p-4">
+      {/* Voltar */}
+      <div className="mb-4">
+        <Button size="sm" className="mb-2" onClick={() => window.history.back()}>
+          🔙 Voltar
+        </Button>
+      </div>
+
+      {/* Header card */}
+      <Card className="mb-4 bg-card border-border">
+        <CardHeader className="flex flex-col items-center gap-3">
+          {company.logo_url && (
+            <img
+              src={company.logo_url}
+              alt={`Logo da ${company.name}`}
+              className="w-16 h-16 rounded-full object-cover border-2 border-primary"
+            />
+          )}
+          <CardTitle className="text-center text-foreground">Agendar em {company.name}</CardTitle>
+        </CardHeader>
+
+        <CardContent>
+          {/* BOTÕES DE AÇÃO */}
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+            <a
+              href={whatsappUrl || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--wa hover:scale-105"
+              style={{ backgroundColor: "#25D366" }}
+            >
+              📱 WhatsApp
+            </a>
+            <a
+              href={instagramUrl || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--ig hover:scale-105"
+              style={{
+                backgroundImage:
+                  "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
+              }}
+            >
+              📸 Instagram
+            </a>
+            <a
+              href={emailUrl || "#"}
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--mail hover:scale-105"
+              style={{ backgroundColor: "#4285F4" }}
+            >
+              ✉️ E-mail
+            </a>
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--maps hover:scale-105"
+              style={{ backgroundColor: "#EA4335" }}
+            >
+              📍 Localização
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gallery Section */}
+      <GallerySection companyId={company.id} />
+
+      {/* Form */}
+      <form onSubmit={handleConfirm}>
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-foreground">Dados do Agendamento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <div>
+                <Label className="text-foreground">Nome completo *</Label>
+                <Input
+                  placeholder="Ex: João Silva"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-foreground">WhatsApp *</Label>
+                <Input
+                  placeholder="+55 11 9xxxx-xxxx"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-foreground">E-mail (opcional)</Label>
+                <Input
+                  placeholder="seuemail@exemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Booking Form */}
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <CalendarIcon className="w-5 h-5" />
-                Agendar Serviço
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Service Selection */}
-                <div>
-                  <Label className="flex items-center gap-2">
-                    Serviço *
-                  </Label>
-                  <Select
-                    value={selectedServiceId}
-                    onValueChange={setSelectedServiceId}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Selecione o serviço" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {services.map((service) => (
-                        <SelectItem key={service.id} value={service.id}>
-                          <div className="flex justify-between items-center w-full">
-                            <div>
-                              <p className="font-medium">{service.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {service.duration} min
-                              </p>
-                            </div>
-                            <span className="font-bold text-primary">
-                              R$ {service.price.toFixed(2)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Professional Selection */}
-                <div>
-                  <Label className="flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Profissional *
-                  </Label>
-                  <Select
-                    value={selectedProfessionalId}
-                    onValueChange={setSelectedProfessionalId}
-                  >
-                    <SelectTrigger className="mt-2">
-                      <SelectValue placeholder="Selecione o profissional" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {professionals.map((professional) => (
-                        <SelectItem key={professional.id} value={professional.id}>
-                          <div>
-                            <p className="font-medium">{professional.name}</p>
-                            {professional.specialty && (
-                              <p className="text-xs text-muted-foreground">
-                                {professional.specialty}
-                              </p>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Date Selection */}
-                <div>
-                  <Label className="flex items-center gap-2">
-                    <CalendarIcon className="w-4 h-4" />
-                    Data *
-                  </Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal mt-2",
-                          !selectedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? (
-                          format(selectedDate, "PPP", { locale: ptBR })
-                        ) : (
-                          <span>Selecione a data</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        disabled={(date) =>
-                          date < new Date() || date < new Date("1900-01-01")
-                        }
-                        initialFocus
-                        locale={ptBR}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Time Selection */}
-                <div>
-                  <Label className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Horário *
-                    {availabilityLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}
-                  </Label>
-                  
-                  {selectedProfessionalId && selectedDate ? (
-                    availableTimeSlots.length > 0 ? (
-                      <div className="grid grid-cols-4 gap-2 mt-2 max-h-48 overflow-y-auto">
-                        {availableTimeSlots.map((slot) => {
-                          const isSelected = selectedTime === slot.time;
-                          return (
-                            <Button
-                              key={slot.time}
-                              variant={isSelected ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setSelectedTime(slot.time)}
-                              className={cn(
-                                "text-xs flex flex-col gap-1 h-auto py-2",
-                                "hover:bg-primary/10 border-primary/20",
-                                isSelected && "bg-primary text-primary-foreground"
-                              )}
-                            >
-                              <span className="font-medium">{slot.time}</span>
-                              <Badge variant="secondary" className="text-xs px-1">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Disponível
-                              </Badge>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p>Nenhum horário disponível</p>
-                        <p className="text-xs">Tente outra data ou profissional</p>
-                      </div>
-                    )
-                  ) : (
-                    <div className="text-center py-4 text-muted-foreground text-sm">
-                      Selecione um profissional e uma data primeiro
-                    </div>
-                  )}
-                </div>
-
-                {/* Client Information */}
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="fullName">Nome Completo *</Label>
-                    <Input
-                      id="fullName"
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="Digite seu nome completo"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="whatsapp">WhatsApp *</Label>
-                    <Input
-                      id="whatsapp"
-                      type="tel"
-                      value={whatsapp}
-                      onChange={(e) => setWhatsapp(e.target.value)}
-                      placeholder="(00) 00000-0000"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="email">E-mail (opcional)</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="seu@email.com"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="notes">Observações (opcional)</Label>
-                    <Textarea
-                      id="notes"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Alguma observação especial..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-
-                {/* Summary */}
-                {selectedService && selectedProfessional && selectedDate && selectedTime && (
-                  <Card className="bg-primary/5 border-primary/20">
-                    <CardContent className="pt-4">
-                      <h4 className="font-semibold mb-2">Resumo do Agendamento</h4>
-                      <div className="space-y-1 text-sm">
-                        <p><strong>Serviço:</strong> {selectedService.name}</p>
-                        <p><strong>Profissional:</strong> {selectedProfessional.name}</p>
-                        <p><strong>Data:</strong> {format(selectedDate, "PPP", { locale: ptBR })}</p>
-                        <p><strong>Horário:</strong> {selectedTime}</p>
-                        <p><strong>Duração:</strong> {selectedService.duration} minutos</p>
-                        <p><strong>Valor:</strong> R$ {selectedService.price.toFixed(2)}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+            <Label className="text-foreground">Escolha o Serviço *</Label>
+            <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um serviço" />
+              </SelectTrigger>
+              <SelectContent>
+                {services.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum serviço disponível
+                  </SelectItem>
+                ) : (
+                  services.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} - R$ {s.price} ({s.duration}min)
+                    </SelectItem>
+                  ))
                 )}
+              </SelectContent>
+            </Select>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={submitting || !selectedServiceId || !selectedProfessionalId || !selectedDate || !selectedTime || !fullName || !whatsapp}
-                >
-                  {submitting ? "Agendando..." : "Confirmar Agendamento"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+            <Label className="text-foreground mt-4">Profissional *</Label>
+            <Select 
+              value={selectedProfessionalId || ""} 
+              onValueChange={(value) => {
+                console.log("Profissional selecionado:", value);
+                console.log("Profissionais disponíveis para seleção:", filteredProfessionals);
+                setSelectedProfessionalId(value || undefined);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um profissional" />
+              </SelectTrigger>
+              <SelectContent>
+                {loading ? (
+                  <SelectItem value="loading" disabled>
+                    Carregando profissionais...
+                  </SelectItem>
+                ) : professionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional cadastrado
+                  </SelectItem>
+                ) : availableProfessionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional disponível (Total: {professionals.length})
+                  </SelectItem>
+                ) : filteredProfessionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional para este serviço (Disponíveis: {availableProfessionals.length})
+                  </SelectItem>
+                ) : (
+                  filteredProfessionals.map((p) => {
+                    console.log("Renderizando profissional:", p.name, p.id);
+                    return (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} {p.specialty && `- ${p.specialty}`}
+                      </SelectItem>
+                    );
+                  })
+                )}
+              </SelectContent>
+            </Select>
 
-          {/* Gallery Section */}
-          <div>
-            <GallerySection companyId={company.id} />
-          </div>
-        </div>
-      </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+              <div>
+                <Label>Data *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                      disabled={!selectedProfessionalId}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                      className="pointer-events-auto rounded-md border bg-card"
+                      classNames={{
+                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                        day_today: "bg-accent text-accent-foreground font-semibold",
+                        day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground",
+                        head_cell: "text-muted-foreground font-medium text-sm w-9",
+                        cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label>Horário *</Label>
+                <Select value={selectedTime} onValueChange={(v) => setSelectedTime(v || undefined)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione horário" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedProfessionalId && selectedDate ? (
+                      availableTimes().length ? (
+                        availableTimes().map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          Sem horários disponíveis nesta data
+                        </SelectItem>
+                      )
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        Selecione profissional e data primeiro
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Label className="mt-4">Observações</Label>
+            <Textarea
+              placeholder="Preferências ou observações..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+
+            <div className="flex items-center gap-2 mt-4">
+              <Checkbox checked={saveForFuture} onCheckedChange={(v) => setSaveForFuture(Boolean(v))} />
+              <span className="text-sm text-foreground">Salvar informações para futuros agendamentos</span>
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Confirmando..." : "Confirmar Agendamento"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </form>
+
+      {/* Glow suave */}
+      <style>{`
+        .neo { transition: transform .2s ease, box-shadow .3s ease, filter .3s ease; }
+        .neo--wa:hover   { box-shadow: 0 0 18px rgba(37,211,102,.45); }
+        .neo--ig:hover   { box-shadow: 0 0 18px rgba(221,42,123,.45); }
+        .neo--mail:hover { box-shadow: 0 0 18px rgba(66,133,244,.45); }
+        .neo--maps:hover { box-shadow: 0 0 18px rgba(234,67,53,.45); }
+      `}</style>
     </div>
   );
 }
