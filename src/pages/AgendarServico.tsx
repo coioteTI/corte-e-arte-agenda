@@ -327,28 +327,12 @@ export default function AgendarServico() {
         apt.appointment_time === currentTime
       );
 
-      // Se o profissional selecionado está livre, o horário está disponível
+      // Só mostrar horários onde o profissional selecionado está realmente disponível
       if (!isSelectedProfessionalOccupied) {
         availableSlots.push(currentTime);
         console.log(`✅ Time ${currentTime}: Available for selected professional`);
       } else {
-        // Se o profissional selecionado está ocupado,
-        // verificar se há outros profissionais disponíveis neste horário
-        const occupiedProfessionals = allDayAppointments
-          .filter(apt => apt.appointment_time === currentTime)
-          .map(apt => apt.professional_id);
-
-        const availableAlternativeProfessionals = filteredProfessionals.filter(prof => 
-          prof.id !== selectedProfessionalId && 
-          !occupiedProfessionals.includes(prof.id)
-        );
-
-        if (availableAlternativeProfessionals.length > 0) {
-          availableSlots.push(currentTime);
-          console.log(`✅ Time ${currentTime}: Available with alternative professionals (${availableAlternativeProfessionals.length})`);
-        } else {
-          console.log(`❌ Time ${currentTime}: No professionals available`);
-        }
+        console.log(`❌ Time ${currentTime}: Selected professional is occupied`);
       }
 
       // Incrementar 30 minutos
