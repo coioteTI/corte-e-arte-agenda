@@ -60,6 +60,8 @@ export const GaleriaSection = ({ companyId }: GaleriaSectionProps) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    console.log('Starting image upload...', { file: file.name, companyId });
+
     if (!newItem.title.trim()) {
       toast({
         title: "Título obrigatório",
@@ -74,15 +76,26 @@ export const GaleriaSection = ({ companyId }: GaleriaSectionProps) => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${companyId}/${Date.now()}.${fileExt}`;
 
+      console.log('Uploading to storage...', fileName);
+
       const { error: uploadError } = await supabase.storage
         .from('gallery')
         .upload(fileName, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Getting public URL...');
 
       const { data: { publicUrl } } = supabase.storage
         .from('gallery')
         .getPublicUrl(fileName);
+
+      console.log('Public URL:', publicUrl);
+
+      console.log('Inserting into database...');
 
       const { error: dbError } = await supabase
         .from('gallery')
@@ -94,9 +107,16 @@ export const GaleriaSection = ({ companyId }: GaleriaSectionProps) => {
           is_active: true
         });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Database insert error:', dbError);
+        throw dbError;
+      }
+
+      console.log('Upload successful!');
 
       setNewItem({ title: "", description: "" });
+      // Reset the file input
+      event.target.value = '';
       loadGallery();
       
       toast({
