@@ -275,10 +275,20 @@ export default function AgendarServico() {
   console.log("Profissionais após filtro:", filteredProfessionals);
 
   const availableTimes = () => {
-    if (!selectedProfessionalId || !selectedDate || !company) return [];
+    if (!selectedProfessionalId || !selectedDate || !company) {
+      console.log("❌ availableTimes: Missing required data", { 
+        selectedProfessionalId: !!selectedProfessionalId, 
+        selectedDate: !!selectedDate, 
+        company: !!company 
+      });
+      return [];
+    }
     
     const businessHours = company.business_hours;
-    if (!businessHours) return [];
+    if (!businessHours) {
+      console.log("❌ availableTimes: No business hours defined");
+      return [];
+    }
 
     const date = selectedDate;
     const weekday = date.getDay();
@@ -286,32 +296,51 @@ export default function AgendarServico() {
     const dayName = dayNames[weekday];
 
     const daySchedule = businessHours[dayName];
-    if (!daySchedule || !daySchedule.isOpen) return [];
+    if (!daySchedule || !daySchedule.isOpen) {
+      console.log(`❌ availableTimes: ${dayName} is closed or undefined`, daySchedule);
+      return [];
+    }
+
+    console.log(`📅 availableTimes: Processing ${dayName}`, { start: daySchedule.start, end: daySchedule.end });
 
     const times: string[] = [];
     const start = daySchedule.start;
     const end = daySchedule.end;
+    const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
+
+    // Filtrar agendamentos para o profissional e data selecionados
+    const dayAppointments = appointments.filter(apt => 
+      apt.professional_id === selectedProfessionalId &&
+      apt.appointment_date === appointmentDateStr &&
+      ["confirmed", "scheduled", "pending"].includes(apt.status)
+    );
+
+    console.log(`📋 Found ${dayAppointments.length} appointments for ${appointmentDateStr}:`, 
+      dayAppointments.map(apt => apt.appointment_time)
+    );
 
     let currentTime = start;
-    while (currentTime < end) {
-      const hasAppointment = appointments.some(
-        (apt) =>
-          apt.professional_id === selectedProfessionalId &&
-          apt.appointment_date === format(selectedDate, "yyyy-MM-dd") &&
-          apt.appointment_time === currentTime
-      );
+    let iterations = 0; // Prevenir loop infinito
+    const maxIterations = 24; // Máximo 24 slots (12 horas com intervalos de 30min)
+
+    while (currentTime < end && iterations < maxIterations) {
+      const hasAppointment = dayAppointments.some(apt => apt.appointment_time === currentTime);
 
       if (!hasAppointment) {
         times.push(currentTime);
       }
 
+      // Incrementar 30 minutos
       const [hours, minutes] = currentTime.split(":").map(Number);
-      const totalMinutes = hours * 60 + minutes + 30; // Incrementa 30 minutos
+      const totalMinutes = hours * 60 + minutes + 30;
       const newHours = Math.floor(totalMinutes / 60);
       const newMinutes = totalMinutes % 60;
       currentTime = `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
+      
+      iterations++;
     }
 
+    console.log(`✅ availableTimes: Found ${times.length} available slots:`, times);
     return times;
   };
 
@@ -355,7 +384,7 @@ export default function AgendarServico() {
     setSubmitting(true);
     
     try {
-      console.log("🚀 INICIANDO TESTE COMPLETO DO AGENDAMENTO");
+      console.log("🚀 INICIANDO AGENDAMENTO");
       console.log("📋 Dados do formulário:", {
         fullName,
         whatsapp,
@@ -367,26 +396,9 @@ export default function AgendarServico() {
         notes
       });
 
-      // Teste de conexão com Supabase
-      console.log("🔌 Testando conexão com Supabase...");
-      const { data: testData, error: testError } = await supabase
-        .from("companies")
-        .select("id, name")
-        .eq("id", company.id)
-        .single();
-
-      if (testError) {
-        console.error("❌ Erro na conexão Supabase:", testError);
-        throw new Error(`Erro de conexão: ${testError.message}`);
-      }
-      console.log("✅ Conexão Supabase OK:", testData);
-
       const selectedService = services.find((s) => s.id === selectedServiceId);
       const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
       
-      console.log("🔍 Serviço selecionado:", selectedService);
-      console.log("👤 Profissional selecionado:", selectedProfessional);
-
       if (!selectedService) {
         throw new Error("Serviço não encontrado");
       }
@@ -395,15 +407,42 @@ export default function AgendarServico() {
         throw new Error("Profissional não encontrado");
       }
 
-      // ETAPA 1: Gerenciar cliente
+      // VERIFICAÇÃO CRÍTICA: Conferir se o horário ainda está disponível
+      console.log("⏰ Verificando disponibilidade do horário...");
+      const appointmentDateStr = format(selectedDate!, "yyyy-MM-dd");
+      
+      const { data: conflictingAppointments, error: conflictError } = await supabase
+        .from("appointments")
+        .select("id")
+        .eq("company_id", company.id)
+        .eq("professional_id", selectedProfessionalId!)
+        .eq("appointment_date", appointmentDateStr)
+        .eq("appointment_time", selectedTime!)
+        .in("status", ["confirmed", "scheduled", "pending"]);
+
+      if (conflictError) {
+        console.error("❌ Erro ao verificar conflitos:", conflictError);
+        throw new Error("Erro ao verificar disponibilidade do horário");
+      }
+
+      if (conflictingAppointments && conflictingAppointments.length > 0) {
+        console.warn("⚠️ Horário já ocupado:", conflictingAppointments);
+        throw new Error("Este horário não está mais disponível. Por favor, escolha outro horário.");
+      }
+
+      console.log("✅ Horário disponível confirmado");
+
+      // ETAPA 1: Gerenciar cliente com retry
       console.log("\n📝 ETAPA 1: CRIANDO/BUSCANDO CLIENTE");
       let clientId: string | undefined;
       
-      console.log("🔍 Buscando cliente existente com phone:", whatsapp);
+      const phoneClean = whatsapp.trim();
+      console.log("🔍 Buscando cliente existente com phone:", phoneClean);
+      
       const { data: existingClients, error: searchError } = await supabase
         .from("clients")
-        .select("id, name, email")
-        .eq("phone", whatsapp.trim())
+        .select("id, name, email, phone")
+        .eq("phone", phoneClean)
         .order("created_at", { ascending: false });
 
       if (searchError) {
@@ -411,59 +450,90 @@ export default function AgendarServico() {
         throw new Error(`Erro ao buscar cliente: ${searchError.message}`);
       }
 
-      console.log("📊 Clientes encontrados:", existingClients);
+      console.log("📊 Clientes encontrados:", existingClients?.length || 0);
 
       if (existingClients && existingClients.length > 0) {
         const existingClient = existingClients[0];
-        console.log("✅ Cliente existente encontrado (mais recente):", existingClient);
+        console.log("✅ Cliente existente encontrado:", { id: existingClient.id, name: existingClient.name });
         clientId = existingClient.id;
         
         if (existingClients.length > 1) {
-          console.warn(`⚠️ Múltiplos clientes encontrados com telefone ${whatsapp}. Usando o mais recente.`);
+          console.warn(`⚠️ ${existingClients.length} clientes encontrados com telefone ${phoneClean}. Usando o mais recente.`);
         }
       } else {
         console.log("➕ Criando novo cliente...");
         const clientData = {
           name: fullName.trim(),
-          phone: whatsapp.trim(),
+          phone: phoneClean,
           email: email?.trim() || null,
         };
-        console.log("📝 Dados do cliente:", clientData);
+        
+        // Validação adicional dos dados do cliente
+        if (!clientData.name || clientData.name.length < 2) {
+          throw new Error("Nome do cliente deve ter pelo menos 2 caracteres");
+        }
+        
+        if (!clientData.phone || clientData.phone.length < 10) {
+          throw new Error("Telefone deve ter pelo menos 10 dígitos");
+        }
+        
+        console.log("📝 Criando cliente com dados:", { name: clientData.name, phone: clientData.phone, hasEmail: !!clientData.email });
         
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
           .insert(clientData)
-          .select("id")
+          .select("id, name")
           .single();
 
         if (clientError) {
-          console.error("❌ Erro completo ao criar cliente:", clientError);
-          console.error("📋 Detalhes do erro:", {
+          console.error("❌ Erro ao criar cliente:", {
             message: clientError.message,
             details: clientError.details,
             hint: clientError.hint,
-            code: clientError.code
+            code: clientError.code,
+            clientData
           });
-          throw new Error(`Erro ao criar cliente: ${clientError.message}`);
+          
+          // Retry uma vez se der erro de concorrência
+          if (clientError.code === '23505') { // Unique constraint violation
+            console.log("🔄 Tentando buscar cliente novamente após erro de concorrência...");
+            const { data: retryClients, error: retryError } = await supabase
+              .from("clients")
+              .select("id, name")
+              .eq("phone", phoneClean)
+              .order("created_at", { ascending: false })
+              .limit(1);
+              
+            if (retryError || !retryClients || retryClients.length === 0) {
+              throw new Error("Erro ao criar/localizar cliente após conflito");
+            }
+            
+            console.log("✅ Cliente encontrado após retry:", retryClients[0]);
+            clientId = retryClients[0].id;
+          } else {
+            throw new Error(`Erro ao criar cliente: ${clientError.message}`);
+          }
+        } else {
+          console.log("✅ Novo cliente criado:", newClient);
+          clientId = newClient.id;
         }
-        console.log("✅ Novo cliente criado com sucesso:", newClient);
-        clientId = newClient.id;
       }
 
       if (!clientId) {
         throw new Error("Não foi possível obter ID do cliente");
       }
 
-      console.log("✅ Cliente OK - ID:", clientId);
+      console.log("✅ Cliente confirmado - ID:", clientId);
 
-      // ETAPA 2: Criar agendamento
+      // ETAPA 2: Criar agendamento com validação final
       console.log("\n📅 ETAPA 2: CRIANDO AGENDAMENTO");
+      
       const appointmentData = {
         company_id: company.id,
         service_id: selectedServiceId!,
         professional_id: selectedProfessionalId!,
         client_id: clientId,
-        appointment_date: format(selectedDate!, "yyyy-MM-dd"),
+        appointment_date: appointmentDateStr,
         appointment_time: selectedTime!,
         notes: notes?.trim() || null,
         status: "pending",
@@ -471,18 +541,41 @@ export default function AgendarServico() {
         payment_method: "pending",
       };
 
-      console.log("📋 Dados completos do agendamento:", appointmentData);
-      console.log("🔍 Validação dos dados:", {
-        company_id_valid: !!appointmentData.company_id,
-        service_id_valid: !!appointmentData.service_id,
-        professional_id_valid: !!appointmentData.professional_id,
-        client_id_valid: !!appointmentData.client_id,
-        date_valid: !!appointmentData.appointment_date,
-        time_valid: !!appointmentData.appointment_time,
-        status_valid: !!appointmentData.status
+      // Validação final dos dados
+      const requiredFields = ['company_id', 'service_id', 'professional_id', 'client_id', 'appointment_date', 'appointment_time'];
+      for (const field of requiredFields) {
+        if (!appointmentData[field as keyof typeof appointmentData]) {
+          throw new Error(`Campo obrigatório ausente: ${field}`);
+        }
+      }
+
+      console.log("📋 Inserindo agendamento:", {
+        company_id: appointmentData.company_id,
+        service: selectedService.name,
+        professional: selectedProfessional.name,
+        date: appointmentData.appointment_date,
+        time: appointmentData.appointment_time,
+        client_id: appointmentData.client_id
       });
 
-      console.log("💾 Enviando dados para Supabase...");
+      // Verificação final de conflito antes da inserção
+      const { data: finalCheck, error: finalCheckError } = await supabase
+        .from("appointments")
+        .select("id")
+        .eq("professional_id", selectedProfessionalId!)
+        .eq("appointment_date", appointmentDateStr)
+        .eq("appointment_time", selectedTime!)
+        .in("status", ["confirmed", "scheduled", "pending"]);
+
+      if (finalCheckError) {
+        console.error("❌ Erro na verificação final:", finalCheckError);
+        throw new Error("Erro na verificação final de disponibilidade");
+      }
+
+      if (finalCheck && finalCheck.length > 0) {
+        throw new Error("Horário foi ocupado por outro cliente. Tente novamente com outro horário.");
+      }
+
       const { data: appointmentResult, error: appointmentError } = await supabase
         .from("appointments")
         .insert([appointmentData])
@@ -490,18 +583,24 @@ export default function AgendarServico() {
         .single();
 
       if (appointmentError) {
-        console.error("❌ ERRO CRÍTICO ao criar agendamento:", appointmentError);
-        console.error("📋 Detalhes completos do erro:", {
+        console.error("❌ ERRO ao criar agendamento:", {
           message: appointmentError.message,
           details: appointmentError.details,
           hint: appointmentError.hint,
-          code: appointmentError.code,
-          data_sent: appointmentData
+          code: appointmentError.code
         });
-        throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
+        
+        // Tratamento específico para erros comuns
+        if (appointmentError.code === '23505') {
+          throw new Error("Este horário foi ocupado por outro cliente. Escolha outro horário.");
+        } else if (appointmentError.code === '23503') {
+          throw new Error("Dados inválidos. Recarregue a página e tente novamente.");
+        } else {
+          throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
+        }
       }
 
-      console.log("🎉 AGENDAMENTO CRIADO COM SUCESSO!", appointmentResult);
+      console.log("🎉 AGENDAMENTO CRIADO COM SUCESSO!", appointmentResult?.id);
 
       // Salvar dados para futuro se solicitado
       if (saveForFuture) {
@@ -527,21 +626,44 @@ export default function AgendarServico() {
       setSelectedTime(undefined);
       setNotes("");
 
-      // Recarregar dados para refletir novo agendamento
+      // Atualizar lista de agendamentos sem recarregar tudo
       try {
-        await fetchCompanyData();
+        console.log("🔄 Atualizando lista de agendamentos...");
+        const { data: updatedAppointments, error: reloadError } = await supabase
+          .from("appointments")
+          .select("*")
+          .eq("company_id", company.id)
+          .in("status", ["confirmed", "scheduled", "pending"]);
+        
+        if (!reloadError && updatedAppointments) {
+          setAppointments(updatedAppointments);
+          console.log("✅ Lista de agendamentos atualizada");
+        }
       } catch (reloadError) {
-        console.warn("Erro ao recarregar dados:", reloadError);
+        console.warn("⚠️ Erro ao atualizar lista de agendamentos:", reloadError);
+        // Não é crítico, continua normalmente
       }
 
     } catch (error) {
-      console.error("Erro completo ao criar agendamento:", error);
+      console.error("❌ ERRO COMPLETO:", error);
       
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido. Tente novamente.';
-      toast.error(`Erro ao confirmar agendamento: ${errorMessage}`);
+      let errorMessage = 'Erro desconhecido. Tente novamente.';
       
-      // Log adicional para debug
-      console.error("Stack trace:", error instanceof Error ? error.stack : 'Sem stack trace');
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        console.error("Stack:", error.stack);
+      }
+      
+      // Mostrar mensagens mais amigáveis para erros comuns
+      if (errorMessage.includes('JWT')) {
+        errorMessage = 'Sessão expirada. Recarregue a página e tente novamente.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
+      } else if (errorMessage.includes('timeout')) {
+        errorMessage = 'A operação demorou muito. Tente novamente.';
+      }
+      
+      toast.error(`Erro: ${errorMessage}`);
       
     } finally {
       setSubmitting(false);
@@ -771,7 +893,12 @@ export default function AgendarServico() {
                       mode="single"
                       selected={selectedDate}
                       onSelect={setSelectedDate}
-                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      disabled={(date) => {
+                        const today = new Date();
+                        const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                        const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                        return normalizedDate < normalizedToday;
+                      }}
                       initialFocus
                       className="pointer-events-auto rounded-md border bg-card"
                       classNames={{
