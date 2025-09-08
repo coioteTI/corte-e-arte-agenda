@@ -181,7 +181,7 @@ export const useAvailability = (
     return availabilityMap;
   };
 
-  // Obter todos os horários únicos disponíveis (de qualquer profissional)
+  // Obter apenas horários disponíveis (sem mostrar ocupados)
   const getAvailableTimeSlots = (businessHours: any): TimeSlot[] => {
     if (!selectedDate || !selectedServiceId) return [];
 
@@ -189,9 +189,9 @@ export const useAvailability = (
     if (!selectedService) return [];
 
     const timeSlots = generateTimeSlots(businessHours, selectedDate);
-    const availableProfessionals = professionals.filter(p => p.is_available);
+    const availableSlots: TimeSlot[] = [];
     
-    return timeSlots.map(time => {
+    timeSlots.forEach(time => {
       // Verificar se pelo menos um profissional está disponível neste horário
       const availableProfessionals = professionals.filter(professional => {
         if (!professional.is_available) return false;
@@ -205,13 +205,17 @@ export const useAvailability = (
         return isAvailable;
       });
 
-      return {
-        time,
-        isAvailable: availableProfessionals.length > 0,
-        conflictReason: availableProfessionals.length === 0 ? 'Todos os profissionais ocupados' : undefined,
-        professionalName: availableProfessionals.map(p => p.name).join(', ')
-      };
-    }).filter(slot => slot.isAvailable); // Só mostrar horários disponíveis
+      // Só adicionar se houver profissionais disponíveis
+      if (availableProfessionals.length > 0) {
+        availableSlots.push({
+          time,
+          isAvailable: true,
+          professionalName: availableProfessionals.map(p => p.name).join(', ')
+        });
+      }
+    });
+
+    return availableSlots;
   };
 
   return {

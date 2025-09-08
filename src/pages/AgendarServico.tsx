@@ -498,7 +498,7 @@ export default function AgendarServico() {
                   
                   {selectedProfessionalId && selectedDate ? (
                     availableTimeSlots.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto">
+                      <div className="grid grid-cols-4 gap-2 mt-2 max-h-48 overflow-y-auto">
                         {availableTimeSlots.map((slot) => {
                           const isSelected = selectedTime === slot.time;
                           return (
@@ -507,26 +507,17 @@ export default function AgendarServico() {
                               variant={isSelected ? "default" : "outline"}
                               size="sm"
                               onClick={() => setSelectedTime(slot.time)}
-                              disabled={!slot.isAvailable}
                               className={cn(
                                 "text-xs flex flex-col gap-1 h-auto py-2",
-                                slot.isAvailable 
-                                  ? "hover:bg-primary/10 border-primary/20" 
-                                  : "opacity-50 cursor-not-allowed bg-muted"
+                                "hover:bg-primary/10 border-primary/20",
+                                isSelected && "bg-primary text-primary-foreground"
                               )}
                             >
                               <span className="font-medium">{slot.time}</span>
-                              {slot.isAvailable ? (
-                                <Badge variant="secondary" className="text-xs px-1">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Disponível
-                                </Badge>
-                              ) : (
-                                <Badge variant="destructive" className="text-xs px-1">
-                                  <XCircle className="w-3 h-3 mr-1" />
-                                  Ocupado
-                                </Badge>
-                              )}
+                              <Badge variant="secondary" className="text-xs px-1">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Disponível
+                              </Badge>
                             </Button>
                           );
                         })}
