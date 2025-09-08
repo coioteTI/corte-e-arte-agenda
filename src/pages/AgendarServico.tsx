@@ -396,6 +396,26 @@ export default function AgendarServico() {
     }
   }, [selectedProfessionalId]);
 
+  // Forçar atualização dos horários quando os agendamentos mudarem
+  useEffect(() => {
+    if (selectedTime && selectedProfessionalId && selectedDate) {
+      const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
+      const isTimeStillAvailable = !appointments.some(apt => 
+        apt.appointment_date === appointmentDateStr &&
+        apt.appointment_time === selectedTime &&
+        apt.professional_id === selectedProfessionalId &&
+        ["confirmed", "scheduled", "pending"].includes(apt.status)
+      );
+      
+      // Se o horário selecionado não está mais disponível, resetar
+      if (!isTimeStillAvailable) {
+        console.log(`🔄 Horário ${selectedTime} não está mais disponível, resetando...`);
+        setSelectedTime(undefined);
+        toast.info("O horário selecionado foi ocupado por outro cliente. Por favor, escolha outro horário.");
+      }
+    }
+  }, [appointments, selectedTime, selectedProfessionalId, selectedDate]);
+
   function validate() {
     const validation = validateAppointment({
       clientName: fullName,
