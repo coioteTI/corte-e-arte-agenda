@@ -54,26 +54,25 @@ type Service = {
   name: string;
   price: number;
   duration: number;
-  description: string | null;
-  professional_responsible: string | null;
+  professional_services?: { professional_id: string }[];
 };
 
 type Professional = {
   id: string;
-  company_id: string;
   name: string;
-  specialty: string | null;
-  phone?: string | null;
-  email?: string | null;
-  is_available: boolean;
-  created_at?: string;
+  specialty?: string;
+  services?: string[];
+  business_hours?: any;
 };
 
 type Appointment = {
-  id?: string;
-  company_id: string;
-  service_id: string;
+  id: string;
   professional_id: string;
+  service_id: string;
+  full_name: string;
+  whatsapp: string;
+  email?: string | null;
+  company_id: string;
   client_id?: string | null;
   appointment_date: string;
   appointment_time: string;
@@ -85,7 +84,7 @@ type Appointment = {
 
 export default function AgendarServico() {
   const { slug } = useParams();
-  
+
   const [company, setCompany] = useState<Company | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -94,522 +93,219 @@ export default function AgendarServico() {
   const [fullName, setFullName] = useState<string>("");
   const [whatsapp, setWhatsapp] = useState<string>("");
   const [email, setEmail] = useState<string>("");
-  const [notes, setNotes] = useState<string>("");
-
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
-
-  const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
+  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [saveForFuture, setSaveForFuture] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const { getAvailableTimeSlots, getAvailabilityByProfessional, loading: availabilityLoading } = useAvailability(
-    company?.id,
-    selectedDate,
-    selectedServiceId,
-    professionals,
-    services
-  );
+  const { createAppointment, getUserByPhone } = useSupabaseOperations();
+
+  // Use availability hook
+  const {
+    availability: displayTimeSlots,
+    loading: availabilityLoading,
+    getAvailabilityByProfessional
+  } = useAvailability({
+    companyId: company?.id,
+    professionalId: selectedProfessionalId,
+    serviceId: selectedServiceId,
+    date: selectedDate,
+    businessHours: company?.business_hours,
+    existingAppointments: appointments
+  });
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("agendamento_form_v1");
-      if (saved) {
-        const obj = JSON.parse(saved);
-        setFullName(obj.fullName || "");
-        setWhatsapp(obj.whatsapp || "");
-        setEmail(obj.email || "");
-      }
-    } catch (e) {
-      console.warn("Erro ao ler storage", e);
-    }
-  }, []);
+    if (!slug) return;
 
-  useEffect(() => {
-    if (slug) {
-      fetchCompanyData();
-    }
-  }, [slug]);
+    const fetchCompanyData = async () => {
+      try {
+        setLoading(true);
 
-  async function fetchCompanyData() {
-    try {
-      setLoading(true);
-      console.log("Buscando empresa com slug:", slug);
+        // Buscar empresa por slug
+        const { data: companyData, error: companyError } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("slug", slug)
+          .single();
 
-      // Try to find company by slug - convert slug back to name for search
-      const searchName = slug?.replace(/-/g, " ") || "";
-      console.log("Nome de busca convertido:", searchName);
-      
-      const { data: companies, error: companyError } = await supabase
-        .from("companies")
-        .select("*")
-        .ilike("name", `%${searchName}%`);
+        if (companyError) {
+          console.error("Erro ao buscar empresa:", companyError);
+          toast.error("Empresa não encontrada");
+          return;
+        }
 
-      if (companyError) {
-        console.error("Erro ao buscar empresa:", companyError);
-        throw companyError;
-      }
-      
-      console.log("Empresas encontradas:", companies);
-      
-      if (!companies || companies.length === 0) {
-        toast.error("Empresa não encontrada");
-        return;
-      }
+        setCompany(companyData);
 
-      // Find best match (exact name match preferred)
-      let companyData = companies.find(c => 
-        c.name.toLowerCase().replace(/\s+/g, '-') === slug?.toLowerCase()
-      ) || companies[0];
-      
-      console.log("Empresa selecionada:", companyData);
-      setCompany(companyData);
+        // Buscar serviços da empresa
+        const { data: servicesData, error: servicesError } = await supabase
+          .from("services")
+          .select(`
+            *,
+            professional_services (
+              professional_id
+            )
+          `)
+          .eq("company_id", companyData.id);
 
-      // Buscar serviços
-      console.log("Buscando serviços para empresa ID:", companyData.id);
-      const { data: servicesData, error: servicesError } = await supabase
-        .from("services")
-        .select("*")
-        .eq("company_id", companyData.id);
-      
-      if (servicesError) {
-        console.error("Erro ao buscar serviços:", servicesError);
-      }
-      console.log("Serviços encontrados:", servicesData);
-      setServices(servicesData || []);
+        if (servicesError) {
+          console.error("Erro ao buscar serviços:", servicesError);
+        } else {
+          setServices(servicesData || []);
+        }
 
-      // Buscar profissionais usando função pública
-      console.log("Buscando profissionais para empresa ID:", companyData.id);
-      
-      // Usar função que ignora RLS para busca pública
-      const { data: professionalsData, error: professionalsError } = await supabase
-        .rpc("get_professionals_for_booking", { 
-          company_uuid: companyData.id 
-        });
-      
-      if (professionalsError) {
-        console.error("Erro ao buscar profissionais:", professionalsError);
-        // Fallback para query direta se a função falhar
-        const { data: fallbackData, error: fallbackError } = await supabase
+        // Buscar profissionais da empresa
+        const { data: professionalsData, error: professionalsError } = await supabase
           .from("professionals")
           .select("*")
           .eq("company_id", companyData.id);
-        
-        if (!fallbackError) {
-          console.log("Profissionais encontrados via fallback:", fallbackData);
-          setProfessionals(fallbackData || []);
+
+        if (professionalsError) {
+          console.error("Erro ao buscar profissionais:", professionalsError);
         } else {
-          console.error("Erro no fallback também:", fallbackError);
-          setProfessionals([]);
+          setProfessionals(professionalsData || []);
         }
-      } else {
-        console.log("Profissionais encontrados via RPC:", professionalsData);
-        console.log("Profissionais disponíveis:", professionalsData?.filter(p => p.is_available));
-        setProfessionals(professionalsData || []);
+
+        // Buscar agendamentos existentes
+        const { data: appointmentsData, error: appointmentsError } = await supabase
+          .from("appointments")
+          .select("*")
+          .eq("company_id", companyData.id)
+          .in("status", ["confirmed", "pending"]);
+
+        if (appointmentsError) {
+          console.error("Erro ao buscar agendamentos:", appointmentsError);
+        } else {
+          setAppointments(appointmentsData || []);
+        }
+
+      } catch (error) {
+        console.error("Erro geral:", error);
+        toast.error("Erro ao carregar dados");
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // Buscar agendamentos
-      const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from("appointments")
-        .select("*")
-        .eq("company_id", companyData.id)
-        .in("status", ["confirmed", "scheduled", "pending"]);
-      
-      if (appointmentsError) {
-        console.error("Erro ao buscar agendamentos:", appointmentsError);
-      }
-      console.log("Agendamentos encontrados:", appointmentsData);
-      setAppointments(appointmentsData || []);
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-      toast.error("Erro ao carregar dados da empresa");
-    } finally {
-      setLoading(false);
+    fetchCompanyData();
+  }, [slug]);
+
+  const handleConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!company || !selectedServiceId || !selectedProfessionalId || !selectedDate || !selectedTime) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
     }
-  }
 
-  // Filtrar profissionais disponíveis
-  const availableProfessionals = professionals.filter(p => {
-    console.log("🔍 Verificando profissional:", p.name, "is_available:", p.is_available, "tipo:", typeof p.is_available);
-    const isAvailable = p.is_available;
-    
-    // Suportar diferentes tipos de valores para is_available
-    if (typeof isAvailable === 'boolean') {
-      return isAvailable === true;
-    }
-    if (typeof isAvailable === 'number') {
-      return isAvailable === 1;
-    }
-    if (typeof isAvailable === 'string') {
-      return isAvailable === "true" || isAvailable === "t";
-    }
-    return false;
-  });
-
-  console.log("📊 RESUMO PROFISSIONAIS:");
-  console.log("- Total cadastrados:", professionals.length);
-  console.log("- Total disponíveis:", availableProfessionals.length);
-
-  // Filtrar profissionais com base no serviço selecionado
-  const filteredProfessionals = selectedServiceId ? (() => {
-    const selectedService = services.find(s => s.id === selectedServiceId);
-    console.log("🎯 Serviço selecionado:", selectedService);
-    
-    // Se o serviço tem um profissional responsável específico
-    if (selectedService?.professional_responsible?.trim()) {
-      console.log("👤 Serviço tem profissional responsável:", selectedService.professional_responsible);
-      
-      // Filtrar por nome do profissional responsável
-      const responsibleProfessionals = availableProfessionals.filter(p => 
-        p.name.toLowerCase().trim() === selectedService.professional_responsible.toLowerCase().trim() ||
-        p.specialty?.toLowerCase().includes(selectedService.name.toLowerCase()) ||
-        selectedService.professional_responsible.toLowerCase().includes(p.name.toLowerCase())
-      );
-      
-      console.log("✅ Profissionais responsáveis encontrados:", responsibleProfessionals);
-      
-      // Se não encontrar profissional responsável específico, mostrar todos disponíveis
-      const finalList = responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
-      console.log("📋 Lista final de profissionais:", finalList.map(p => p.name));
-      return finalList;
-    }
-    
-    // Se não tem profissional responsável, mostrar todos disponíveis
-    console.log("📋 Usando todos profissionais disponíveis");
-    return availableProfessionals;
-  })() : availableProfessionals;
-
-  console.log("🎭 Profissionais para exibição:", filteredProfessionals.map(p => p.name));
-  console.log("Profissionais após filtro:", filteredProfessionals);
-
-  function validate() {
     const validation = validateAppointment({
-      clientName: fullName,
-      clientPhone: whatsapp,
-      serviceId: selectedServiceId,
-      professionalId: selectedProfessionalId,
-      date: selectedDate,
-      time: selectedTime
+      fullName,
+      whatsapp,
+      email,
+      selectedServiceId,
+      selectedProfessionalId,
+      selectedDate,
+      selectedTime,
+      services
     });
 
     if (!validation.isValid) {
-      validation.errors.forEach(error => toast.error(error));
-      return false;
+      toast.error(validation.message);
+      return;
     }
-    
-    return true;
-  }
 
-  async function handleConfirm(e?: React.FormEvent) {
-    e?.preventDefault();
-    
-    if (!validate()) return;
-    if (!company) return toast.error("Dados da empresa não encontrados");
-
-    setSubmitting(true);
-    
     try {
-      console.log("🚀 INICIANDO AGENDAMENTO");
-      console.log("📋 Dados do formulário:", {
-        fullName,
-        whatsapp,
-        email,
-        selectedServiceId,
-        selectedProfessionalId,
-        selectedDate,
-        selectedTime,
-        notes
-      });
+      setSubmitting(true);
 
-      const selectedService = services.find((s) => s.id === selectedServiceId);
-      const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
-      
+      // Verificar se já existe um usuário com este WhatsApp
+      let existingUser = null;
+      if (whatsapp) {
+        existingUser = await getUserByPhone(whatsapp);
+      }
+
+      const selectedService = services.find(s => s.id === selectedServiceId);
       if (!selectedService) {
-        throw new Error("Serviço não encontrado");
+        toast.error("Serviço não encontrado");
+        return;
       }
 
-      if (!selectedProfessional) {
-        throw new Error("Profissional não encontrado");
-      }
-
-      // VERIFICAÇÃO CRÍTICA: Conferir se o horário ainda está disponível
-      console.log("⏰ Verificando disponibilidade do horário...");
-      const appointmentDateStr = format(selectedDate!, "yyyy-MM-dd");
-      
-      const { data: conflictingAppointments, error: conflictError } = await supabase
-        .from("appointments")
-        .select("id")
-        .eq("company_id", company.id)
-        .eq("professional_id", selectedProfessionalId!)
-        .eq("appointment_date", appointmentDateStr)
-        .eq("appointment_time", selectedTime!)
-        .in("status", ["confirmed", "scheduled", "pending"]);
-
-      if (conflictError) {
-        console.error("❌ Erro ao verificar conflitos:", conflictError);
-        throw new Error("Erro ao verificar disponibilidade do horário");
-      }
-
-      if (conflictingAppointments && conflictingAppointments.length > 0) {
-        console.warn("⚠️ Horário já ocupado:", conflictingAppointments);
-        throw new Error("Este horário não está mais disponível. Por favor, escolha outro horário.");
-      }
-
-      console.log("✅ Horário disponível confirmado");
-
-      // ETAPA 1: Gerenciar cliente com retry
-      console.log("\n📝 ETAPA 1: CRIANDO/BUSCANDO CLIENTE");
-      let clientId: string | undefined;
-      
-      const phoneClean = whatsapp.trim();
-      console.log("🔍 Buscando cliente existente com phone:", phoneClean);
-      
-      const { data: existingClients, error: searchError } = await supabase
-        .from("clients")
-        .select("id, name, email, phone")
-        .eq("phone", phoneClean)
-        .order("created_at", { ascending: false });
-
-      if (searchError) {
-        console.error("❌ Erro ao buscar cliente:", searchError);
-        throw new Error(`Erro ao buscar cliente: ${searchError.message}`);
-      }
-
-      console.log("📊 Clientes encontrados:", existingClients?.length || 0);
-
-      if (existingClients && existingClients.length > 0) {
-        const existingClient = existingClients[0];
-        console.log("✅ Cliente existente encontrado:", { id: existingClient.id, name: existingClient.name });
-        clientId = existingClient.id;
-        
-        if (existingClients.length > 1) {
-          console.warn(`⚠️ ${existingClients.length} clientes encontrados com telefone ${phoneClean}. Usando o mais recente.`);
-        }
-      } else {
-        console.log("➕ Criando novo cliente...");
-        const clientData = {
-          name: fullName.trim(),
-          phone: phoneClean,
-          email: email?.trim() || null,
-        };
-        
-        // Validação adicional dos dados do cliente
-        if (!clientData.name || clientData.name.length < 2) {
-          throw new Error("Nome do cliente deve ter pelo menos 2 caracteres");
-        }
-        
-        if (!clientData.phone || clientData.phone.length < 10) {
-          throw new Error("Telefone deve ter pelo menos 10 dígitos");
-        }
-        
-        console.log("📝 Criando cliente com dados:", { name: clientData.name, phone: clientData.phone, hasEmail: !!clientData.email });
-        
-        const { data: newClient, error: clientError } = await supabase
-          .from("clients")
-          .insert(clientData)
-          .select("id, name")
-          .single();
-
-        if (clientError) {
-          console.error("❌ Erro ao criar cliente:", {
-            message: clientError.message,
-            details: clientError.details,
-            hint: clientError.hint,
-            code: clientError.code,
-            clientData
-          });
-          
-          // Retry uma vez se der erro de concorrência
-          if (clientError.code === '23505') { // Unique constraint violation
-            console.log("🔄 Tentando buscar cliente novamente após erro de concorrência...");
-            const { data: retryClients, error: retryError } = await supabase
-              .from("clients")
-              .select("id, name")
-              .eq("phone", phoneClean)
-              .order("created_at", { ascending: false })
-              .limit(1);
-              
-            if (retryError || !retryClients || retryClients.length === 0) {
-              throw new Error("Erro ao criar/localizar cliente após conflito");
-            }
-            
-            console.log("✅ Cliente encontrado após retry:", retryClients[0]);
-            clientId = retryClients[0].id;
-          } else {
-            throw new Error(`Erro ao criar cliente: ${clientError.message}`);
-          }
-        } else {
-          console.log("✅ Novo cliente criado:", newClient);
-          clientId = newClient.id;
-        }
-      }
-
-      if (!clientId) {
-        throw new Error("Não foi possível obter ID do cliente");
-      }
-
-      console.log("✅ Cliente confirmado - ID:", clientId);
-
-      // ETAPA 2: Criar agendamento com validação final
-      console.log("\n📅 ETAPA 2: CRIANDO AGENDAMENTO");
-      
       const appointmentData = {
         company_id: company.id,
-        service_id: selectedServiceId!,
-        professional_id: selectedProfessionalId!,
-        client_id: clientId,
-        appointment_date: appointmentDateStr,
-        appointment_time: selectedTime!,
-        notes: notes?.trim() || null,
-        status: "pending",
-        total_price: selectedService.price || 0,
-        payment_method: "pending",
+        professional_id: selectedProfessionalId,
+        service_id: selectedServiceId,
+        full_name: fullName,
+        whatsapp,
+        email: email || null,
+        appointment_date: selectedDate.toISOString().split('T')[0],
+        appointment_time: selectedTime,
+        notes: notes || null,
+        total_price: parseFloat(selectedService.price),
+        client_id: existingUser?.id || null,
+        status: "confirmed"
       };
 
-      // Validação final dos dados
-      const requiredFields = ['company_id', 'service_id', 'professional_id', 'client_id', 'appointment_date', 'appointment_time'];
-      for (const field of requiredFields) {
-        if (!appointmentData[field as keyof typeof appointmentData]) {
-          throw new Error(`Campo obrigatório ausente: ${field}`);
-        }
-      }
+      const result = await createAppointment(appointmentData);
 
-      console.log("📋 Inserindo agendamento:", {
-        company_id: appointmentData.company_id,
-        service: selectedService.name,
-        professional: selectedProfessional.name,
-        date: appointmentData.appointment_date,
-        time: appointmentData.appointment_time,
-        client_id: appointmentData.client_id
-      });
+      if (result.success) {
+        toast.success("Agendamento confirmado com sucesso!");
 
-      // Verificação final de conflito antes da inserção
-      const { data: finalCheck, error: finalCheckError } = await supabase
-        .from("appointments")
-        .select("id")
-        .eq("professional_id", selectedProfessionalId!)
-        .eq("appointment_date", appointmentDateStr)
-        .eq("appointment_time", selectedTime!)
-        .in("status", ["confirmed", "scheduled", "pending"]);
+        // Reset form
+        setFullName("");
+        setWhatsapp("");
+        setEmail("");
+        setSelectedServiceId(undefined);
+        setSelectedProfessionalId(undefined);
+        setSelectedDate(undefined);
+        setSelectedTime("");
+        setNotes("");
+        setSaveForFuture(false);
 
-      if (finalCheckError) {
-        console.error("❌ Erro na verificação final:", finalCheckError);
-        throw new Error("Erro na verificação final de disponibilidade");
-      }
-
-      if (finalCheck && finalCheck.length > 0) {
-        throw new Error("Horário foi ocupado por outro cliente. Tente novamente com outro horário.");
-      }
-
-      const { data: appointmentResult, error: appointmentError } = await supabase
-        .from("appointments")
-        .insert([appointmentData])
-        .select("id")
-        .single();
-
-      if (appointmentError) {
-        console.error("❌ ERRO ao criar agendamento:", {
-          message: appointmentError.message,
-          details: appointmentError.details,
-          hint: appointmentError.hint,
-          code: appointmentError.code
-        });
-        
-        // Tratamento específico para erros comuns
-        if (appointmentError.code === '23505') {
-          throw new Error("Este horário foi ocupado por outro cliente. Escolha outro horário.");
-        } else if (appointmentError.code === '23503') {
-          throw new Error("Dados inválidos. Recarregue a página e tente novamente.");
-        } else {
-          throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
-        }
-      }
-
-      console.log("🎉 AGENDAMENTO CRIADO COM SUCESSO!", appointmentResult?.id);
-
-      // Salvar dados para futuro se solicitado
-      if (saveForFuture) {
-        try {
-          localStorage.setItem("agendamento_form_v1", JSON.stringify({ fullName, whatsapp, email }));
-        } catch (storageError) {
-          console.warn("Erro ao salvar no localStorage:", storageError);
-        }
-      } else {
-        try {
-          localStorage.removeItem("agendamento_form_v1");
-        } catch (storageError) {
-          console.warn("Erro ao remover do localStorage:", storageError);
-        }
-      }
-
-      toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
-
-      // Limpar formulário
-      setSelectedServiceId(undefined);
-      setSelectedProfessionalId(undefined);
-      setSelectedDate(undefined);
-      setSelectedTime(undefined);
-      setNotes("");
-
-      // Atualizar lista de agendamentos sem recarregar tudo
-      try {
-        console.log("🔄 Atualizando lista de agendamentos...");
-        const { data: updatedAppointments, error: reloadError } = await supabase
+        // Refresh appointments
+        const { data: updatedAppointments } = await supabase
           .from("appointments")
           .select("*")
           .eq("company_id", company.id)
-          .in("status", ["confirmed", "scheduled", "pending"]);
-        
-        if (!reloadError && updatedAppointments) {
-          setAppointments(updatedAppointments);
-          console.log("✅ Lista de agendamentos atualizada");
-        }
-      } catch (reloadError) {
-        console.warn("⚠️ Erro ao atualizar lista de agendamentos:", reloadError);
-        // Não é crítico, continua normalmente
-      }
+          .in("status", ["confirmed", "pending"]);
 
+        if (updatedAppointments) {
+          setAppointments(updatedAppointments);
+        }
+      } else {
+        toast.error(result.message || "Erro ao confirmar agendamento");
+      }
     } catch (error) {
-      console.error("❌ ERRO COMPLETO:", error);
-      
-      let errorMessage = 'Erro desconhecido. Tente novamente.';
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        console.error("Stack:", error.stack);
-      }
-      
-      // Mostrar mensagens mais amigáveis para erros comuns
-      if (errorMessage.includes('JWT')) {
-        errorMessage = 'Sessão expirada. Recarregue a página e tente novamente.';
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
-      } else if (errorMessage.includes('timeout')) {
-        errorMessage = 'A operação demorou muito. Tente novamente.';
-      }
-      
-      toast.error(`Erro: ${errorMessage}`);
-      
+      console.error("Erro ao confirmar agendamento:", error);
+      toast.error("Erro inesperado ao confirmar agendamento");
     } finally {
       setSubmitting(false);
     }
-  }
+  };
 
-  const phoneDigits = (company?.phone || "").replace(/\D/g, "");
-  const whatsappUrl = phoneDigits
-    ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : `55${phoneDigits}`}`
-    : undefined;
+  // Get available professionals (those with business hours configured)
+  const availableProfessionals = professionals.filter(prof =>
+    prof.business_hours &&
+    Object.keys(prof.business_hours).length > 0
+  );
 
-  const igHandle = (company?.instagram || "").trim();
-  const instagramUrl = igHandle
-    ? igHandle.startsWith("http")
-      ? igHandle
-      : `https://instagram.com/${igHandle.replace(/^@/, "")}`
-    : undefined;
+  console.log("Profissionais disponíveis:", availableProfessionals);
 
-  const emailUrl = company?.email ? `mailto:${company.email}` : undefined;
+  // Filter professionals by selected service
+  const filteredProfessionals = selectedServiceId
+    ? availableProfessionals.filter(prof => {
+        const selectedService = services.find(s => s.id === selectedServiceId);
+        if (!selectedService?.professional_services) return true;
+
+        const serviceProfessionals = selectedService.professional_services.map(ps => ps.professional_id);
+        return serviceProfessionals.length === 0 || serviceProfessionals.includes(prof.id);
+      })
+    : availableProfessionals;
+
+  console.log("Profissionais filtrados para o serviço:", filteredProfessionals);
+
+  // Construir endereço e link do Maps
   const mapsQuery = encodeURIComponent(
     [company?.address, company?.number, company?.neighborhood, company?.city, company?.state, company?.zip_code]
       .filter(Boolean)
@@ -642,59 +338,72 @@ export default function AgendarServico() {
         </Button>
       </div>
 
-      {/* Header card */}
+      {/* Company Info Card */}
       <Card className="mb-4 bg-card border-border">
-        <CardHeader className="flex flex-col items-center gap-3">
-          {company.logo_url && (
-            <img
-              src={company.logo_url}
-              alt={`Logo da ${company.name}`}
-              className="w-16 h-16 rounded-full object-cover border-2 border-primary"
-            />
-          )}
-          <CardTitle className="text-center text-foreground">Agendar em {company.name}</CardTitle>
-        </CardHeader>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            {company.logo_url ? (
+              <img 
+                src={company.logo_url} 
+                alt={`Logo da ${company.name}`}
+                className="w-16 h-16 object-cover rounded-lg"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
+                <span className="text-2xl">{company.name.charAt(0)}</span>
+              </div>
+            )}
+            
+            <div className="flex-1">
+              <h1 className="text-xl font-bold text-foreground mb-1">{company.name}</h1>
+              <p className="text-sm text-muted-foreground mb-2">
+                {[company.address, company.number, company.neighborhood, company.city, company.state]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+              
+              <div className="flex items-center gap-3">
+                {/* WhatsApp */}
+                <a
+                  href={`https://wa.me/55${company.phone?.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="neo neo--wa inline-flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  📱 WhatsApp
+                </a>
 
-        <CardContent>
-          {/* BOTÕES DE AÇÃO */}
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-            <a
-              href={whatsappUrl || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--wa hover:scale-105"
-              style={{ backgroundColor: "#25D366" }}
-            >
-              📱 WhatsApp
-            </a>
-            <a
-              href={instagramUrl || "#"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--ig hover:scale-105"
-              style={{
-                backgroundImage:
-                  "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
-              }}
-            >
-              📸 Instagram
-            </a>
-            <a
-              href={emailUrl || "#"}
-              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--mail hover:scale-105"
-              style={{ backgroundColor: "#4285F4" }}
-            >
-              ✉️ E-mail
-            </a>
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--maps hover:scale-105"
-              style={{ backgroundColor: "#EA4335" }}
-            >
-              📍 Localização
-            </a>
+                {/* Instagram */}
+                {company.instagram && (
+                  <a
+                    href={company.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="neo neo--ig inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all"
+                  >
+                    📸 Instagram
+                  </a>
+                )}
+
+                {/* Email */}
+                <a
+                  href={`mailto:${company.email}`}
+                  className="neo neo--mail inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  ✉️ E-mail
+                </a>
+
+                {/* Google Maps */}
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="neo neo--maps inline-flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  🗺️ Ver no Maps
+                </a>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -798,102 +507,102 @@ export default function AgendarServico() {
               </SelectContent>
             </Select>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-                <Label>Data *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !selectedDate && "text-muted-foreground"
-                      )}
-                      disabled={!selectedProfessionalId}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      disabled={(date) => {
-                        const today = new Date();
-                        const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                        const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                        return normalizedDate < normalizedToday;
-                      }}
-                      initialFocus
-                      className="pointer-events-auto rounded-md border bg-card"
-                      classNames={{
-                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                        day_today: "bg-accent text-accent-foreground font-semibold",
-                        day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground",
-                        head_cell: "text-muted-foreground font-medium text-sm w-9",
-                        cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
-                      }}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div>
-                <Label className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Horário *
-                  {availabilityLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}
-                </Label>
-                
-                {selectedProfessionalId && selectedDate ? (
-                  displayTimeSlots.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto">
-                      {displayTimeSlots.map((slot) => {
-                        const isSelected = selectedTime === slot.time;
-                        return (
-                          <Button
-                            key={slot.time}
-                            variant={isSelected ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setSelectedTime(slot.time)}
-                            disabled={!slot.isAvailable}
-                            className={cn(
-                              "text-xs flex flex-col gap-1 h-auto py-2",
-                              slot.isAvailable 
-                                ? "hover:bg-primary/10 border-primary/20" 
-                                : "opacity-50 cursor-not-allowed bg-muted"
-                            )}
-                          >
-                            <span className="font-medium">{slot.time}</span>
-                            {slot.isAvailable ? (
-                              <Badge variant="secondary" className="text-xs px-1">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                Disponível
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive" className="text-xs px-1">
-                                <XCircle className="w-3 h-3 mr-1" />
-                                Ocupado
-                              </Badge>
-                            )}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p>Nenhum horário disponível</p>
-                      <p className="text-xs">Tente outra data ou profissional</p>
-                    </div>
-                  )
+            <div>
+              <Label>Data *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                    disabled={!selectedProfessionalId}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    disabled={(date) => {
+                      const today = new Date();
+                      const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                      const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                      return normalizedDate < normalizedToday;
+                    }}
+                    initialFocus
+                    className="pointer-events-auto rounded-md border bg-card"
+                    classNames={{
+                      day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                      day_today: "bg-accent text-accent-foreground font-semibold",
+                      day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground",
+                      head_cell: "text-muted-foreground font-medium text-sm w-9",
+                      cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div>
+              <Label className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Horário *
+                {availabilityLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}
+              </Label>
+              
+              {selectedProfessionalId && selectedDate ? (
+                displayTimeSlots.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto">
+                    {displayTimeSlots.map((slot) => {
+                      const isSelected = selectedTime === slot.time;
+                      return (
+                        <Button
+                          key={slot.time}
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedTime(slot.time)}
+                          disabled={!slot.isAvailable}
+                          className={cn(
+                            "text-xs flex flex-col gap-1 h-auto py-2",
+                            slot.isAvailable 
+                              ? "hover:bg-primary/10 border-primary/20" 
+                              : "opacity-50 cursor-not-allowed bg-muted"
+                          )}
+                        >
+                          <span className="font-medium">{slot.time}</span>
+                          {slot.isAvailable ? (
+                            <Badge variant="secondary" className="text-xs px-1">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Disponível
+                            </Badge>
+                          ) : (
+                            <Badge variant="destructive" className="text-xs px-1">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Ocupado
+                            </Badge>
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">
-                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>Selecione profissional e data primeiro</p>
+                    <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>Nenhum horário disponível</p>
+                    <p className="text-xs">Tente outra data ou profissional</p>
                   </div>
-                )}
-              </div>
+                )
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>Selecione profissional e data primeiro</p>
+                </div>
+              )}
             </div>
 
             {/* Informações do Serviço Selecionado */}
