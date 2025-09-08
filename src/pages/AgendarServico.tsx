@@ -102,7 +102,7 @@ export default function AgendarServico() {
   const [company, setCompany] = useState<Company | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  
 
   // Form states
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
@@ -234,38 +234,12 @@ export default function AgendarServico() {
     loadProfessionals();
   }, [company?.id]);
 
-  // Load appointments when date changes
+  // Set loading to false when company data is loaded
   useEffect(() => {
-    const loadAppointments = async () => {
-      if (!company?.id || !selectedDate) {
-        setAppointments([]);
-        return;
-      }
-
-      try {
-        console.log('📅 Loading appointments for company:', company.id, 'date:', selectedDate);
-        const dateStr = format(selectedDate, 'yyyy-MM-dd');
-        const { data, error } = await supabase
-          .from("appointments")
-          .select("*")
-          .eq("company_id", company.id)
-          .eq("appointment_date", dateStr)
-          .in("status", ["confirmed", "scheduled", "pending"]);
-
-        if (error) throw error;
-        
-        console.log('📅 Appointments loaded:', data);
-        setAppointments(data || []);
-      } catch (error) {
-        console.error("Erro ao carregar agendamentos:", error);
-        setAppointments([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadAppointments();
-  }, [company?.id, selectedDate]);
+    if (company?.id) {
+      setLoading(false);
+    }
+  }, [company?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -349,17 +323,11 @@ export default function AgendarServico() {
         setEmail("");
         setNotes("");
 
-        // Reload appointments
+        // Refresh availability data by forcing hook to reload
         if (selectedDate) {
-          const dateStr = format(selectedDate, 'yyyy-MM-dd');
-          const { data } = await supabase
-            .from("appointments")
-            .select("*")
-            .eq("company_id", company.id)
-            .eq("appointment_date", dateStr)
-            .in("status", ["confirmed", "scheduled", "pending"]);
-
-          setAppointments(data || []);
+          const currentDate = selectedDate;
+          setSelectedDate(undefined);
+          setTimeout(() => setSelectedDate(currentDate), 100);
         }
       }
     } catch (error) {
