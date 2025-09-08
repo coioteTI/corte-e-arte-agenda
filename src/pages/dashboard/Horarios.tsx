@@ -262,94 +262,94 @@ const Horarios = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Horários</h1>
-          <div className="text-sm text-muted-foreground capitalize">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 px-2 sm:px-0">
+          <h1 className="text-xl sm:text-2xl font-semibold">Horários</h1>
+          <div className="text-xs sm:text-sm text-muted-foreground capitalize">
             {dataHoje}
           </div>
         </div>
 
         {/* Cards de Resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-2 sm:px-0">
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center space-x-2">
-                <Calendar className="h-8 w-8 text-primary" />
+                <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
                 <div>
-                  <p className="text-2xl font-bold">{agendamentosHoje.length}</p>
-                  <p className="text-sm text-muted-foreground">Agendamentos Hoje</p>
+                  <p className="text-lg sm:text-2xl font-bold">{agendamentosHoje.length}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Agendamentos Hoje</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center space-x-2">
-                <Clock className="h-8 w-8 text-green-500" />
+                <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-green-500" />
                 <div>
-                  <p className="text-2xl font-bold">{horariosDisponiveis.length}</p>
-                  <p className="text-sm text-muted-foreground">Horários Livres</p>
+                  <p className="text-lg sm:text-2xl font-bold">{horariosDisponiveis.length}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Horários Livres</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <div className="flex items-center space-x-2">
-                <Users className="h-8 w-8 text-blue-500" />
+                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500" />
                 <div>
-                  <p className="text-2xl font-bold">{appointments.length > 0 ? '1+' : '0'}</p>
-                  <p className="text-sm text-muted-foreground">Profissionais Ativos</p>
+                  <p className="text-lg sm:text-2xl font-bold">{appointments.length > 0 ? '1+' : '0'}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Profissionais Ativos</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 px-2 sm:px-0">
           {/* Clientes Agendados Hoje */}
           <Card>
-            <CardHeader>
-              <CardTitle>Clientes Agendados Hoje</CardTitle>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-base sm:text-lg">Clientes Agendados Hoje</CardTitle>
             </CardHeader>
             <CardContent>
               {filteredAgendamentos.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-muted-foreground text-sm sm:text-base">
                     {selectedProfessional === "Todos" 
                       ? "Nenhum cliente agendado para hoje"
                       : `Nenhum agendamento para ${selectedProfessional} hoje`
                     }
                   </p>
-                  <p className="text-sm text-muted-foreground mt-2">
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                     Aproveite para organizar o ambiente!
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {filteredAgendamentos.map((agendamento) => (
                     <div
                       key={agendamento.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors space-y-2 sm:space-y-0"
                     >
-                      <div className="flex items-center space-x-4">
-                        <div className="text-sm font-medium min-w-[50px] bg-muted rounded px-2 py-1">
+                      <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
+                        <div className="text-xs sm:text-sm font-medium min-w-12 sm:min-w-14 bg-muted rounded px-2 py-1">
                           {agendamento.horario}
                         </div>
-                        <div>
-                          <div className="font-medium">{agendamento.cliente}</div>
-                          <div className="text-sm text-muted-foreground">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-sm sm:text-base truncate">{agendamento.cliente}</div>
+                          <div className="text-xs sm:text-sm text-muted-foreground truncate">
                             {agendamento.servico} • {agendamento.profissional}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-between sm:justify-end space-x-2">
                         <Badge 
                           variant="secondary"
-                          className={`${getStatusColor(agendamento.status)} text-white`}
+                          className={`${getStatusColor(agendamento.status)} text-white text-xs`}
                         >
                           {getStatusText(agendamento.status)}
                         </Badge>
@@ -357,6 +357,7 @@ const Horarios = () => {
                           size="sm" 
                           variant="outline"
                           onClick={() => handleViewDetails(agendamento)}
+                          className="text-xs h-7 px-2"
                         >
                           Detalhes
                         </Button>

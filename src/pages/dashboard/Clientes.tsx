@@ -249,12 +249,12 @@ const Clientes = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Clientes</h1>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-between px-2 sm:px-0">
+          <h1 className="text-xl sm:text-2xl font-semibold">Clientes</h1>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>Novo Cliente</Button>
+              <Button size="sm" className="text-xs sm:text-sm">Novo Cliente</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -310,119 +310,126 @@ const Clientes = () => {
         </div>
 
         {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 px-2 sm:px-0">
           <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold">{clientes.length}</div>
-              <p className="text-sm text-muted-foreground">Total de Clientes</p>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-lg sm:text-2xl font-bold">{clientes.length}</div>
+              <p className="text-xs sm:text-sm text-muted-foreground">Total de Clientes</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-sm text-muted-foreground">Novos este mês</p>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-lg sm:text-2xl font-bold">0</div>
+              <p className="text-xs sm:text-sm text-muted-foreground">Novos este mês</p>
             </CardContent>
           </Card>
           
           <Card>
-            <CardContent className="p-6">
-              <div className="text-2xl font-bold">0</div>
-              <p className="text-sm text-muted-foreground">Atendimentos por cliente</p>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-lg sm:text-2xl font-bold">0</div>
+              <p className="text-xs sm:text-sm text-muted-foreground">Atendimentos por cliente</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Busca */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Buscar Clientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Input
-              placeholder="Buscar por nome, telefone ou email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-md"
-            />
-          </CardContent>
-        </Card>
+        <div className="mx-2 sm:mx-0">
+          <Card>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-base sm:text-lg">Buscar Clientes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Input
+                placeholder="Buscar por nome, telefone ou email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-md text-sm"
+              />
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Lista de Clientes */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Lista de Clientes ({filteredClientes.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Carregando clientes...</p>
-              </div>
-            ) : filteredClientes.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
-                  Nenhum cliente cadastrado ainda.
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Cadastre seus primeiros clientes para começar a gerenciar agendamentos.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredClientes.map((cliente) => (
-                   <div
-                     key={cliente.id}
-                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
-                   >
-                     <div className="flex-1">
-                       <div className="font-medium">{cliente.name}</div>
-                       <div className="text-sm text-muted-foreground">
-                         {cliente.phone} • {cliente.email}
+        <div className="mx-2 sm:mx-0">
+          <Card>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-base sm:text-lg">
+                Lista de Clientes ({filteredClientes.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-muted-foreground text-sm">Carregando clientes...</p>
+                </div>
+              ) : filteredClientes.length === 0 ? (
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-muted-foreground text-sm sm:text-base">
+                    Nenhum cliente cadastrado ainda.
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                    Cadastre seus primeiros clientes para começar a gerenciar agendamentos.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 sm:space-y-4">
+                  {filteredClientes.map((cliente) => (
+                     <div
+                       key={cliente.id}
+                       className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 space-y-3 sm:space-y-0"
+                     >
+                       <div className="flex-1 min-w-0">
+                         <div className="font-medium text-sm sm:text-base">{cliente.name}</div>
+                         <div className="text-xs sm:text-sm text-muted-foreground break-all">
+                           {cliente.phone} • {cliente.email}
+                         </div>
+                         <div className="text-xs sm:text-sm text-muted-foreground">
+                           Cadastrado em: {new Date(cliente.created_at).toLocaleDateString("pt-BR")}
+                         </div>
                        </div>
-                       <div className="text-sm text-muted-foreground">
-                         Cadastrado em: {new Date(cliente.created_at).toLocaleDateString("pt-BR")}
-                       </div>
-                     </div>
-                     
-                     <div className="flex items-center space-x-4">
-                       <Badge variant="secondary">
-                         Cliente ativo
-                       </Badge>
                        
-                       <div className="flex space-x-2">
-                         <Button 
-                           size="sm" 
-                           variant="outline"
-                           onClick={() => handleVerHistorico(cliente)}
-                         >
-                           <History className="h-4 w-4 mr-2" />
-                           Ver Histórico
-                         </Button>
-                         <Button 
-                           size="sm" 
-                           variant="outline"
-                           onClick={() => handleEditarCliente(cliente)}
-                         >
-                           <Edit className="h-4 w-4 mr-2" />
-                           Editar
-                         </Button>
-                         <Button 
-                           size="sm"
-                           onClick={() => handleAgendar(cliente)}
-                         >
-                           <Calendar className="h-4 w-4 mr-2" />
-                           Agendar
-                         </Button>
+                       <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+                         <Badge variant="secondary" className="text-xs">
+                           Cliente ativo
+                         </Badge>
+                         
+                         <div className="flex flex-wrap gap-2">
+                           <Button 
+                             size="sm" 
+                             variant="outline"
+                             onClick={() => handleVerHistorico(cliente)}
+                             className="text-xs h-8"
+                           >
+                             <History className="h-3 w-3 mr-1" />
+                             Histórico
+                           </Button>
+                           <Button 
+                             size="sm" 
+                             variant="outline"
+                             onClick={() => handleEditarCliente(cliente)}
+                             className="text-xs h-8"
+                           >
+                             <Edit className="h-3 w-3 mr-1" />
+                             Editar
+                           </Button>
+                           <Button 
+                             size="sm"
+                             onClick={() => handleAgendar(cliente)}
+                             className="text-xs h-8"
+                           >
+                             <Calendar className="h-3 w-3 mr-1" />
+                             Agendar
+                           </Button>
+                         </div>
                        </div>
                      </div>
-                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Modal de Histórico */}
         <Dialog open={isHistoricoDialogOpen} onOpenChange={setIsHistoricoDialogOpen}>

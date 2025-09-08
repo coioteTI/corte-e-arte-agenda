@@ -508,50 +508,56 @@ const Configuracoes = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between sticky top-0 bg-background border-b pb-4 z-10">
-          <h1 className="text-2xl font-semibold">Configurações</h1>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sticky top-0 bg-background border-b pb-3 sm:pb-4 z-10 space-y-3 sm:space-y-0 px-2 sm:px-0">
+          <h1 className="text-xl sm:text-2xl font-semibold">Configurações</h1>
           <div className="flex items-center gap-3">
             {saving && (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-                <span>Salvando...</span>
+                <div className="animate-spin h-3 w-3 sm:h-4 sm:w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+                <span className="text-xs sm:text-sm">Salvando...</span>
               </div>
             )}
             <Button 
               onClick={handleSalvarConfiguracoes}
               disabled={saving}
-              size="lg"
-              className="min-w-[180px] hover:scale-105 transition-transform duration-200"
+              size="sm"
+              className="min-w-[120px] sm:min-w-[180px] hover:scale-105 transition-transform duration-200 text-xs sm:text-sm"
             >
-              {saving ? "Salvando..." : "✅ Salvar Configurações"}
+              {saving ? "Salvando..." : "✅ Salvar"}
             </Button>
           </div>
         </div>
 
-        <Tabs defaultValue="notificacoes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="notificacoes" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              Notificações
-            </TabsTrigger>
-            <TabsTrigger value="sistema" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Sistema
-            </TabsTrigger>
-            <TabsTrigger value="personalizacao" className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              Personalização
-            </TabsTrigger>
-            <TabsTrigger value="galeria" className="flex items-center gap-2">
-              <Images className="h-4 w-4" />
-              Galeria
-            </TabsTrigger>
-            <TabsTrigger value="conta" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Conta
-            </TabsTrigger>
-          </TabsList>
+        <div className="mx-2 sm:mx-0">
+          <Tabs defaultValue="notificacoes" className="space-y-4 sm:space-y-6">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1">
+              <TabsTrigger value="notificacoes" className="flex items-center gap-1 text-xs sm:text-sm">
+                <Bell className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Notificações</span>
+                <span className="sm:hidden">Notif.</span>
+              </TabsTrigger>
+              <TabsTrigger value="sistema" className="flex items-center gap-1 text-xs sm:text-sm">
+                <Settings className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Sistema</span>
+                <span className="sm:hidden">Sistema</span>
+              </TabsTrigger>
+              <TabsTrigger value="personalizacao" className="flex items-center gap-1 text-xs sm:text-sm">
+                <Palette className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Personalização</span>
+                <span className="sm:hidden">Visual</span>
+              </TabsTrigger>
+              <TabsTrigger value="galeria" className="flex items-center gap-1 text-xs sm:text-sm">
+                <Images className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Galeria</span>
+                <span className="sm:hidden">Galeria</span>
+              </TabsTrigger>
+              <TabsTrigger value="conta" className="flex items-center gap-1 text-xs sm:text-sm">
+                <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Conta</span>
+                <span className="sm:hidden">Conta</span>
+              </TabsTrigger>
+            </TabsList>
 
           <TabsContent value="notificacoes">
             <NotificacoesSection
@@ -595,17 +601,18 @@ const Configuracoes = () => {
             </div>
           </TabsContent>
 
-        </Tabs>
+          </Tabs>
 
-        <MessageEditDialog
-          isOpen={isMessageDialogOpen}
-          onOpenChange={setIsMessageDialogOpen}
-          messageTypes={messageTypes}
-          editingMessageType={editingMessageType}
-          tempMessage={tempMessage}
-          onTempMessageChange={setTempMessage}
-          onSaveMessage={handleSaveMessage}
-        />
+          <MessageEditDialog
+            isOpen={isMessageDialogOpen}
+            onOpenChange={setIsMessageDialogOpen}
+            messageTypes={messageTypes}
+            editingMessageType={editingMessageType}
+            tempMessage={tempMessage}
+            onTempMessageChange={setTempMessage}
+            onSaveMessage={handleSaveMessage}
+          />
+        </div>
       </div>
     </DashboardLayout>
   );

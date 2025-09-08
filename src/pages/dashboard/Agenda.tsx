@@ -289,30 +289,34 @@ const Agenda = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Agenda</h1>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 px-2 sm:px-0">
+          <h1 className="text-xl sm:text-2xl font-semibold">Agenda</h1>
           <div className="flex space-x-2">
             <Button
               variant={selectedView === "day" ? "default" : "outline"}
               onClick={() => setSelectedView("day")}
+              size="sm"
+              className="text-xs sm:text-sm"
             >
               Dia
             </Button>
             <Button
               variant={selectedView === "week" ? "default" : "outline"}
               onClick={() => setSelectedView("week")}
+              size="sm"
+              className="text-xs sm:text-sm"
             >
               Semana
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3 px-2 sm:px-0">
           {/* Calendário */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Calendário</CardTitle>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-base sm:text-lg">Calendário</CardTitle>
             </CardHeader>
             <CardContent>
               <Calendar
@@ -328,13 +332,13 @@ const Agenda = () => {
           {/* Lista de Agendamentos */}
           <div className="lg:col-span-2">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                <CardTitle className="text-base sm:text-lg">
                   Agendamentos - {selectedDate?.toLocaleDateString("pt-BR")}
                 </CardTitle>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button>Novo Agendamento</Button>
+                    <Button size="sm" className="text-xs sm:text-sm">Novo Agendamento</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
