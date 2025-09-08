@@ -376,13 +376,17 @@ export default function AgendarServico() {
     return availableSlots;
   };
 
-  // Resetar horário quando serviço ou profissional muda
-  useEffect(() => {
+  // Resetar horário quando serviço ou profissional muda - usando callback para evitar loops
+  const resetSelectedTime = useCallback(() => {
     setSelectedTime(undefined);
-  }, [selectedServiceId, selectedProfessionalId]);
+  }, []);
 
-  // Verificar disponibilidade do horário selecionado
   useEffect(() => {
+    resetSelectedTime();
+  }, [selectedServiceId, selectedProfessionalId, resetSelectedTime]);
+
+  // Verificar disponibilidade do horário selecionado com debounce
+  const checkTimeAvailability = useCallback(() => {
     if (selectedTime && selectedProfessionalId && selectedDate && appointments.length > 0) {
       const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
       const isTimeOccupied = appointments.some(apt => 
@@ -397,7 +401,12 @@ export default function AgendarServico() {
         toast.info("Este horário foi ocupado. Por favor, escolha outro.");
       }
     }
-  }, [appointments]);
+  }, [selectedTime, selectedProfessionalId, selectedDate, appointments]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(checkTimeAvailability, 100); // Debounce de 100ms
+    return () => clearTimeout(timeoutId);
+  }, [checkTimeAvailability]);
 
   // Garantir que submitting seja resetado se o componente for desmontado
   useEffect(() => {
@@ -654,19 +663,20 @@ export default function AgendarServico() {
           code: appointmentError.code
         });
         
-        // Se for erro de constraint única (horário já ocupado)
-        if (appointmentError.code === '23505' && appointmentError.message.includes('appointments_professional_datetime_unique')) {
+      // Tratamento específico para erros de duplicata (constraints únicas)
+      if (appointmentError.code === '23505') {
+        // Pode ser o índice único que criamos ou outras constraints
+        if (appointmentError.message.includes('idx_unique_appointment_slot') || 
+            appointmentError.message.includes('appointments_professional_datetime_unique')) {
           throw new Error("Este horário acabou de ser ocupado por outro cliente. Por favor, escolha outro horário disponível.");
         }
-        
-        // Tratamento específico para erros comuns
-        if (appointmentError.code === '23505') {
-          throw new Error("Este horário foi ocupado por outro cliente. Escolha outro horário.");
-        } else if (appointmentError.code === '23503') {
-          throw new Error("Dados inválidos. Recarregue a página e tente novamente.");
-        } else {
-          throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
-        }
+        // Outros erros de unique constraint
+        throw new Error("Este horário foi ocupado por outro cliente. Escolha outro horário.");
+      } else if (appointmentError.code === '23503') {
+        throw new Error("Dados inválidos. Recarregue a página e tente novamente.");
+      } else {
+        throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
+      }
       }
 
       console.log("🎉 AGENDAMENTO CRIADO COM SUCESSO!", appointmentResult?.id);
