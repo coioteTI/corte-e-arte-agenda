@@ -1,5 +1,5 @@
 // AgendarServico.tsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -251,37 +251,36 @@ export default function AgendarServico() {
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
-  // Filtrar profissionais disponíveis
-  const availableProfessionals = professionals.filter(p => {
-    console.log("🔍 Verificando profissional:", p.name, "is_available:", p.is_available, "tipo:", typeof p.is_available);
-    const isAvailable = p.is_available;
-    
-    // Suportar diferentes tipos de valores para is_available
-    if (typeof isAvailable === 'boolean') {
-      return isAvailable === true;
-    }
-    if (typeof isAvailable === 'number') {
-      return isAvailable === 1;
-    }
-    if (typeof isAvailable === 'string') {
-      return isAvailable === "true" || isAvailable === "t";
-    }
-    return false;
-  });
+  // Filtrar profissionais disponíveis - memoizado para evitar re-renders infinitos
+  const availableProfessionals = useMemo(() => {
+    const filtered = professionals.filter(p => {
+      const isAvailable = p.is_available;
+      
+      // Suportar diferentes tipos de valores para is_available
+      if (typeof isAvailable === 'boolean') {
+        return isAvailable === true;
+      }
+      if (typeof isAvailable === 'number') {
+        return isAvailable === 1;
+      }
+      if (typeof isAvailable === 'string') {
+        return isAvailable === "true" || isAvailable === "t";
+      }
+      return false;
+    });
 
-  console.log("📊 RESUMO PROFISSIONAIS:");
-  console.log("- Total cadastrados:", professionals.length);
-  console.log("- Total disponíveis:", availableProfessionals.length);
+    console.log("Profissionais disponíveis:", filtered.length);
+    return filtered;
+  }, [professionals]);
 
-  // Filtrar profissionais com base no serviço selecionado
-  const filteredProfessionals = selectedServiceId ? (() => {
+  // Filtrar profissionais com base no serviço selecionado - memoizado
+  const filteredProfessionals = useMemo(() => {
+    if (!selectedServiceId) return availableProfessionals;
+
     const selectedService = services.find(s => s.id === selectedServiceId);
-    console.log("🎯 Serviço selecionado:", selectedService);
     
     // Se o serviço tem um profissional responsável específico
     if (selectedService?.professional_responsible?.trim()) {
-      console.log("👤 Serviço tem profissional responsável:", selectedService.professional_responsible);
-      
       // Filtrar por nome do profissional responsável
       const responsibleProfessionals = availableProfessionals.filter(p => 
         p.name.toLowerCase().trim() === selectedService.professional_responsible.toLowerCase().trim() ||
@@ -289,21 +288,16 @@ export default function AgendarServico() {
         selectedService.professional_responsible.toLowerCase().includes(p.name.toLowerCase())
       );
       
-      console.log("✅ Profissionais responsáveis encontrados:", responsibleProfessionals);
-      
       // Se não encontrar profissional responsável específico, mostrar todos disponíveis
       const finalList = responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
-      console.log("📋 Lista final de profissionais:", finalList.map(p => p.name));
+      console.log("Profissionais filtrados para o serviço:", finalList.length);
       return finalList;
     }
     
     // Se não tem profissional responsável, mostrar todos disponíveis
-    console.log("📋 Usando todos profissionais disponíveis");
+    console.log("Profissionais filtrados para o serviço:", availableProfessionals.length);
     return availableProfessionals;
-  })() : availableProfessionals;
-
-  console.log("🎭 Profissionais para exibição:", filteredProfessionals.map(p => p.name));
-  console.log("Profissionais após filtro:", filteredProfessionals);
+  }, [selectedServiceId, availableProfessionals, services]);
 
   const availableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company) {
