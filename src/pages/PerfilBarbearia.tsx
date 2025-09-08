@@ -196,11 +196,14 @@ const PerfilBarbearia = () => {
           
           {/* Likes and Ranking Info */}
           <div className="flex flex-col items-center gap-3 mb-4">
-            <LikeButton
-              targetType="company"
-              targetId={company.id}
-              className="w-full"
-            />
+            {company?.id && company.id.length > 0 && (
+              <LikeButton
+                key={`like-${company.id}`}
+                targetType="company"
+                targetId={company.id}
+                className="w-full"
+              />
+            )}
             <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
               ❤️ {company.likes_count || 0} curtidas no total
             </div>

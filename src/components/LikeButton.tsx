@@ -14,12 +14,23 @@ export default function LikeButton({ targetType, targetId, className }: Props) {
   const [count, setCount] = useState<number>(0);
   const [liked, setLiked] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [clientKey, setClientKey] = useState<string>("");
 
   const fetchData = useCallback(async () => {
+    // Não tentar buscar dados se não tiver targetId válido
+    if (!targetId || !targetType || typeof targetId !== 'string' || targetId.trim() === '') {
+      console.log('LikeButton: Missing or invalid targetId/targetType', { targetType, targetId, type: typeof targetId });
+      setLoading(false);
+      return;
+    }
+
     try {
+      setLoading(true);
       const ck = await getClientKey();
       setClientKey(ck);
+
+      console.log('LikeButton: Fetching data for', { targetType, targetId, clientKey: ck });
 
       // total de likes
       const { count: total, error: countError } = await supabase
@@ -50,12 +61,22 @@ export default function LikeButton({ targetType, targetId, className }: Props) {
       } else {
         setLiked(!!mine);
       }
+
+      console.log('LikeButton: Data fetched successfully', { count: total, liked: !!mine });
     } catch (error) {
       console.error("Error in fetchData:", error);
+    } finally {
+      setLoading(false);
     }
   }, [targetType, targetId]);
 
   useEffect(() => {
+    // Só executar se tiver targetId válido
+    if (!targetId || !targetType || typeof targetId !== 'string' || targetId.trim() === '') {
+      console.log('LikeButton: Skipping effect due to missing/invalid targetId or targetType', { targetType, targetId });
+      return;
+    }
+
     fetchData();
 
     // Subscribe to realtime updates for likes
@@ -85,7 +106,10 @@ export default function LikeButton({ targetType, targetId, className }: Props) {
   }, [fetchData, targetType, targetId]);
 
   const toggleLike = async () => {
-    if (!clientKey || busy) return;
+    if (!clientKey || busy || !targetId || !targetType) {
+      console.log('LikeButton: Cannot toggle like', { clientKey: !!clientKey, busy, targetId, targetType });
+      return;
+    }
     setBusy(true);
 
     try {
@@ -137,6 +161,26 @@ export default function LikeButton({ targetType, targetId, className }: Props) {
       setBusy(false);
     }
   };
+
+  // Não renderizar se não tiver targetId válido ou ainda estiver carregando
+  if (!targetId || !targetType || typeof targetId !== 'string' || targetId.trim() === '') {
+    console.log('LikeButton: Not rendering due to missing/invalid props', { targetType, targetId, type: typeof targetId });
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        disabled
+        className={`${className} opacity-50`}
+      >
+        <Heart className="h-4 w-4 mr-2 animate-pulse" />
+        Carregando...
+      </Button>
+    );
+  }
 
   return (
     <Button

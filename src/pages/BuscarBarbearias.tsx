@@ -599,10 +599,13 @@ const BuscarBarbearias = () => {
                         </div>
                         
                         <div className="flex justify-center py-2">
-                          <LikeButton
-                            targetType="company"
-                            targetId={barbearia.id}
-                          />
+                          {barbearia.id && barbearia.id.length > 0 && (
+                            <LikeButton
+                              key={`like-${barbearia.id}`}
+                              targetType="company"
+                              targetId={barbearia.id}
+                            />
+                          )}
                         </div>
                       </div>
                       
