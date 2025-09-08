@@ -303,7 +303,7 @@ export default function AgendarServico() {
 
     console.log(`📅 availableTimes: Processing ${dayName}`, { start: daySchedule.start, end: daySchedule.end });
 
-    const times: string[] = [];
+    const availableSlots: string[] = [];
     const start = daySchedule.start;
     const end = daySchedule.end;
     const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
@@ -315,19 +315,25 @@ export default function AgendarServico() {
       ["confirmed", "scheduled", "pending"].includes(apt.status)
     );
 
-    console.log(`📋 Found ${dayAppointments.length} appointments for ${appointmentDateStr}:`, 
-      dayAppointments.map(apt => apt.appointment_time)
-    );
+    console.log(`📋 Filtering appointments for ${appointmentDateStr} and professional ${selectedProfessionalId}:`);
+    console.log(`📋 Total appointments found: ${dayAppointments.length}`);
+    console.log(`📋 Occupied times:`, dayAppointments.map(apt => apt.appointment_time));
 
     let currentTime = start;
-    let iterations = 0; // Prevenir loop infinito
-    const maxIterations = 24; // Máximo 24 slots (12 horas com intervalos de 30min)
+    let iterations = 0;
+    const maxIterations = 30; // Máximo 30 slots para segurança
 
     while (currentTime < end && iterations < maxIterations) {
-      const hasAppointment = dayAppointments.some(apt => apt.appointment_time === currentTime);
+      // Verificar se existe algum agendamento neste horário
+      const isOccupied = dayAppointments.some(apt => 
+        apt.appointment_time === currentTime
+      );
 
-      if (!hasAppointment) {
-        times.push(currentTime);
+      console.log(`⏰ Checking time ${currentTime}: ${isOccupied ? 'OCCUPIED' : 'AVAILABLE'}`);
+
+      // Só adicionar se não estiver ocupado
+      if (!isOccupied) {
+        availableSlots.push(currentTime);
       }
 
       // Incrementar 30 minutos
@@ -340,8 +346,10 @@ export default function AgendarServico() {
       iterations++;
     }
 
-    console.log(`✅ availableTimes: Found ${times.length} available slots:`, times);
-    return times;
+    console.log(`✅ Final available slots for ${dayName} ${appointmentDateStr}:`, availableSlots);
+    console.log(`📊 Summary: ${availableSlots.length} available out of ${iterations} total slots`);
+    
+    return availableSlots;
   };
 
   useEffect(() => {
