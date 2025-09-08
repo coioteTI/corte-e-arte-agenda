@@ -243,11 +243,11 @@ export default function AgendarServico() {
     }
   }, [company?.id]);
 
-  // Recarregar agendamentos a cada 15 segundos quando há empresa selecionada
+  // Recarregar agendamentos a cada 30 segundos quando há empresa selecionada
   useEffect(() => {
     if (!company?.id) return;
     
-    const interval = setInterval(reloadAppointments, 15000);
+    const interval = setInterval(reloadAppointments, 30000); // Aumentado para 30s
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
@@ -376,39 +376,28 @@ export default function AgendarServico() {
     return availableSlots;
   };
 
+  // Resetar horário quando serviço ou profissional muda
   useEffect(() => {
-    // Resetar horário quando serviço muda (mas manter a data)
-    if (selectedServiceId && selectedTime) {
-      setSelectedTime(undefined);
-    }
-  }, [selectedServiceId]);
+    setSelectedTime(undefined);
+  }, [selectedServiceId, selectedProfessionalId]);
 
+  // Verificar disponibilidade do horário selecionado
   useEffect(() => {
-    // Resetar horário quando profissional muda (mas manter a data)
-    if (selectedProfessionalId && selectedTime) {
-      setSelectedTime(undefined);
-    }
-  }, [selectedProfessionalId]);
-
-  // Forçar atualização dos horários quando os agendamentos mudarem
-  useEffect(() => {
-    if (selectedTime && selectedProfessionalId && selectedDate) {
+    if (selectedTime && selectedProfessionalId && selectedDate && appointments.length > 0) {
       const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
-      const isTimeStillAvailable = !appointments.some(apt => 
+      const isTimeOccupied = appointments.some(apt => 
         apt.appointment_date === appointmentDateStr &&
         apt.appointment_time === selectedTime &&
         apt.professional_id === selectedProfessionalId &&
         ["confirmed", "scheduled", "pending"].includes(apt.status)
       );
       
-      // Se o horário selecionado não está mais disponível, resetar
-      if (!isTimeStillAvailable) {
-        console.log(`🔄 Horário ${selectedTime} não está mais disponível, resetando...`);
+      if (isTimeOccupied) {
         setSelectedTime(undefined);
-        toast.info("O horário selecionado foi ocupado por outro cliente. Por favor, escolha outro horário.");
+        toast.info("Este horário foi ocupado. Por favor, escolha outro.");
       }
     }
-  }, [appointments, selectedTime, selectedProfessionalId, selectedDate]);
+  }, [appointments]);
 
   // Garantir que submitting seja resetado se o componente for desmontado
   useEffect(() => {
