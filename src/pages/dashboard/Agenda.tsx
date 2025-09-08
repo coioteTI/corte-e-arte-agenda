@@ -467,18 +467,19 @@ const Agenda = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:space-x-2">
                         <Badge 
                           variant="secondary"
-                          className={`${getStatusColor(agendamento.status)} text-white`}
+                          className={`${getStatusColor(agendamento.status)} text-white text-xs`}
                         >
                           {getStatusText(agendamento.status)}
                         </Badge>
-                        <div className="flex space-x-1">
+                        <div className="flex gap-1 sm:space-x-1">
                           <Button 
                             size="sm" 
                             variant="outline"
                             onClick={() => handleEditAgendamento(agendamento)}
+                            className="text-xs px-2 py-1 h-7 sm:h-8 sm:px-3 sm:py-2 sm:text-sm"
                           >
                             Editar
                           </Button>
@@ -487,6 +488,7 @@ const Agenda = () => {
                               size="sm" 
                               variant="outline"
                               onClick={() => handleConcluirAgendamento(agendamento.id)}
+                              className="text-xs px-2 py-1 h-7 sm:h-8 sm:px-3 sm:py-2 sm:text-sm"
                             >
                               Concluir
                             </Button>
