@@ -416,6 +416,21 @@ export default function AgendarServico() {
     }
   }, [appointments, selectedTime, selectedProfessionalId, selectedDate]);
 
+  // Garantir que submitting seja resetado se o componente for desmontado
+  useEffect(() => {
+    return () => {
+      setSubmitting(false);
+    };
+  }, []);
+
+  // Resetar submitting se houver mudanças críticas nos dados
+  useEffect(() => {
+    if (submitting && (!company || !selectedServiceId || !selectedProfessionalId)) {
+      console.log("🔄 Resetando submitting devido a dados faltando");
+      setSubmitting(false);
+    }
+  }, [company, selectedServiceId, selectedProfessionalId, submitting]);
+
   function validate() {
     const validation = validateAppointment({
       clientName: fullName,
@@ -441,6 +456,13 @@ export default function AgendarServico() {
     if (!company) return toast.error("Dados da empresa não encontrados");
 
     setSubmitting(true);
+    
+    // Timeout de segurança para evitar travamentos
+    const timeoutId = setTimeout(() => {
+      console.warn("⚠️ Timeout de segurança ativado - resetando submitting");
+      setSubmitting(false);
+      toast.error("A operação está demorando muito. Tente novamente.");
+    }, 30000); // 30 segundos
     
     try {
       console.log("🚀 INICIANDO AGENDAMENTO");
@@ -733,7 +755,11 @@ export default function AgendarServico() {
       toast.error(`Erro: ${errorMessage}`);
       
     } finally {
+      // Limpar timeout de segurança
+      clearTimeout(timeoutId);
+      // Garantir que o estado seja sempre resetado
       setSubmitting(false);
+      console.log("✅ Estado de submitting resetado");
     }
   }
 
