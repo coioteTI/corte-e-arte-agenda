@@ -94,7 +94,8 @@ type Appointment = {
 };
 
 export default function AgendarServico() {
-  const { companyId } = useParams();
+  const { slug } = useParams();
+  const companyId = slug; // Use slug as companyId
   const [company, setCompany] = useState<Company | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -145,9 +146,15 @@ export default function AgendarServico() {
           .from("companies")
           .select("*")
           .eq("id", companyId)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
+        
+        if (!data) {
+          toast.error("Empresa não encontrada");
+          return;
+        }
+        
         setCompany(data);
       } catch (error) {
         console.error("Erro ao carregar empresa:", error);
