@@ -45,8 +45,12 @@ type Company = {
   likes_count: number;
   instagram: string | null;
   logo_url: string | null;
-  email: string;
-  phone: string;
+  email?: string;
+  phone?: string;
+  plan?: string;
+  primary_color?: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 type Professional = {
@@ -95,7 +99,6 @@ type Appointment = {
 
 export default function AgendarServico() {
   const { slug } = useParams();
-  const companyId = slug; // Use slug as companyId
   const [company, setCompany] = useState<Company | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -139,42 +142,57 @@ export default function AgendarServico() {
   // Load company data
   useEffect(() => {
     const loadCompany = async () => {
-      if (!companyId) return;
+      if (!slug) return;
 
       try {
-        const { data, error } = await supabase
-          .from("companies")
-          .select("*")
-          .eq("id", companyId)
-          .maybeSingle();
+        console.log('🔍 Looking for company with slug:', slug);
+        
+        // Get all companies and find by slug
+        const { data: companies, error } = await supabase
+          .rpc('get_public_company_data');
 
         if (error) throw error;
-        
-        if (!data) {
+
+        console.log('📋 All companies:', companies);
+
+        // Find company by slug match
+        const foundCompany = companies?.find(c => {
+          const companySlug = c.name.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remove accents
+            .replace(/\s+/g, '-')
+            .replace(/[^\w-]/g, ''); // Remove special characters
+          console.log(`🔗 Comparing "${companySlug}" with "${slug}"`);
+          return companySlug === slug;
+        });
+
+        if (!foundCompany) {
+          console.error('❌ Company not found for slug:', slug);
           toast.error("Empresa não encontrada");
           return;
         }
         
-        setCompany(data);
+        console.log('✅ Found company:', foundCompany);
+        setCompany(foundCompany);
       } catch (error) {
-        console.error("Erro ao carregar empresa:", error);
+        console.error("❌ Erro ao carregar empresa:", error);
         toast.error("Erro ao carregar dados da empresa");
       }
     };
 
     loadCompany();
-  }, [companyId]);
+  }, [slug]);
 
   // Load services
   useEffect(() => {
     const loadServices = async () => {
-      if (!companyId) return;
+      if (!company?.id) return;
 
       try {
         const { data, error } = await supabase
           .from("services")
           .select('*')
-          .eq("company_id", companyId);
+          .eq("company_id", company.id);
 
         if (error) throw error;
         setServices((data || []).map(service => ({
@@ -188,21 +206,24 @@ export default function AgendarServico() {
     };
 
     loadServices();
-  }, [companyId]);
+  }, [company?.id]);
 
   // Load professionals
   useEffect(() => {
     const loadProfessionals = async () => {
-      if (!companyId) return;
+      if (!company?.id) return;
 
       try {
+        console.log('👥 Loading professionals for company:', company.id);
         const { data, error } = await supabase
           .from("professionals")
           .select("*")
-          .eq("company_id", companyId)
+          .eq("company_id", company.id)
           .eq("is_available", true);
 
         if (error) throw error;
+        
+        console.log('👥 Professionals loaded:', data);
         setProfessionals(data || []);
       } catch (error) {
         console.error("Erro ao carregar profissionais:", error);
@@ -211,26 +232,29 @@ export default function AgendarServico() {
     };
 
     loadProfessionals();
-  }, [companyId]);
+  }, [company?.id]);
 
   // Load appointments when date changes
   useEffect(() => {
     const loadAppointments = async () => {
-      if (!companyId || !selectedDate) {
+      if (!company?.id || !selectedDate) {
         setAppointments([]);
         return;
       }
 
       try {
+        console.log('📅 Loading appointments for company:', company.id, 'date:', selectedDate);
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
         const { data, error } = await supabase
           .from("appointments")
           .select("*")
-          .eq("company_id", companyId)
+          .eq("company_id", company.id)
           .eq("appointment_date", dateStr)
           .in("status", ["confirmed", "scheduled", "pending"]);
 
         if (error) throw error;
+        
+        console.log('📅 Appointments loaded:', data);
         setAppointments(data || []);
       } catch (error) {
         console.error("Erro ao carregar agendamentos:", error);
@@ -241,7 +265,7 @@ export default function AgendarServico() {
     };
 
     loadAppointments();
-  }, [companyId, selectedDate]);
+  }, [company?.id, selectedDate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -300,7 +324,7 @@ export default function AgendarServico() {
 
       // Create appointment data
       const appointmentData = {
-        company_id: companyId,
+        company_id: company.id,
         professional_id: selectedProfessionalId,
         service_id: selectedServiceId,
         appointment_date: selectedDate.toISOString().split('T')[0],
@@ -331,7 +355,7 @@ export default function AgendarServico() {
           const { data } = await supabase
             .from("appointments")
             .select("*")
-            .eq("company_id", companyId)
+            .eq("company_id", company.id)
             .eq("appointment_date", dateStr)
             .in("status", ["confirmed", "scheduled", "pending"]);
 
