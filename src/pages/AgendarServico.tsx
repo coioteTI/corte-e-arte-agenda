@@ -20,7 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Clock, Users, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { validateAppointment } from "@/utils/validation";
 import { useSupabaseOperations } from "@/hooks/useSupabaseOperations";
 import { GallerySection } from "@/components/GallerySection";
+import { useAvailability } from "@/hooks/useAvailability";
+import { Badge } from "@/components/ui/badge";
 
 type Company = {
   id: string;
@@ -103,6 +105,14 @@ export default function AgendarServico() {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const { getAvailableTimeSlots, getAvailabilityByProfessional, loading: availabilityLoading } = useAvailability(
+    company?.id,
+    selectedDate,
+    selectedServiceId,
+    professionals,
+    services
+  );
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem("agendamento_form_v1");
@@ -170,35 +180,35 @@ export default function AgendarServico() {
       console.log("Serviços encontrados:", servicesData);
       setServices(servicesData || []);
 
-  // Buscar profissionais usando função pública
-  console.log("Buscando profissionais para empresa ID:", companyData.id);
-  
-  // Usar função que ignora RLS para busca pública
-  const { data: professionalsData, error: professionalsError } = await supabase
-    .rpc("get_professionals_for_booking", { 
-      company_uuid: companyData.id 
-    });
-  
-  if (professionalsError) {
-    console.error("Erro ao buscar profissionais:", professionalsError);
-    // Fallback para query direta se a função falhar
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from("professionals")
-      .select("*")
-      .eq("company_id", companyData.id);
-    
-    if (!fallbackError) {
-      console.log("Profissionais encontrados via fallback:", fallbackData);
-      setProfessionals(fallbackData || []);
-    } else {
-      console.error("Erro no fallback também:", fallbackError);
-      setProfessionals([]);
-    }
-  } else {
-    console.log("Profissionais encontrados via RPC:", professionalsData);
-    console.log("Profissionais disponíveis:", professionalsData?.filter(p => p.is_available));
-    setProfessionals(professionalsData || []);
-  }
+      // Buscar profissionais usando função pública
+      console.log("Buscando profissionais para empresa ID:", companyData.id);
+      
+      // Usar função que ignora RLS para busca pública
+      const { data: professionalsData, error: professionalsError } = await supabase
+        .rpc("get_professionals_for_booking", { 
+          company_uuid: companyData.id 
+        });
+      
+      if (professionalsError) {
+        console.error("Erro ao buscar profissionais:", professionalsError);
+        // Fallback para query direta se a função falhar
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("professionals")
+          .select("*")
+          .eq("company_id", companyData.id);
+        
+        if (!fallbackError) {
+          console.log("Profissionais encontrados via fallback:", fallbackData);
+          setProfessionals(fallbackData || []);
+        } else {
+          console.error("Erro no fallback também:", fallbackError);
+          setProfessionals([]);
+        }
+      } else {
+        console.log("Profissionais encontrados via RPC:", professionalsData);
+        console.log("Profissionais disponíveis:", professionalsData?.filter(p => p.is_available));
+        setProfessionals(professionalsData || []);
+      }
 
       // Buscar agendamentos
       const { data: appointmentsData, error: appointmentsError } = await supabase
@@ -273,89 +283,6 @@ export default function AgendarServico() {
 
   console.log("🎭 Profissionais para exibição:", filteredProfessionals.map(p => p.name));
   console.log("Profissionais após filtro:", filteredProfessionals);
-
-  const availableTimes = () => {
-    if (!selectedProfessionalId || !selectedDate || !company) {
-      console.log("❌ availableTimes: Missing required data", { 
-        selectedProfessionalId: !!selectedProfessionalId, 
-        selectedDate: !!selectedDate, 
-        company: !!company 
-      });
-      return [];
-    }
-    
-    const businessHours = company.business_hours;
-    if (!businessHours) {
-      console.log("❌ availableTimes: No business hours defined");
-      return [];
-    }
-
-    const date = selectedDate;
-    const weekday = date.getDay();
-    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const dayName = dayNames[weekday];
-
-    const daySchedule = businessHours[dayName];
-    if (!daySchedule || !daySchedule.isOpen) {
-      console.log(`❌ availableTimes: ${dayName} is closed or undefined`, daySchedule);
-      return [];
-    }
-
-    console.log(`📅 availableTimes: Processing ${dayName}`, { start: daySchedule.start, end: daySchedule.end });
-
-    const times: string[] = [];
-    const start = daySchedule.start;
-    const end = daySchedule.end;
-    const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
-
-    // Filtrar agendamentos para o profissional e data selecionados
-    const dayAppointments = appointments.filter(apt => 
-      apt.professional_id === selectedProfessionalId &&
-      apt.appointment_date === appointmentDateStr &&
-      ["confirmed", "scheduled", "pending"].includes(apt.status)
-    );
-
-    console.log(`📋 Found ${dayAppointments.length} appointments for ${appointmentDateStr}:`, 
-      dayAppointments.map(apt => apt.appointment_time)
-    );
-
-    let currentTime = start;
-    let iterations = 0; // Prevenir loop infinito
-    const maxIterations = 24; // Máximo 24 slots (12 horas com intervalos de 30min)
-
-    while (currentTime < end && iterations < maxIterations) {
-      const hasAppointment = dayAppointments.some(apt => apt.appointment_time === currentTime);
-
-      if (!hasAppointment) {
-        times.push(currentTime);
-      }
-
-      // Incrementar 30 minutos
-      const [hours, minutes] = currentTime.split(":").map(Number);
-      const totalMinutes = hours * 60 + minutes + 30;
-      const newHours = Math.floor(totalMinutes / 60);
-      const newMinutes = totalMinutes % 60;
-      currentTime = `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
-      
-      iterations++;
-    }
-
-    console.log(`✅ availableTimes: Found ${times.length} available slots:`, times);
-    return times;
-  };
-
-  useEffect(() => {
-    // Só resetar se já havia um serviço selecionado anteriormente
-    if (selectedServiceId) {
-      setSelectedDate(undefined);
-      setSelectedTime(undefined);
-    }
-  }, [selectedServiceId]);
-
-  useEffect(() => {
-    setSelectedDate(undefined);
-    setSelectedTime(undefined);
-  }, [selectedProfessionalId]);
 
   function validate() {
     const validation = validateAppointment({
@@ -872,7 +799,6 @@ export default function AgendarServico() {
             </Select>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-              <div>
                 <Label>Data *</Label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -913,34 +839,157 @@ export default function AgendarServico() {
                 </Popover>
               </div>
               <div>
-                <Label>Horário *</Label>
-                <Select value={selectedTime} onValueChange={(v) => setSelectedTime(v || undefined)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione horário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectedProfessionalId && selectedDate ? (
-                      availableTimes().length ? (
-                        availableTimes().map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {t}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="none" disabled>
-                          Sem horários disponíveis nesta data
-                        </SelectItem>
-                      )
-                    ) : (
-                      <SelectItem value="none" disabled>
-                        Selecione profissional e data primeiro
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Label className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Horário *
+                  {availabilityLoading && <span className="text-xs text-muted-foreground">(carregando...)</span>}
+                </Label>
+                
+                {selectedProfessionalId && selectedDate ? (
+                  displayTimeSlots.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2 mt-2 max-h-48 overflow-y-auto">
+                      {displayTimeSlots.map((slot) => {
+                        const isSelected = selectedTime === slot.time;
+                        return (
+                          <Button
+                            key={slot.time}
+                            variant={isSelected ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedTime(slot.time)}
+                            disabled={!slot.isAvailable}
+                            className={cn(
+                              "text-xs flex flex-col gap-1 h-auto py-2",
+                              slot.isAvailable 
+                                ? "hover:bg-primary/10 border-primary/20" 
+                                : "opacity-50 cursor-not-allowed bg-muted"
+                            )}
+                          >
+                            <span className="font-medium">{slot.time}</span>
+                            {slot.isAvailable ? (
+                              <Badge variant="secondary" className="text-xs px-1">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Disponível
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="text-xs px-1">
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Ocupado
+                              </Badge>
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>Nenhum horário disponível</p>
+                      <p className="text-xs">Tente outra data ou profissional</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>Selecione profissional e data primeiro</p>
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* Informações do Serviço Selecionado */}
+            {selectedServiceId && (
+              <Card className="bg-accent/50 mt-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-medium">
+                        {services.find(s => s.id === selectedServiceId)?.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Duração: {services.find(s => s.id === selectedServiceId)?.duration} minutos
+                      </p>
+                    </div>
+                    <div className="ml-auto">
+                      <Badge variant="secondary">
+                        R$ {services.find(s => s.id === selectedServiceId)?.price}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Disponibilidade Geral (quando nenhum profissional específico selecionado) */}
+            {selectedDate && selectedServiceId && !selectedProfessionalId && company && (
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Disponibilidade por Profissional
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const professionalAvailability = getAvailabilityByProfessional(company.business_hours);
+                    const availableProfessionals = Object.keys(professionalAvailability).filter(
+                      profId => professionalAvailability[profId].some(slot => slot.isAvailable)
+                    );
+
+                    if (availableProfessionals.length === 0) {
+                      return (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <XCircle className="w-8 h-8 mx-auto mb-2" />
+                          <p>Nenhum profissional disponível nesta data</p>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-3">
+                        {availableProfessionals.map(profId => {
+                          const professional = professionals.find(p => p.id === profId);
+                          const slots = professionalAvailability[profId].filter(slot => slot.isAvailable);
+                          
+                          if (!professional || slots.length === 0) return null;
+
+                          return (
+                            <div key={profId} className="border rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-medium">{professional.name}</h4>
+                                <Badge variant="outline">{slots.length} horários</Badge>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {slots.slice(0, 6).map(slot => (
+                                  <Button
+                                    key={slot.time}
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedProfessionalId(profId);
+                                      setSelectedTime(slot.time);
+                                    }}
+                                    className="text-xs h-7"
+                                  >
+                                    {slot.time}
+                                  </Button>
+                                ))}
+                                {slots.length > 6 && (
+                                  <span className="text-xs text-muted-foreground self-center">
+                                    +{slots.length - 6} mais
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+            
             <Label className="mt-4">Observações</Label>
             <Textarea
               placeholder="Preferências ou observações..."
@@ -961,6 +1010,9 @@ export default function AgendarServico() {
           </CardContent>
         </Card>
       </form>
+
+      {/* Galeria da empresa */}
+      {company && <GallerySection companyId={company.id} />}
 
       {/* Glow suave */}
       <style>{`
