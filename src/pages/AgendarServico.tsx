@@ -27,7 +27,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { validateAppointment } from "@/utils/validation";
-import { useSupabaseOperations } from "@/hooks/useSupabaseOperations";
 import { GallerySection } from "@/components/GallerySection";
 
 type Company = {
@@ -103,6 +102,50 @@ export default function AgendarServico() {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Função auxiliar para converter tempo em minutos
+  const timeToMinutes = useCallback((timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    return hours * 60 + minutes;
+  }, []);
+
+  // Função auxiliar para converter minutos em tempo
+  const minutesToTime = useCallback((minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+  }, []);
+
+  // Função para verificar se um horário tem conflito com agendamentos existentes
+  const hasTimeConflict = useCallback((startTime: string, duration: number, professionalId: string, dateStr: string): boolean => {
+    const startMinutes = timeToMinutes(startTime);
+    const endMinutes = startMinutes + duration;
+
+    // Buscar agendamentos do profissional na data
+    const professionalAppointments = appointments.filter(apt => 
+      apt.professional_id === professionalId &&
+      apt.appointment_date === dateStr &&
+      ["confirmed", "scheduled", "pending"].includes(apt.status)
+    );
+
+    // Verificar conflito com cada agendamento existente
+    for (const apt of professionalAppointments) {
+      const aptStartMinutes = timeToMinutes(apt.appointment_time);
+      
+      // Buscar duração do serviço do agendamento existente
+      const existingService = services.find(s => s.id === apt.service_id);
+      const existingDuration = existingService?.duration || 30; // Default 30 min se não encontrar
+      const aptEndMinutes = aptStartMinutes + existingDuration;
+
+      // Verificar sobreposição: novo serviço começa antes do existente terminar E termina depois do existente começar
+      if (startMinutes < aptEndMinutes && endMinutes > aptStartMinutes) {
+        console.log(`❌ Conflict detected: ${startTime}-${minutesToTime(endMinutes)} conflicts with existing ${apt.appointment_time}-${minutesToTime(aptEndMinutes)}`);
+        return true;
+      }
+    }
+
+    return false;
+  }, [appointments, services, timeToMinutes, minutesToTime]);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem("agendamento_form_v1");
@@ -170,35 +213,34 @@ export default function AgendarServico() {
       console.log("Serviços encontrados:", servicesData);
       setServices(servicesData || []);
 
-  // Buscar profissionais usando função pública
-  console.log("Buscando profissionais para empresa ID:", companyData.id);
-  
-  // Usar função que ignora RLS para busca pública
-  const { data: professionalsData, error: professionalsError } = await supabase
-    .rpc("get_professionals_for_booking", { 
-      company_uuid: companyData.id 
-    });
-  
-  if (professionalsError) {
-    console.error("Erro ao buscar profissionais:", professionalsError);
-    // Fallback para query direta se a função falhar
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from("professionals")
-      .select("*")
-      .eq("company_id", companyData.id);
-    
-    if (!fallbackError) {
-      console.log("Profissionais encontrados via fallback:", fallbackData);
-      setProfessionals(fallbackData || []);
-    } else {
-      console.error("Erro no fallback também:", fallbackError);
-      setProfessionals([]);
-    }
-  } else {
-    console.log("Profissionais encontrados via RPC:", professionalsData);
-    console.log("Profissionais disponíveis:", professionalsData?.filter(p => p.is_available));
-    setProfessionals(professionalsData || []);
-  }
+      // Buscar profissionais usando função pública
+      console.log("Buscando profissionais para empresa ID:", companyData.id);
+      
+      // Usar função que ignora RLS para busca pública
+      const { data: professionalsData, error: professionalsError } = await supabase
+        .rpc("get_professionals_for_booking", { 
+          company_uuid: companyData.id 
+        });
+      
+      if (professionalsError) {
+        console.error("Erro ao buscar profissionais:", professionalsError);
+        // Fallback para query direta se a função falhar
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("professionals")
+          .select("*")
+          .eq("company_id", companyData.id);
+        
+        if (!fallbackError) {
+          console.log("Profissionais encontrados via fallback:", fallbackData);
+          setProfessionals(fallbackData || []);
+        } else {
+          console.error("Erro no fallback também:", fallbackError);
+          setProfessionals([]);
+        }
+      } else {
+        console.log("Profissionais encontrados via RPC:", professionalsData);
+        setProfessionals(professionalsData || []);
+      }
 
       // Buscar agendamentos
       const { data: appointmentsData, error: appointmentsError } = await supabase
@@ -247,7 +289,7 @@ export default function AgendarServico() {
   useEffect(() => {
     if (!company?.id) return;
     
-    const interval = setInterval(reloadAppointments, 30000); // Aumentado para 30s
+    const interval = setInterval(reloadAppointments, 30000);
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
@@ -299,15 +341,26 @@ export default function AgendarServico() {
     return availableProfessionals;
   }, [selectedServiceId, availableProfessionals, services]);
 
-  const availableTimes = () => {
-    if (!selectedProfessionalId || !selectedDate || !company) {
+  const availableTimes = useMemo(() => {
+    if (!selectedProfessionalId || !selectedDate || !company || !selectedServiceId) {
       console.log("❌ availableTimes: Missing required data", { 
         selectedProfessionalId: !!selectedProfessionalId, 
         selectedDate: !!selectedDate, 
-        company: !!company 
+        company: !!company,
+        selectedServiceId: !!selectedServiceId
       });
       return [];
     }
+
+    // Buscar o serviço selecionado para obter a duração
+    const selectedService = services.find(s => s.id === selectedServiceId);
+    if (!selectedService) {
+      console.log("❌ availableTimes: Selected service not found");
+      return [];
+    }
+
+    const serviceDuration = selectedService.duration; // em minutos
+    console.log(`📋 Service "${selectedService.name}" duration: ${serviceDuration} minutes`);
     
     const businessHours = company.business_hours;
     if (!businessHours) {
@@ -333,48 +386,43 @@ export default function AgendarServico() {
     const end = daySchedule.end;
     const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
 
-    // Buscar TODOS os agendamentos da data (não apenas do profissional selecionado)
-    const allDayAppointments = appointments.filter(apt => 
-      apt.appointment_date === appointmentDateStr &&
-      ["confirmed", "scheduled", "pending"].includes(apt.status)
-    );
+    const startMinutes = timeToMinutes(start);
+    const endMinutes = timeToMinutes(end);
 
-    console.log(`📋 All appointments for ${appointmentDateStr}:`, allDayAppointments.length);
+    console.log(`📋 Checking slots for professional ${selectedProfessionalId} on ${appointmentDateStr}`);
 
-    let currentTime = start;
+    // Gerar slots em intervalos de 15 minutos para maior flexibilidade
+    let currentMinutes = startMinutes;
     let iterations = 0;
-    const maxIterations = 30; // Máximo 30 slots para segurança
+    const maxIterations = 100; // Segurança
 
-    while (currentTime < end && iterations < maxIterations) {
-      // Verificar se o profissional selecionado está ocupado neste horário
-      const isSelectedProfessionalOccupied = allDayAppointments.some(apt => 
-        apt.professional_id === selectedProfessionalId &&
-        apt.appointment_time === currentTime
-      );
+    while (currentMinutes <= endMinutes - serviceDuration && iterations < maxIterations) {
+      const currentTimeStr = minutesToTime(currentMinutes);
+      const endTimeStr = minutesToTime(currentMinutes + serviceDuration);
 
-      // Só mostrar horários onde o profissional selecionado está realmente disponível
-      if (!isSelectedProfessionalOccupied) {
-        availableSlots.push(currentTime);
-        console.log(`✅ Time ${currentTime}: Available for selected professional`);
-      } else {
-        console.log(`❌ Time ${currentTime}: Selected professional is occupied`);
+      // Verificar se o horário termina dentro do expediente
+      if (currentMinutes + serviceDuration <= endMinutes) {
+        // Verificar se há conflito com agendamentos existentes
+        const hasConflict = hasTimeConflict(currentTimeStr, serviceDuration, selectedProfessionalId, appointmentDateStr);
+
+        if (!hasConflict) {
+          availableSlots.push(currentTimeStr);
+          console.log(`✅ Time ${currentTimeStr}-${endTimeStr}: Available`);
+        } else {
+          console.log(`❌ Time ${currentTimeStr}-${endTimeStr}: Conflict detected`);
+        }
       }
 
-      // Incrementar 30 minutos
-      const [hours, minutes] = currentTime.split(":").map(Number);
-      const totalMinutes = hours * 60 + minutes + 30;
-      const newHours = Math.floor(totalMinutes / 60);
-      const newMinutes = totalMinutes % 60;
-      currentTime = `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
-      
+      // Incrementar 15 minutos para maior flexibilidade
+      currentMinutes += 15;
       iterations++;
     }
 
     console.log(`✅ Final available slots for ${dayName} ${appointmentDateStr}:`, availableSlots);
-    console.log(`📊 Summary: ${availableSlots.length} available out of ${iterations} total slots`);
+    console.log(`📊 Summary: ${availableSlots.length} available slots for ${serviceDuration}min service`);
     
     return availableSlots;
-  };
+  }, [selectedProfessionalId, selectedDate, company, selectedServiceId, services, appointments, timeToMinutes, minutesToTime, hasTimeConflict]);
 
   // Resetar horário quando serviço ou profissional muda - usando callback para evitar loops
   const resetSelectedTime = useCallback(() => {
@@ -385,36 +433,27 @@ export default function AgendarServico() {
     resetSelectedTime();
   }, [selectedServiceId, selectedProfessionalId, resetSelectedTime]);
 
-  // Verificar disponibilidade do horário selecionado com debounce
+  // Verificar disponibilidade do horário selecionado com debounce - agora considera duração do serviço
   const checkTimeAvailability = useCallback(() => {
-    if (selectedTime && selectedProfessionalId && selectedDate && appointments.length > 0) {
+    if (selectedTime && selectedProfessionalId && selectedDate && selectedServiceId && appointments.length > 0) {
       const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
-      const isTimeOccupied = appointments.some(apt => 
-        apt.appointment_date === appointmentDateStr &&
-        apt.appointment_time === selectedTime &&
-        apt.professional_id === selectedProfessionalId &&
-        ["confirmed", "scheduled", "pending"].includes(apt.status)
-      );
       
-      if (isTimeOccupied) {
+      // Buscar o serviço selecionado para obter a duração
+      const selectedService = services.find(s => s.id === selectedServiceId);
+      if (!selectedService) {
+        console.log("❌ checkTimeAvailability: Service not found");
+        return;
+      }
+
+      const serviceDuration = selectedService.duration;
+      const hasConflict = hasTimeConflict(selectedTime, serviceDuration, selectedProfessionalId, appointmentDateStr);
+      
+      if (hasConflict) {
         setSelectedTime(undefined);
-        toast.error("⏰ Horário não disponível! Este horário já está ocupado. Por favor, escolha outro horário disponível.");
+        toast.error("⏰ Horário não disponível! Este horário conflita com outro agendamento. Por favor, escolha outro horário disponível.");
       }
     }
-  }, [selectedTime, selectedProfessionalId, selectedDate, appointments]);
-
-  // Função para verificar se um horário está ocupado antes de permitir seleção
-  const isTimeSlotOccupied = useCallback((time: string) => {
-    if (!selectedProfessionalId || !selectedDate || !appointments.length) return false;
-    
-    const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
-    return appointments.some(apt => 
-      apt.professional_id === selectedProfessionalId &&
-      apt.appointment_date === appointmentDateStr &&
-      apt.appointment_time === time &&
-      ['scheduled', 'confirmed', 'pending'].includes(apt.status)
-    );
-  }, [selectedProfessionalId, selectedDate, appointments]);
+  }, [selectedTime, selectedProfessionalId, selectedDate, selectedServiceId, appointments, services, hasTimeConflict]);
 
   useEffect(() => {
     const timeoutId = setTimeout(checkTimeAvailability, 100); // Debounce de 100ms
@@ -450,253 +489,146 @@ export default function AgendarServico() {
       validation.errors.forEach(error => toast.error(error));
       return false;
     }
-    
+
     return true;
   }
 
-  async function handleConfirm(e?: React.FormEvent) {
-    e?.preventDefault();
-    
-    if (!validate()) return;
-    if (!company) return toast.error("Dados da empresa não encontrados");
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
 
-    setSubmitting(true);
-    
-    // Timeout de segurança para evitar travamentos
+    if (submitting) {
+      console.log("⚠️ Já está submetendo, ignorando...");
+      return;
+    }
+
+    if (!validate()) {
+      return;
+    }
+
+    if (!company?.id) {
+      toast.error("Dados da empresa não encontrados");
+      return;
+    }
+
+    // Timeout de segurança para resetar submitting
     const timeoutId = setTimeout(() => {
-      console.warn("⚠️ Timeout de segurança ativado - resetando submitting");
+      console.log("🕒 Timeout atingido, resetando submitting");
       setSubmitting(false);
-      toast.error("A operação está demorando muito. Tente novamente.");
-    }, 30000); // 30 segundos
-    
+    }, 15000); // 15 segundos
+
     try {
-      console.log("🚀 INICIANDO AGENDAMENTO");
-      console.log("📋 Dados do formulário:", {
-        fullName,
-        whatsapp,
-        email,
-        selectedServiceId,
-        selectedProfessionalId,
-        selectedDate,
-        selectedTime,
-        notes
-      });
+      setSubmitting(true);
+      console.log("🚀 Iniciando processo de agendamento...");
 
-      const selectedService = services.find((s) => s.id === selectedServiceId);
-      const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
-      
-      if (!selectedService) {
-        throw new Error("Serviço não encontrado");
+      // Verificar novamente a disponibilidade antes de agendar
+      if (selectedTime && selectedProfessionalId && selectedDate && selectedServiceId) {
+        const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
+        const selectedService = services.find(s => s.id === selectedServiceId);
+        
+        if (selectedService) {
+          const serviceDuration = selectedService.duration;
+          const hasConflict = hasTimeConflict(selectedTime, serviceDuration, selectedProfessionalId, appointmentDateStr);
+          
+          if (hasConflict) {
+            toast.error("⏰ Este horário acabou de ser ocupado. Por favor, escolha outro horário.");
+            setSelectedTime(undefined);
+            return;
+          }
+        }
       }
 
-      if (!selectedProfessional) {
-        throw new Error("Profissional não encontrado");
-      }
+      // Criar ou buscar cliente
+      let clientId: string;
 
-      // VERIFICAÇÃO CRÍTICA: Conferir se o horário ainda está disponível
-      console.log("⏰ Verificando disponibilidade do horário...");
-      const appointmentDateStr = format(selectedDate!, "yyyy-MM-dd");
-      
-      const { data: conflictingAppointments, error: conflictError } = await supabase
-        .from("appointments")
-        .select("id")
-        .eq("company_id", company.id)
-        .eq("professional_id", selectedProfessionalId!)
-        .eq("appointment_date", appointmentDateStr)
-        .eq("appointment_time", selectedTime!)
-        .in("status", ["confirmed", "scheduled", "pending"]);
-
-      if (conflictError) {
-        console.error("❌ Erro ao verificar conflitos:", conflictError);
-        throw new Error("Erro ao verificar disponibilidade do horário");
-      }
-
-      if (conflictingAppointments && conflictingAppointments.length > 0) {
-        console.warn("⚠️ Horário já ocupado:", conflictingAppointments);
-        throw new Error("Este horário não está mais disponível. Por favor, escolha outro horário.");
-      }
-
-      console.log("✅ Horário disponível confirmado");
-
-      // ETAPA 1: Gerenciar cliente com retry
-      console.log("\n📝 ETAPA 1: CRIANDO/BUSCANDO CLIENTE");
-      let clientId: string | undefined;
-      
-      const phoneClean = whatsapp.trim();
-      console.log("🔍 Buscando cliente existente com phone:", phoneClean);
-      
-      const { data: existingClients, error: searchError } = await supabase
+      const { data: existingClient, error: clientSearchError } = await supabase
         .from("clients")
-        .select("id, name, email, phone")
-        .eq("phone", phoneClean)
-        .order("created_at", { ascending: false });
+        .select("id")
+        .eq("phone", whatsapp)
+        .single();
 
-      if (searchError) {
-        console.error("❌ Erro ao buscar cliente:", searchError);
-        throw new Error(`Erro ao buscar cliente: ${searchError.message}`);
+      if (clientSearchError && clientSearchError.code !== "PGRST116") {
+        throw new Error(`Erro ao buscar cliente: ${clientSearchError.message}`);
       }
 
-      console.log("📊 Clientes encontrados:", existingClients?.length || 0);
-
-      if (existingClients && existingClients.length > 0) {
-        const existingClient = existingClients[0];
-        console.log("✅ Cliente existente encontrado:", { id: existingClient.id, name: existingClient.name });
+      if (existingClient) {
         clientId = existingClient.id;
-        
-        if (existingClients.length > 1) {
-          console.warn(`⚠️ ${existingClients.length} clientes encontrados com telefone ${phoneClean}. Usando o mais recente.`);
-        }
+        console.log("✅ Cliente existente encontrado:", clientId);
+
+        // Atualizar informações do cliente se necessário
+        await supabase
+          .from("clients")
+          .update({ 
+            name: fullName,
+            email: email || null
+          })
+          .eq("id", clientId);
       } else {
-        console.log("➕ Criando novo cliente...");
-        const clientData = {
-          name: fullName.trim(),
-          phone: phoneClean,
-          email: email?.trim() || null,
-        };
-        
-        // Validação adicional dos dados do cliente
-        if (!clientData.name || clientData.name.length < 2) {
-          throw new Error("Nome do cliente deve ter pelo menos 2 caracteres");
-        }
-        
-        if (!clientData.phone || clientData.phone.length < 10) {
-          throw new Error("Telefone deve ter pelo menos 10 dígitos");
-        }
-        
-        console.log("📝 Criando cliente com dados:", { name: clientData.name, phone: clientData.phone, hasEmail: !!clientData.email });
-        
+        console.log("👤 Criando novo cliente...");
         const { data: newClient, error: clientError } = await supabase
           .from("clients")
-          .insert(clientData)
-          .select("id, name")
+          .insert({
+            name: fullName,
+            phone: whatsapp,
+            email: email || null
+          })
+          .select("id")
           .single();
 
         if (clientError) {
-          console.error("❌ Erro ao criar cliente:", {
-            message: clientError.message,
-            details: clientError.details,
-            hint: clientError.hint,
-            code: clientError.code,
-            clientData
-          });
-          
-          // Retry uma vez se der erro de concorrência
-          if (clientError.code === '23505') { // Unique constraint violation
-            console.log("🔄 Tentando buscar cliente novamente após erro de concorrência...");
-            const { data: retryClients, error: retryError } = await supabase
-              .from("clients")
-              .select("id, name")
-              .eq("phone", phoneClean)
-              .order("created_at", { ascending: false })
-              .limit(1);
-              
-            if (retryError || !retryClients || retryClients.length === 0) {
-              throw new Error("Erro ao criar/localizar cliente após conflito");
-            }
-            
-            console.log("✅ Cliente encontrado após retry:", retryClients[0]);
-            clientId = retryClients[0].id;
-          } else {
-            throw new Error(`Erro ao criar cliente: ${clientError.message}`);
-          }
-        } else {
-          console.log("✅ Novo cliente criado:", newClient);
-          clientId = newClient.id;
+          throw new Error(`Erro ao criar cliente: ${clientError.message}`);
         }
+
+        if (!newClient?.id) {
+          throw new Error("Cliente criado mas ID não retornado");
+        }
+
+        clientId = newClient.id;
+        console.log("✅ Cliente criado:", clientId);
       }
 
-      if (!clientId) {
-        throw new Error("Não foi possível obter ID do cliente");
-      }
-
-      console.log("✅ Cliente confirmado - ID:", clientId);
-
-      // ETAPA 2: Criar agendamento com validação final
-      console.log("\n📅 ETAPA 2: CRIANDO AGENDAMENTO");
-      
-      const appointmentData = {
+      // Criar agendamento
+      const appointmentData: Appointment = {
         company_id: company.id,
+        client_id: clientId,
         service_id: selectedServiceId!,
         professional_id: selectedProfessionalId!,
-        client_id: clientId,
-        appointment_date: appointmentDateStr,
+        appointment_date: format(selectedDate!, "yyyy-MM-dd"),
         appointment_time: selectedTime!,
-        notes: notes?.trim() || null,
-        status: "pending",
-        total_price: selectedService.price || 0,
-        payment_method: "pending",
+        status: "scheduled",
+        notes: notes.trim() || null,
+        total_price: services.find(s => s.id === selectedServiceId)?.price || null
       };
 
-      // Validação final dos dados
-      const requiredFields = ['company_id', 'service_id', 'professional_id', 'client_id', 'appointment_date', 'appointment_time'];
-      for (const field of requiredFields) {
-        if (!appointmentData[field as keyof typeof appointmentData]) {
-          throw new Error(`Campo obrigatório ausente: ${field}`);
-        }
-      }
+      console.log("📝 Dados do agendamento:", appointmentData);
 
-      console.log("📋 Inserindo agendamento:", {
-        company_id: appointmentData.company_id,
-        service: selectedService.name,
-        professional: selectedProfessional.name,
-        date: appointmentData.appointment_date,
-        time: appointmentData.appointment_time,
-        client_id: appointmentData.client_id
-      });
-
-      // Verificação final de conflito antes da inserção
-      const { data: finalCheck, error: finalCheckError } = await supabase
+      const { error: appointmentError } = await supabase
         .from("appointments")
-        .select("id")
-        .eq("professional_id", selectedProfessionalId!)
-        .eq("appointment_date", appointmentDateStr)
-        .eq("appointment_time", selectedTime!)
-        .in("status", ["confirmed", "scheduled", "pending"]);
-
-      if (finalCheckError) {
-        console.error("❌ Erro na verificação final:", finalCheckError);
-        throw new Error("Erro na verificação final de disponibilidade");
-      }
-
-      if (finalCheck && finalCheck.length > 0) {
-        throw new Error("Horário foi ocupado por outro cliente. Tente novamente com outro horário.");
-      }
-
-      const { data: appointmentResult, error: appointmentError } = await supabase
-        .from("appointments")
-        .insert([appointmentData])
-        .select("id")
-        .single();
+        .insert([appointmentData]);
 
       if (appointmentError) {
-        console.error("❌ ERRO ao criar agendamento:", {
-          message: appointmentError.message,
-          details: appointmentError.details,
-          hint: appointmentError.hint,
-          code: appointmentError.code
-        });
+        console.error("❌ Erro ao criar agendamento:", appointmentError);
         
-      // Tratamento específico para erros de duplicata (constraints únicas)
-      if (appointmentError.code === '23505') {
-        // Pode ser o índice único que criamos ou outras constraints
-        if (appointmentError.message.includes('idx_unique_appointment_slot') || 
-            appointmentError.message.includes('appointments_professional_datetime_unique')) {
-          toast.error("⏰ Horário não disponível! Este horário acabou de ser ocupado por outro cliente. Por favor, escolha outro horário disponível.");
+        // Verificar se é erro de unique constraint (horário ocupado)
+        if (appointmentError.code === '23505') {
+          // Pode ser o índice único que criamos ou outras constraints
+          if (appointmentError.message.includes('idx_unique_appointment_slot') || 
+              appointmentError.message.includes('appointments_professional_datetime_unique')) {
+            toast.error("⏰ Horário não disponível! Este horário acabou de ser ocupado por outro cliente. Por favor, escolha outro horário disponível.");
+            return;
+          }
+          // Outros erros de unique constraint
+          toast.error("🚫 Este horário foi ocupado por outro cliente. Escolha outro horário.");
           return;
+        } else if (appointmentError.code === '23503') {
+          throw new Error("Dados inválidos. Recarregue a página e tente novamente.");
+        } else {
+          throw appointmentError;
         }
-        // Outros erros de unique constraint
-        toast.error("🚫 Este horário foi ocupado por outro cliente. Escolha outro horário.");
-        return;
-      } else if (appointmentError.code === '23503') {
-        throw new Error("Dados inválidos. Recarregue a página e tente novamente.");
-      } else {
-        throw new Error(`Erro ao criar agendamento: ${appointmentError.message}`);
-      }
       }
 
-      console.log("🎉 AGENDAMENTO CRIADO COM SUCESSO!", appointmentResult?.id);
+      console.log("✅ Agendamento criado com sucesso");
       
-      // Recarregar agendamentos para atualizar a interface imediatamente
+      // Recarregar agendamentos
       await reloadAppointments();
 
       // Salvar dados para futuro se solicitado
@@ -722,24 +654,6 @@ export default function AgendarServico() {
       setSelectedDate(undefined);
       setSelectedTime(undefined);
       setNotes("");
-
-      // Atualizar lista de agendamentos sem recarregar tudo
-      try {
-        console.log("🔄 Atualizando lista de agendamentos...");
-        const { data: updatedAppointments, error: reloadError } = await supabase
-          .from("appointments")
-          .select("*")
-          .eq("company_id", company.id)
-          .in("status", ["confirmed", "scheduled", "pending"]);
-        
-        if (!reloadError && updatedAppointments) {
-          setAppointments(updatedAppointments);
-          console.log("✅ Lista de agendamentos atualizada");
-        }
-      } catch (reloadError) {
-        console.warn("⚠️ Erro ao atualizar lista de agendamentos:", reloadError);
-        // Não é crítico, continua normalmente
-      }
 
     } catch (error) {
       console.error("❌ ERRO COMPLETO:", error);
@@ -847,25 +761,22 @@ export default function AgendarServico() {
               rel="noopener noreferrer"
               className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--ig hover:scale-105"
               style={{
-                backgroundImage:
-                  "linear-gradient(45deg, #F58529, #FEDA77, #DD2A7B, #8134AF, #515BD4)",
+                backgroundImage: "linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)"
               }}
             >
               📸 Instagram
             </a>
             <a
               href={emailUrl || "#"}
-              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--mail hover:scale-105"
-              style={{ backgroundColor: "#4285F4" }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold transition-transform neo neo--mail hover:scale-105"
             >
-              ✉️ E-mail
+              📧 E-mail
             </a>
             <a
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 rounded-lg font-semibold text-white transition-transform neo neo--maps hover:scale-105"
-              style={{ backgroundColor: "#EA4335" }}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold transition-transform neo neo--maps hover:scale-105"
             >
               📍 Localização
             </a>
@@ -873,21 +784,21 @@ export default function AgendarServico() {
         </CardContent>
       </Card>
 
-      {/* Gallery Section */}
+      {/* Galeria */}
       <GallerySection companyId={company.id} />
 
-      {/* Form */}
-      <form onSubmit={handleConfirm}>
+      {/* Formulário de agendamento */}
+      <form onSubmit={submit}>
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-foreground">Dados do Agendamento</CardTitle>
+            <CardTitle className="text-foreground">💼 Agendar Serviço</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label className="text-foreground">Nome completo *</Label>
                 <Input
-                  placeholder="Ex: João Silva"
+                  placeholder="Seu nome completo"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                 />
@@ -909,6 +820,21 @@ export default function AgendarServico() {
                 />
               </div>
             </div>
+
+            {/* Informação sobre o serviço selecionado */}
+            {selectedServiceId && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Serviço selecionado:</strong> {services.find(s => s.id === selectedServiceId)?.name}
+                </div>
+                <div className="text-sm text-blue-600 dark:text-blue-300">
+                  ⏱️ <strong>Duração:</strong> {services.find(s => s.id === selectedServiceId)?.duration} minutos
+                </div>
+                <div className="text-sm text-blue-600 dark:text-blue-300">
+                  💰 <strong>Preço:</strong> R$ {services.find(s => s.id === selectedServiceId)?.price}
+                </div>
+              </div>
+            )}
 
             <Label className="text-foreground">Escolha o Serviço *</Label>
             <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
@@ -935,7 +861,6 @@ export default function AgendarServico() {
               value={selectedProfessionalId || ""} 
               onValueChange={(value) => {
                 console.log("Profissional selecionado:", value);
-                console.log("Profissionais disponíveis para seleção:", filteredProfessionals);
                 setSelectedProfessionalId(value || undefined);
               }}
             >
@@ -953,21 +878,18 @@ export default function AgendarServico() {
                   </SelectItem>
                 ) : availableProfessionals.length === 0 ? (
                   <SelectItem value="none" disabled>
-                    Nenhum profissional disponível (Total: {professionals.length})
+                    Nenhum profissional disponível
                   </SelectItem>
                 ) : filteredProfessionals.length === 0 ? (
                   <SelectItem value="none" disabled>
-                    Nenhum profissional para este serviço (Disponíveis: {availableProfessionals.length})
+                    Nenhum profissional para este serviço
                   </SelectItem>
                 ) : (
-                  filteredProfessionals.map((p) => {
-                    console.log("Renderizando profissional:", p.name, p.id);
-                    return (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} {p.specialty && `- ${p.specialty}`}
-                      </SelectItem>
-                    );
-                  })
+                  filteredProfessionals.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} {p.specialty && `- ${p.specialty}`}
+                    </SelectItem>
+                  ))
                 )}
               </SelectContent>
             </Select>
@@ -996,33 +918,30 @@ export default function AgendarServico() {
                       onSelect={setSelectedDate}
                       disabled={(date) => {
                         const today = new Date();
-                        const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                        const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                        return normalizedDate < normalizedToday;
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
                       }}
                       initialFocus
-                      className="pointer-events-auto rounded-md border bg-card"
-                      classNames={{
-                        day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                        day_today: "bg-accent text-accent-foreground font-semibold",
-                        day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground",
-                        head_cell: "text-muted-foreground font-medium text-sm w-9",
-                        cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
-                      }}
+                      className="p-3 pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
               </div>
+
               <div>
                 <Label>Horário *</Label>
-                <Select value={selectedTime} onValueChange={(v) => setSelectedTime(v || undefined)}>
+                <Select 
+                  value={selectedTime || ""} 
+                  onValueChange={(v) => setSelectedTime(v || undefined)}
+                  disabled={!selectedProfessionalId || !selectedDate}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione horário" />
                   </SelectTrigger>
                    <SelectContent>
                      {selectedProfessionalId && selectedDate ? (
-                       availableTimes().length ? (
-                         availableTimes().map((t) => (
+                       availableTimes.length ? (
+                         availableTimes.map((t) => (
                            <SelectItem key={t} value={t}>
                              {t}
                            </SelectItem>
@@ -1053,6 +972,33 @@ export default function AgendarServico() {
               <Checkbox checked={saveForFuture} onCheckedChange={(v) => setSaveForFuture(Boolean(v))} />
               <span className="text-sm text-foreground">Salvar informações para futuros agendamentos</span>
             </div>
+
+            {/* Informação sobre duração dos serviços */}
+            {selectedServiceId && selectedProfessionalId && selectedDate && selectedTime && (
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mt-4">
+                <div className="text-sm text-green-800 dark:text-green-200">
+                  <strong>📅 Resumo do agendamento:</strong>
+                </div>
+                <div className="text-sm text-green-600 dark:text-green-300 mt-1">
+                  • <strong>Serviço:</strong> {services.find(s => s.id === selectedServiceId)?.name} ({services.find(s => s.id === selectedServiceId)?.duration}min)
+                </div>
+                <div className="text-sm text-green-600 dark:text-green-300">
+                  • <strong>Profissional:</strong> {professionals.find(p => p.id === selectedProfessionalId)?.name}
+                </div>
+                <div className="text-sm text-green-600 dark:text-green-300">
+                  • <strong>Data/Hora:</strong> {format(selectedDate, "PPP", { locale: ptBR })} às {selectedTime}
+                </div>
+                <div className="text-sm text-green-600 dark:text-green-300">
+                  • <strong>Término previsto:</strong> {(() => {
+                    const [hours, minutes] = selectedTime.split(":").map(Number);
+                    const totalMinutes = hours * 60 + minutes + (services.find(s => s.id === selectedServiceId)?.duration || 0);
+                    const endHours = Math.floor(totalMinutes / 60);
+                    const endMins = totalMinutes % 60;
+                    return `${endHours.toString().padStart(2, "0")}:${endMins.toString().padStart(2, "0")}`;
+                  })()}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end mt-4">
               <Button type="submit" disabled={submitting}>
