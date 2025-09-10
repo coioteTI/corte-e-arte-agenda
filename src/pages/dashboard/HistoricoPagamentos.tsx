@@ -26,6 +26,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar, CreditCard, CheckCircle, Clock, XCircle } from "lucide-react";
 import { useSupabaseOperations } from "@/hooks/useSupabaseOperations";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface AppointmentPayment {
   id: string;
@@ -35,6 +36,7 @@ interface AppointmentPayment {
   payment_method: string;
   payment_status: string;
   payment_confirmation_date: string | null;
+  pix_payment_proof: string | null;
   client_name: string;
   service_name: string;
   professional_name: string;
@@ -53,6 +55,7 @@ export default function HistoricoPagamentos() {
   const [filterStatus, setFilterStatus] = useState("");
 
   const { updateData } = useSupabaseOperations();
+  const { notifyClient } = useNotifications(companyId);
 
   useEffect(() => {
     loadPaymentHistory();
@@ -96,6 +99,7 @@ export default function HistoricoPagamentos() {
           payment_method,
           payment_status,
           payment_confirmation_date,
+          pix_payment_proof,
           created_at,
           clients(name),
           services(name),
@@ -118,6 +122,7 @@ export default function HistoricoPagamentos() {
         payment_method: apt.payment_method || 'no_local',
         payment_status: apt.payment_status || 'pending',
         payment_confirmation_date: apt.payment_confirmation_date,
+        pix_payment_proof: apt.pix_payment_proof,
         client_name: apt.clients?.name || 'Cliente não identificado',
         service_name: apt.services?.name || 'Serviço não identificado',
         professional_name: apt.professionals?.name || 'Profissional não identificado',
@@ -163,6 +168,17 @@ export default function HistoricoPagamentos() {
     
     if (result.success) {
       loadPaymentHistory();
+      
+      // Notificar cliente sobre confirmação de pagamento
+      if (newStatus === 'paid') {
+        const appointment = appointments.find(apt => apt.id === appointmentId);
+        if (appointment) {
+          notifyClient(
+            `Pagamento confirmado! Seu agendamento está garantido para ${format(new Date(appointment.appointment_date), "dd/MM/yyyy")} às ${appointment.appointment_time}.`,
+            appointment.client_name
+          );
+        }
+      }
     }
   };
 
@@ -172,6 +188,8 @@ export default function HistoricoPagamentos() {
         return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Pago</Badge>;
       case 'pending':
         return <Badge variant="outline"><Clock className="w-3 h-3 mr-1" />Pendente</Badge>;
+      case 'awaiting_payment':
+        return <Badge className="bg-orange-100 text-orange-800"><Clock className="w-3 h-3 mr-1" />Aguardando Confirmação</Badge>;
       case 'cancelled':
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Cancelado</Badge>;
       default:
@@ -195,7 +213,7 @@ export default function HistoricoPagamentos() {
     .reduce((sum, apt) => sum + apt.total_price, 0);
 
   const totalPending = filteredAppointments
-    .filter(apt => apt.payment_status === 'pending')
+    .filter(apt => ['pending', 'awaiting_payment'].includes(apt.payment_status))
     .reduce((sum, apt) => sum + apt.total_price, 0);
 
   if (loading) {
@@ -303,6 +321,7 @@ export default function HistoricoPagamentos() {
                     <SelectItem value="">Todos</SelectItem>
                     <SelectItem value="paid">Pago</SelectItem>
                     <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="awaiting_payment">Aguardando Confirmação</SelectItem>
                     <SelectItem value="cancelled">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
@@ -341,13 +360,14 @@ export default function HistoricoPagamentos() {
                     <TableHead>Valor</TableHead>
                     <TableHead>Pagamento</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Comprovante</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAppointments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         Nenhum agendamento encontrado
                       </TableCell>
                     </TableRow>
@@ -377,7 +397,20 @@ export default function HistoricoPagamentos() {
                           {getStatusBadge(appointment.payment_status)}
                         </TableCell>
                         <TableCell>
-                          {appointment.payment_status === 'pending' && (
+                          {appointment.pix_payment_proof ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(appointment.pix_payment_proof!, '_blank')}
+                            >
+                              📄 Ver Comprovante
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {(appointment.payment_status === 'pending' || appointment.payment_status === 'awaiting_payment') && (
                             <div className="flex gap-1">
                               <Button
                                 size="sm"

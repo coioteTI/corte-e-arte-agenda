@@ -78,6 +78,7 @@ type Appointment = {
   status: string;
   total_price?: number | null;
   payment_method?: string | null;
+  pix_payment_proof?: string | null;
 };
 
 export default function AgendarServico() {
@@ -98,6 +99,8 @@ export default function AgendarServico() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | undefined>(undefined);
+  const [pixProof, setPixProof] = useState<File | null>(null);
+  const [pixProofUrl, setPixProofUrl] = useState<string>("");
 
   const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -538,6 +541,12 @@ export default function AgendarServico() {
         return;
       }
 
+      // Se for PIX e requer comprovante, verificar se foi anexado
+      if (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && !pixProof) {
+        toast.error("Anexe o comprovante de pagamento PIX");
+        return;
+      }
+
     if (!company?.id) {
       toast.error("Dados da empresa não encontrados");
       return;
@@ -572,6 +581,32 @@ export default function AgendarServico() {
 
       // Criar ou buscar cliente
       let clientId: string;
+      let pixProofPath: string | null = null;
+
+      // Upload do comprovante PIX se necessário
+      if (pixProof && selectedPaymentMethod === 'pix') {
+        console.log("📤 Fazendo upload do comprovante...");
+        const fileExt = pixProof.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `pix-proofs/${fileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('gallery')
+          .upload(filePath, pixProof);
+
+        if (uploadError) {
+          console.error('Erro ao fazer upload do comprovante:', uploadError);
+          toast.error("Erro ao fazer upload do comprovante. Tente novamente.");
+          return;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('gallery')
+          .getPublicUrl(filePath);
+
+        pixProofPath = publicUrl;
+        console.log("✅ Comprovante carregado:", pixProofPath);
+      }
 
       const { data: existingClient, error: clientSearchError } = await supabase
         .from("clients")
@@ -627,9 +662,11 @@ export default function AgendarServico() {
         professional_id: selectedProfessionalId!,
         appointment_date: format(selectedDate!, "yyyy-MM-dd"),
         appointment_time: selectedTime!,
-        status: "scheduled",
+        status: selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? 'awaiting_payment' : 'scheduled',
         notes: notes.trim() || null,
-        total_price: services.find(s => s.id === selectedServiceId)?.price || null
+        total_price: services.find(s => s.id === selectedServiceId)?.price || null,
+        payment_method: selectedPaymentMethod,
+        pix_payment_proof: pixProofPath
       };
 
       console.log("📝 Dados do agendamento:", appointmentData);
@@ -679,13 +716,20 @@ export default function AgendarServico() {
         }
       }
 
-      toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
+      toast.success(
+        appointmentData.status === 'awaiting_payment' 
+          ? `🎉 Obrigado, ${fullName}! Seu comprovante foi enviado com sucesso. Seu agendamento será confirmado após validação do pagamento.`
+          : `🎉 Obrigado, ${fullName}! Seu agendamento foi confirmado com sucesso.`
+      );
 
       // Limpar formulário
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
       setSelectedTime(undefined);
+      setSelectedPaymentMethod(undefined);
+      setPixProof(null);
+      setPixProofUrl("");
       setNotes("");
 
     } catch (error) {
@@ -1034,6 +1078,49 @@ export default function AgendarServico() {
                               )}
                             </div>
                           )}
+                          
+                          {selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && (
+                            <div className="mt-3 space-y-2">
+                              <Label htmlFor="pix-proof" className="text-sm font-medium">
+                                Comprovante de Pagamento *
+                              </Label>
+                              <Input
+                                id="pix-proof"
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setPixProof(file);
+                                    // Preview da imagem
+                                    if (file.type.startsWith('image/')) {
+                                      const reader = new FileReader();
+                                      reader.onload = (e) => setPixProofUrl(e.target?.result as string);
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }
+                                }}
+                                className="cursor-pointer"
+                              />
+                              <div className="text-xs text-muted-foreground">
+                                Formatos aceitos: JPG, PNG, PDF (máx. 5MB)
+                              </div>
+                              {pixProofUrl && pixProof?.type.startsWith('image/') && (
+                                <div className="mt-2">
+                                  <img 
+                                    src={pixProofUrl} 
+                                    alt="Preview do comprovante" 
+                                    className="max-w-32 h-20 object-cover rounded border"
+                                  />
+                                </div>
+                              )}
+                              {pixProof && !pixProof.type.startsWith('image/') && (
+                                <div className="text-sm text-green-600">
+                                  📄 {pixProof.name} selecionado
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1116,9 +1203,17 @@ export default function AgendarServico() {
             <div className="flex justify-end mt-4">
               <Button 
                 type="submit" 
-                disabled={submitting || !selectedServiceId || !selectedProfessionalId || !selectedDate || !selectedTime || !selectedPaymentMethod}
+                disabled={
+                  submitting || 
+                  !selectedServiceId || 
+                  !selectedProfessionalId || 
+                  !selectedDate || 
+                  !selectedTime || 
+                  !selectedPaymentMethod ||
+                  (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && !pixProof)
+                }
               >
-                {submitting ? "Confirmando..." : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? "Criar Agendamento" : "Confirmar Agendamento")}
+                {submitting ? "Processando..." : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? "Enviar Comprovante" : "Confirmar Agendamento")}
               </Button>
             </div>
           </CardContent>
