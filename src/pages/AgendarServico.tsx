@@ -78,6 +78,7 @@ type Appointment = {
   status: string;
   total_price?: number | null;
   payment_method?: string | null;
+  payment_status?: string | null;
   pix_payment_proof?: string | null;
 };
 
@@ -662,10 +663,11 @@ export default function AgendarServico() {
         professional_id: selectedProfessionalId!,
         appointment_date: format(selectedDate!, "yyyy-MM-dd"),
         appointment_time: selectedTime!,
-        status: selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? 'awaiting_payment' : 'scheduled',
+        status: selectedPaymentMethod === 'pix' && pixProofPath ? 'scheduled' : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? 'awaiting_payment' : 'scheduled'),
         notes: notes.trim() || null,
         total_price: services.find(s => s.id === selectedServiceId)?.price || null,
         payment_method: selectedPaymentMethod,
+        payment_status: selectedPaymentMethod === 'pix' && pixProofPath ? 'awaiting_payment' : 'pending',
         pix_payment_proof: pixProofPath
       };
 
@@ -717,7 +719,7 @@ export default function AgendarServico() {
       }
 
       toast.success(
-        appointmentData.status === 'awaiting_payment' 
+        pixProofPath 
           ? `🎉 Obrigado, ${fullName}! Seu comprovante foi enviado com sucesso. Seu agendamento será confirmado após validação do pagamento.`
           : `🎉 Obrigado, ${fullName}! Seu agendamento foi confirmado com sucesso.`
       );

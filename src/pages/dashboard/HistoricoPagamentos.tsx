@@ -88,7 +88,7 @@ export default function HistoricoPagamentos() {
 
       setCompanyId(companies.id);
 
-      // Buscar agendamentos com informações de pagamento
+      // Buscar agendamentos com informações de pagamento usando JOIN explícito
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -101,9 +101,9 @@ export default function HistoricoPagamentos() {
           payment_confirmation_date,
           pix_payment_proof,
           created_at,
-          clients(name),
-          services(name),
-          professionals(name)
+          clients!inner(name),
+          services!inner(name),
+          professionals!inner(name)
         `)
         .eq('company_id', companies.id)
         .order('created_at', { ascending: false });
