@@ -127,9 +127,9 @@ export default function HistoricoPagamentos() {
           payment_confirmation_date,
           pix_payment_proof,
           created_at,
-          clients!inner(name),
-          services!inner(name),
-          professionals!inner(name)
+          clients(name),
+          services(name),
+          professionals(name)
         `)
         .eq('company_id', companies.id)
         .order('created_at', { ascending: false });
@@ -151,7 +151,7 @@ export default function HistoricoPagamentos() {
         return;
       }
 
-      const formattedAppointments = appointmentsData.map(apt => {
+      const formattedAppointments = appointmentsData?.map(apt => {
         console.log("🔄 Formatando agendamento:", apt.id);
         return {
           id: apt.id,
@@ -162,12 +162,12 @@ export default function HistoricoPagamentos() {
           payment_status: apt.payment_status || 'pending',
           payment_confirmation_date: apt.payment_confirmation_date,
           pix_payment_proof: apt.pix_payment_proof,
-          client_name: apt.clients?.name || 'Cliente não identificado',
-          service_name: apt.services?.name || 'Serviço não identificado',
-          professional_name: apt.professionals?.name || 'Profissional não identificado',
+          client_name: apt.clients?.[0]?.name || apt.clients?.name || 'Cliente não identificado',
+          service_name: apt.services?.[0]?.name || apt.services?.name || 'Serviço não identificado',
+          professional_name: apt.professionals?.[0]?.name || apt.professionals?.name || 'Profissional não identificado',
           created_at: apt.created_at
         };
-      });
+      }) || [];
 
       console.log("✅ Agendamentos formatados:", formattedAppointments);
       setAppointments(formattedAppointments);
