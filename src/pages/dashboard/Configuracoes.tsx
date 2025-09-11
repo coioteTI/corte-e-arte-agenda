@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
-import { useNotifications } from "@/hooks/useNotifications";
 import { Bell, MessageSquare, User, Settings, Palette, Images, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -86,9 +85,6 @@ const Configuracoes = () => {
   const [tempMessage, setTempMessage] = useState('');
 
   const { toast } = useToast();
-  
-  // Ativar notificações para esta empresa
-  useNotifications(companyId);
 
   useEffect(() => {
     loadCompanyData();

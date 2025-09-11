@@ -26,7 +26,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar, CreditCard, CheckCircle, Clock, XCircle } from "lucide-react";
 import { useSupabaseOperations } from "@/hooks/useSupabaseOperations";
-import { useNotifications } from "@/hooks/useNotifications";
 
 interface AppointmentPayment {
   id: string;
@@ -36,7 +35,6 @@ interface AppointmentPayment {
   payment_method: string;
   payment_status: string;
   payment_confirmation_date: string | null;
-  pix_payment_proof: string | null;
   client_name: string;
   service_name: string;
   professional_name: string;
@@ -55,7 +53,6 @@ export default function HistoricoPagamentos() {
   const [filterStatus, setFilterStatus] = useState("");
 
   const { updateData } = useSupabaseOperations();
-  const { notifyClient } = useNotifications(companyId);
 
   useEffect(() => {
     loadPaymentHistory();
@@ -66,55 +63,29 @@ export default function HistoricoPagamentos() {
   }, [appointments, filterDate, filterProfessional, filterStatus]);
 
   const loadPaymentHistory = async () => {
-    console.log("🔄 Iniciando carregamento do histórico de pagamentos...");
-    
     try {
-      // Verificar status da autenticação
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      if (userError) {
-        console.error("❌ Erro de autenticação:", userError);
-        toast.error(`Erro de autenticação: ${userError.message}`);
-        setLoading(false);
+      if (userError || !user) {
+        toast.error("Erro de autenticação");
         return;
       }
-
-      if (!user) {
-        console.error("❌ Usuário não encontrado");
-        toast.error("Usuário não autenticado. Redirecionando para login...");
-        window.location.href = '/login';
-        return;
-      }
-
-      console.log("✅ Usuário autenticado:", user.id);
 
       // Buscar empresa do usuário
-      console.log("🔍 Buscando empresa do usuário...");
       const { data: companies, error: companyError } = await supabase
         .from('companies')
-        .select('id, name')
+        .select('id')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .single();
 
-      if (companyError) {
-        console.error("❌ Erro ao buscar empresa:", companyError);
-        toast.error(`Erro ao buscar empresa: ${companyError.message}`);
-        setLoading(false);
+      if (companyError || !companies) {
+        toast.error("Empresa não encontrada");
         return;
       }
 
-      if (!companies) {
-        console.warn("⚠️ Nenhuma empresa encontrada para o usuário");
-        toast.error("Nenhuma empresa encontrada. Cadastre uma empresa primeiro.");
-        setLoading(false);
-        return;
-      }
-
-      console.log("✅ Empresa encontrada:", companies.id, companies.name);
       setCompanyId(companies.id);
 
       // Buscar agendamentos com informações de pagamento
-      console.log("🔍 Buscando agendamentos da empresa...");
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -125,7 +96,6 @@ export default function HistoricoPagamentos() {
           payment_method,
           payment_status,
           payment_confirmation_date,
-          pix_payment_proof,
           created_at,
           clients(name),
           services(name),
@@ -135,48 +105,30 @@ export default function HistoricoPagamentos() {
         .order('created_at', { ascending: false });
 
       if (appointmentsError) {
-        console.error('❌ Erro ao buscar agendamentos:', appointmentsError);
-        toast.error(`Erro ao carregar agendamentos: ${appointmentsError.message}`);
-        setLoading(false);
+        console.error('Erro ao buscar agendamentos:', appointmentsError);
+        toast.error("Erro ao carregar histórico de pagamentos");
         return;
       }
 
-      console.log("✅ Raw data:", appointmentsData);
-      console.log("✅ Agendamentos encontrados:", appointmentsData?.length || 0);
+      const formattedAppointments = appointmentsData?.map(apt => ({
+        id: apt.id,
+        appointment_date: apt.appointment_date,
+        appointment_time: apt.appointment_time,
+        total_price: apt.total_price || 0,
+        payment_method: apt.payment_method || 'no_local',
+        payment_status: apt.payment_status || 'pending',
+        payment_confirmation_date: apt.payment_confirmation_date,
+        client_name: apt.clients?.name || 'Cliente não identificado',
+        service_name: apt.services?.name || 'Serviço não identificado',
+        professional_name: apt.professionals?.name || 'Profissional não identificado',
+        created_at: apt.created_at
+      })) || [];
 
-      if (!appointmentsData || appointmentsData.length === 0) {
-        console.log("ℹ️ Nenhum agendamento encontrado");
-        setAppointments([]);
-        setLoading(false);
-        return;
-      }
-
-      const formattedAppointments = appointmentsData?.map(apt => {
-        console.log("🔄 Formatando agendamento:", apt.id);
-        return {
-          id: apt.id,
-          appointment_date: apt.appointment_date,
-          appointment_time: apt.appointment_time,
-          total_price: apt.total_price || 0,
-          payment_method: apt.payment_method || 'no_local',
-          payment_status: apt.payment_status || 'pending',
-          payment_confirmation_date: apt.payment_confirmation_date,
-          pix_payment_proof: apt.pix_payment_proof,
-          client_name: apt.clients?.[0]?.name || apt.clients?.name || 'Cliente não identificado',
-          service_name: apt.services?.[0]?.name || apt.services?.name || 'Serviço não identificado',
-          professional_name: apt.professionals?.[0]?.name || apt.professionals?.name || 'Profissional não identificado',
-          created_at: apt.created_at
-        };
-      }) || [];
-
-      console.log("✅ Agendamentos formatados:", formattedAppointments);
       setAppointments(formattedAppointments);
-      
     } catch (error) {
-      console.error('❌ Erro crítico ao carregar histórico:', error);
-      toast.error(`Erro crítico: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      console.error('Erro ao carregar histórico:', error);
+      toast.error("Erro ao carregar dados");
     } finally {
-      console.log("🏁 Finalizando carregamento - setLoading(false)");
       setLoading(false);
     }
   };
@@ -211,17 +163,6 @@ export default function HistoricoPagamentos() {
     
     if (result.success) {
       loadPaymentHistory();
-      
-      // Notificar cliente sobre confirmação de pagamento
-      if (newStatus === 'paid') {
-        const appointment = appointments.find(apt => apt.id === appointmentId);
-        if (appointment) {
-          notifyClient(
-            `Pagamento confirmado! Seu agendamento está garantido para ${format(new Date(appointment.appointment_date), "dd/MM/yyyy")} às ${appointment.appointment_time}.`,
-            appointment.client_name
-          );
-        }
-      }
     }
   };
 
@@ -231,8 +172,6 @@ export default function HistoricoPagamentos() {
         return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Pago</Badge>;
       case 'pending':
         return <Badge variant="outline"><Clock className="w-3 h-3 mr-1" />Pendente</Badge>;
-      case 'awaiting_payment':
-        return <Badge className="bg-orange-100 text-orange-800"><Clock className="w-3 h-3 mr-1" />Aguardando Confirmação</Badge>;
       case 'cancelled':
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Cancelado</Badge>;
       default:
@@ -256,15 +195,8 @@ export default function HistoricoPagamentos() {
     .reduce((sum, apt) => sum + apt.total_price, 0);
 
   const totalPending = filteredAppointments
-    .filter(apt => ['pending', 'awaiting_payment'].includes(apt.payment_status))
+    .filter(apt => apt.payment_status === 'pending')
     .reduce((sum, apt) => sum + apt.total_price, 0);
-
-  console.log("🎯 Estado atual do componente:", {
-    loading,
-    appointmentsCount: appointments.length,
-    filteredCount: filteredAppointments.length,
-    companyId
-  });
 
   if (loading) {
     return (
@@ -371,7 +303,6 @@ export default function HistoricoPagamentos() {
                     <SelectItem value="">Todos</SelectItem>
                     <SelectItem value="paid">Pago</SelectItem>
                     <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="awaiting_payment">Aguardando Confirmação</SelectItem>
                     <SelectItem value="cancelled">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
@@ -410,14 +341,13 @@ export default function HistoricoPagamentos() {
                     <TableHead>Valor</TableHead>
                     <TableHead>Pagamento</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Comprovante</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAppointments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         Nenhum agendamento encontrado
                       </TableCell>
                     </TableRow>
@@ -447,20 +377,7 @@ export default function HistoricoPagamentos() {
                           {getStatusBadge(appointment.payment_status)}
                         </TableCell>
                         <TableCell>
-                          {appointment.pix_payment_proof ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(appointment.pix_payment_proof!, '_blank')}
-                            >
-                              📄 Ver Comprovante
-                            </Button>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {(appointment.payment_status === 'pending' || appointment.payment_status === 'awaiting_payment') && (
+                          {appointment.payment_status === 'pending' && (
                             <div className="flex gap-1">
                               <Button
                                 size="sm"
