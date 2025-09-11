@@ -66,43 +66,55 @@ export default function HistoricoPagamentos() {
   }, [appointments, filterDate, filterProfessional, filterStatus]);
 
   const loadPaymentHistory = async () => {
+    console.log("🔄 Iniciando carregamento do histórico de pagamentos...");
+    
     try {
+      // Verificar status da autenticação
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      if (userError || !user) {
-        console.error("Erro de autenticação:", userError);
-        toast.error("Sessão expirada. Faça login novamente.");
+      if (userError) {
+        console.error("❌ Erro de autenticação:", userError);
+        toast.error(`Erro de autenticação: ${userError.message}`);
+        setLoading(false);
+        return;
+      }
+
+      if (!user) {
+        console.error("❌ Usuário não encontrado");
+        toast.error("Usuário não autenticado. Redirecionando para login...");
+        window.location.href = '/login';
         return;
       }
 
       console.log("✅ Usuário autenticado:", user.id);
 
       // Buscar empresa do usuário
+      console.log("🔍 Buscando empresa do usuário...");
       const { data: companies, error: companyError } = await supabase
         .from('companies')
-        .select('id')
+        .select('id, name')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (companyError) {
-        console.error("Erro ao buscar empresa:", companyError);
-        if (companyError.code === 'PGRST116') {
-          toast.error("Nenhuma empresa encontrada para este usuário");
-        } else {
-          toast.error("Erro ao buscar dados da empresa");
-        }
+        console.error("❌ Erro ao buscar empresa:", companyError);
+        toast.error(`Erro ao buscar empresa: ${companyError.message}`);
+        setLoading(false);
         return;
       }
 
       if (!companies) {
-        toast.error("Empresa não encontrada");
+        console.warn("⚠️ Nenhuma empresa encontrada para o usuário");
+        toast.error("Nenhuma empresa encontrada. Cadastre uma empresa primeiro.");
+        setLoading(false);
         return;
       }
 
-      console.log("✅ Empresa encontrada:", companies.id);
+      console.log("✅ Empresa encontrada:", companies.id, companies.name);
       setCompanyId(companies.id);
 
-      // Buscar agendamentos com informações de pagamento usando LEFT JOIN
+      // Buscar agendamentos com informações de pagamento
+      console.log("🔍 Buscando agendamentos da empresa...");
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -115,42 +127,56 @@ export default function HistoricoPagamentos() {
           payment_confirmation_date,
           pix_payment_proof,
           created_at,
-          clients(name),
-          services(name),
-          professionals(name)
+          clients!inner(name),
+          services!inner(name),
+          professionals!inner(name)
         `)
         .eq('company_id', companies.id)
         .order('created_at', { ascending: false });
 
       if (appointmentsError) {
-        console.error('Erro ao buscar agendamentos:', appointmentsError);
-        toast.error(`Erro ao carregar histórico: ${appointmentsError.message}`);
+        console.error('❌ Erro ao buscar agendamentos:', appointmentsError);
+        toast.error(`Erro ao carregar agendamentos: ${appointmentsError.message}`);
+        setLoading(false);
         return;
       }
 
+      console.log("✅ Raw data:", appointmentsData);
       console.log("✅ Agendamentos encontrados:", appointmentsData?.length || 0);
 
-      const formattedAppointments = appointmentsData?.map(apt => ({
-        id: apt.id,
-        appointment_date: apt.appointment_date,
-        appointment_time: apt.appointment_time,
-        total_price: apt.total_price || 0,
-        payment_method: apt.payment_method || 'no_local',
-        payment_status: apt.payment_status || 'pending',
-        payment_confirmation_date: apt.payment_confirmation_date,
-        pix_payment_proof: apt.pix_payment_proof,
-        client_name: apt.clients?.name || 'Cliente não identificado',
-        service_name: apt.services?.name || 'Serviço não identificado',
-        professional_name: apt.professionals?.name || 'Profissional não identificado',
-        created_at: apt.created_at
-      })) || [];
+      if (!appointmentsData || appointmentsData.length === 0) {
+        console.log("ℹ️ Nenhum agendamento encontrado");
+        setAppointments([]);
+        setLoading(false);
+        return;
+      }
 
-      console.log("✅ Agendamentos formatados:", formattedAppointments.length);
+      const formattedAppointments = appointmentsData.map(apt => {
+        console.log("🔄 Formatando agendamento:", apt.id);
+        return {
+          id: apt.id,
+          appointment_date: apt.appointment_date,
+          appointment_time: apt.appointment_time,
+          total_price: apt.total_price || 0,
+          payment_method: apt.payment_method || 'no_local',
+          payment_status: apt.payment_status || 'pending',
+          payment_confirmation_date: apt.payment_confirmation_date,
+          pix_payment_proof: apt.pix_payment_proof,
+          client_name: apt.clients?.name || 'Cliente não identificado',
+          service_name: apt.services?.name || 'Serviço não identificado',
+          professional_name: apt.professionals?.name || 'Profissional não identificado',
+          created_at: apt.created_at
+        };
+      });
+
+      console.log("✅ Agendamentos formatados:", formattedAppointments);
       setAppointments(formattedAppointments);
+      
     } catch (error) {
-      console.error('Erro ao carregar histórico:', error);
-      toast.error("Erro ao carregar dados");
+      console.error('❌ Erro crítico ao carregar histórico:', error);
+      toast.error(`Erro crítico: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
+      console.log("🏁 Finalizando carregamento - setLoading(false)");
       setLoading(false);
     }
   };
@@ -232,6 +258,13 @@ export default function HistoricoPagamentos() {
   const totalPending = filteredAppointments
     .filter(apt => ['pending', 'awaiting_payment'].includes(apt.payment_status))
     .reduce((sum, apt) => sum + apt.total_price, 0);
+
+  console.log("🎯 Estado atual do componente:", {
+    loading,
+    appointmentsCount: appointments.length,
+    filteredCount: filteredAppointments.length,
+    companyId
+  });
 
   if (loading) {
     return (
