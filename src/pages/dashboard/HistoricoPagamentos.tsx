@@ -70,9 +70,12 @@ export default function HistoricoPagamentos() {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
-        toast.error("Erro de autenticação");
+        console.error("Erro de autenticação:", userError);
+        toast.error("Sessão expirada. Faça login novamente.");
         return;
       }
+
+      console.log("✅ Usuário autenticado:", user.id);
 
       // Buscar empresa do usuário
       const { data: companies, error: companyError } = await supabase
@@ -81,14 +84,25 @@ export default function HistoricoPagamentos() {
         .eq('user_id', user.id)
         .single();
 
-      if (companyError || !companies) {
+      if (companyError) {
+        console.error("Erro ao buscar empresa:", companyError);
+        if (companyError.code === 'PGRST116') {
+          toast.error("Nenhuma empresa encontrada para este usuário");
+        } else {
+          toast.error("Erro ao buscar dados da empresa");
+        }
+        return;
+      }
+
+      if (!companies) {
         toast.error("Empresa não encontrada");
         return;
       }
 
+      console.log("✅ Empresa encontrada:", companies.id);
       setCompanyId(companies.id);
 
-      // Buscar agendamentos com informações de pagamento usando JOIN explícito
+      // Buscar agendamentos com informações de pagamento usando LEFT JOIN
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -101,18 +115,20 @@ export default function HistoricoPagamentos() {
           payment_confirmation_date,
           pix_payment_proof,
           created_at,
-          clients!inner(name),
-          services!inner(name),
-          professionals!inner(name)
+          clients(name),
+          services(name),
+          professionals(name)
         `)
         .eq('company_id', companies.id)
         .order('created_at', { ascending: false });
 
       if (appointmentsError) {
         console.error('Erro ao buscar agendamentos:', appointmentsError);
-        toast.error("Erro ao carregar histórico de pagamentos");
+        toast.error(`Erro ao carregar histórico: ${appointmentsError.message}`);
         return;
       }
+
+      console.log("✅ Agendamentos encontrados:", appointmentsData?.length || 0);
 
       const formattedAppointments = appointmentsData?.map(apt => ({
         id: apt.id,
@@ -129,6 +145,7 @@ export default function HistoricoPagamentos() {
         created_at: apt.created_at
       })) || [];
 
+      console.log("✅ Agendamentos formatados:", formattedAppointments.length);
       setAppointments(formattedAppointments);
     } catch (error) {
       console.error('Erro ao carregar histórico:', error);

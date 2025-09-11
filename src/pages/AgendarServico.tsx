@@ -587,26 +587,55 @@ export default function AgendarServico() {
       // Upload do comprovante PIX se necessário
       if (pixProof && selectedPaymentMethod === 'pix') {
         console.log("📤 Fazendo upload do comprovante...");
+        
+        // Validar tamanho do arquivo (máximo 10MB)
+        if (pixProof.size > 10 * 1024 * 1024) {
+          toast.error("Arquivo muito grande. Máximo permitido: 10MB");
+          return;
+        }
+        
+        // Validar tipo do arquivo
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+        if (!allowedTypes.includes(pixProof.type)) {
+          toast.error("Tipo de arquivo não permitido. Use imagens (JPEG, PNG, WEBP) ou PDF.");
+          return;
+        }
+        
         const fileExt = pixProof.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `pix-proofs/${fileName}`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('gallery')
-          .upload(filePath, pixProof);
+        try {
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('gallery')
+            .upload(filePath, pixProof);
 
-        if (uploadError) {
-          console.error('Erro ao fazer upload do comprovante:', uploadError);
-          toast.error("Erro ao fazer upload do comprovante. Tente novamente.");
+          if (uploadError) {
+            console.error('Erro ao fazer upload do comprovante:', uploadError);
+            
+            // Mensagens de erro mais específicas
+            if (uploadError.message?.includes('JWT')) {
+              toast.error("Sessão expirada. Recarregue a página e tente novamente.");
+            } else if (uploadError.message?.includes('policy')) {
+              toast.error("Erro de permissão. Contate o suporte.");
+            } else {
+              toast.error(`Erro ao fazer upload: ${uploadError.message}`);
+            }
+            return;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('gallery')
+            .getPublicUrl(filePath);
+
+          pixProofPath = publicUrl;
+          console.log("✅ Comprovante carregado:", pixProofPath);
+          
+        } catch (error) {
+          console.error('Erro inesperado no upload:', error);
+          toast.error("Erro inesperado ao fazer upload. Tente novamente.");
           return;
         }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('gallery')
-          .getPublicUrl(filePath);
-
-        pixProofPath = publicUrl;
-        console.log("✅ Comprovante carregado:", pixProofPath);
       }
 
       const { data: existingClient, error: clientSearchError } = await supabase
