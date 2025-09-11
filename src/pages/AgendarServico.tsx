@@ -177,11 +177,11 @@ export default function AgendarServico() {
   async function fetchCompanyData() {
     try {
       setLoading(true);
-      console.log("🔍 Buscando empresa com slug:", slug);
+      console.log("Buscando empresa com slug:", slug);
 
       // Try to find company by slug - convert slug back to name for search
       const searchName = slug?.replace(/-/g, " ") || "";
-      console.log("🔍 Nome de busca convertido:", searchName);
+      console.log("Nome de busca convertido:", searchName);
       
       const { data: companies, error: companyError } = await supabase
         .from("companies")
@@ -189,15 +189,13 @@ export default function AgendarServico() {
         .ilike("name", `%${searchName}%`);
 
       if (companyError) {
-        console.error("❌ Erro ao buscar empresa:", companyError);
-        toast.error(`Erro ao buscar empresa: ${companyError.message}`);
-        return;
+        console.error("Erro ao buscar empresa:", companyError);
+        throw companyError;
       }
       
-      console.log("✅ Empresas encontradas:", companies?.length || 0);
+      console.log("Empresas encontradas:", companies);
       
       if (!companies || companies.length === 0) {
-        console.warn("⚠️ Nenhuma empresa encontrada");
         toast.error("Empresa não encontrada");
         return;
       }
@@ -207,60 +205,49 @@ export default function AgendarServico() {
         c.name.toLowerCase().replace(/\s+/g, '-') === slug?.toLowerCase()
       ) || companies[0];
       
-      console.log("✅ Empresa selecionada:", companyData.name);
+      console.log("Empresa selecionada:", companyData);
       setCompany(companyData);
 
       // Buscar serviços
-      console.log("🔍 Buscando serviços para empresa ID:", companyData.id);
+      console.log("Buscando serviços para empresa ID:", companyData.id);
       const { data: servicesData, error: servicesError } = await supabase
         .from("services")
         .select("*")
         .eq("company_id", companyData.id);
       
       if (servicesError) {
-        console.error("❌ Erro ao buscar serviços:", servicesError);
-        toast.error(`Erro ao carregar serviços: ${servicesError.message}`);
-        setServices([]);
-      } else {
-        console.log("✅ Serviços encontrados:", servicesData?.length || 0);
-        setServices(servicesData || []);
+        console.error("Erro ao buscar serviços:", servicesError);
       }
+      console.log("Serviços encontrados:", servicesData);
+      setServices(servicesData || []);
 
       // Buscar profissionais usando função pública
-      console.log("🔍 Buscando profissionais para empresa ID:", companyData.id);
+      console.log("Buscando profissionais para empresa ID:", companyData.id);
       
-      try {
-        // Usar função que ignora RLS para busca pública
-        const { data: professionalsData, error: professionalsError } = await supabase
-          .rpc("get_professionals_for_booking", { 
-            company_uuid: companyData.id 
-          });
-        
-        if (professionalsError) {
-          console.error("❌ Erro ao buscar profissionais via RPC:", professionalsError);
-          throw professionalsError;
-        }
-        
-        console.log("✅ Profissionais encontrados via RPC:", professionalsData?.length || 0);
-        setProfessionals(professionalsData || []);
-        
-      } catch (rpcError) {
-        console.warn("⚠️ RPC falhou, tentando fallback direto:", rpcError);
-        
+      // Usar função que ignora RLS para busca pública
+      const { data: professionalsData, error: professionalsError } = await supabase
+        .rpc("get_professionals_for_booking", { 
+          company_uuid: companyData.id 
+        });
+      
+      if (professionalsError) {
+        console.error("Erro ao buscar profissionais:", professionalsError);
         // Fallback para query direta se a função falhar
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("professionals")
           .select("*")
           .eq("company_id", companyData.id);
         
-        if (fallbackError) {
-          console.error("❌ Erro no fallback também:", fallbackError);
-          toast.error(`Erro ao carregar profissionais: ${fallbackError.message}`);
-          setProfessionals([]);
-        } else {
-          console.log("✅ Profissionais encontrados via fallback:", fallbackData?.length || 0);
+        if (!fallbackError) {
+          console.log("Profissionais encontrados via fallback:", fallbackData);
           setProfessionals(fallbackData || []);
+        } else {
+          console.error("Erro no fallback também:", fallbackError);
+          setProfessionals([]);
         }
+      } else {
+        console.log("Profissionais encontrados via RPC:", professionalsData);
+        setProfessionals(professionalsData || []);
       }
 
       // Buscar agendamentos
@@ -293,32 +280,10 @@ export default function AgendarServico() {
         }
       }
     } catch (error) {
-      console.error("❌ ERRO CRÍTICO ao carregar dados da empresa:", error);
-      
-      let errorMessage = 'Erro desconhecido ao carregar dados';
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      // Mostrar mensagens mais amigáveis para erros comuns
-      if (errorMessage.includes('JWT') || errorMessage.includes('refresh_token')) {
-        errorMessage = 'Sessão expirada. Recarregue a página.';
-        window.location.reload();
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        errorMessage = 'Problema de conexão. Verifique sua internet.';
-      }
-      
-      toast.error(`❌ ${errorMessage}`);
-      
-      // Garantir que os estados sejam limpos mesmo com erro
-      setServices([]);
-      setProfessionals([]);
-      setCompany(null);
-      
+      console.error("Erro ao buscar dados:", error);
+      toast.error("Erro ao carregar dados da empresa");
     } finally {
       setLoading(false);
-      console.log("🏁 Carregamento finalizado");
     }
   }
 
@@ -1006,16 +971,9 @@ export default function AgendarServico() {
                 console.log("Profissional selecionado:", value);
                 setSelectedProfessionalId(value || undefined);
               }}
-              disabled={!selectedServiceId || loading}
             >
               <SelectTrigger>
-                <SelectValue placeholder={
-                  !selectedServiceId 
-                    ? "Primeiro selecione um serviço" 
-                    : loading 
-                      ? "Carregando..." 
-                      : "Selecione um profissional"
-                } />
+                <SelectValue placeholder="Selecione um profissional" />
               </SelectTrigger>
               <SelectContent>
                 {loading ? (
