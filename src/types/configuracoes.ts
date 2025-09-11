@@ -33,7 +33,6 @@ export interface ConfiguracoesState {
   notificacoes: NotificacoesConfig;
   personalizacao: PersonalizacaoConfig;
   sistema: SistemaConfig;
-  pagamento: PagamentoConfig;
 }
 
 export interface CompanySettings {
@@ -49,19 +48,8 @@ export interface CompanySettings {
   whatsapp_integration_enabled: boolean;
   primary_color: string;
   secondary_color: string;
-  pix_key?: string;
-  pix_qr_code?: string;
-  payment_methods: string[];
-  requires_payment_confirmation: boolean;
   created_at?: string;
   updated_at?: string;
-}
-
-export interface PagamentoConfig {
-  pixKey: string;
-  pixQrCode: string;
-  paymentMethods: string[];
-  requiresPaymentConfirmation: boolean;
 }
 
 export interface ContaEmpresaConfig {

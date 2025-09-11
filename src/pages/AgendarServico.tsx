@@ -97,14 +97,10 @@ export default function AgendarServico() {
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | undefined>(undefined);
 
   const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
-  
-  // Estados para configurações de pagamento
-  const [companySettings, setCompanySettings] = useState<any>(null);
 
   // Função auxiliar para converter tempo em minutos
   const timeToMinutes = useCallback((timeStr: string): number => {
@@ -258,23 +254,6 @@ export default function AgendarServico() {
       }
       console.log("Agendamentos encontrados:", appointmentsData);
       setAppointments(appointmentsData || []);
-
-      // Buscar configurações de pagamento da empresa
-      const { data: settings, error: settingsError } = await supabase
-        .rpc('get_or_create_company_settings', { company_uuid: companyData.id });
-      
-      if (settingsError) {
-        console.error("Erro ao buscar configurações:", settingsError);
-      } else if (settings && settings[0]) {
-        console.log("Configurações encontradas:", settings[0]);
-        setCompanySettings(settings[0]);
-        
-        // Auto-selecionar método de pagamento se só tiver uma opção
-        const paymentMethods = settings[0].payment_methods || ["no_local"];
-        if (paymentMethods.length === 1) {
-          setSelectedPaymentMethod(paymentMethods[0]);
-        }
-      }
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       toast.error("Erro ao carregar dados da empresa");
@@ -522,21 +501,9 @@ export default function AgendarServico() {
       return;
     }
 
-      if (!validate()) {
-        return;
-      }
-
-      // Validar método de pagamento
-      if (!selectedPaymentMethod) {
-        toast.error("Selecione uma forma de pagamento");
-        return;
-      }
-
-      // Se PIX foi selecionado, verificar se há chave PIX configurada
-      if (selectedPaymentMethod === 'pix' && !companySettings?.pix_key) {
-        toast.error("PIX não disponível. A empresa ainda não configurou a chave PIX.");
-        return;
-      }
+    if (!validate()) {
+      return;
+    }
 
     if (!company?.id) {
       toast.error("Dados da empresa não encontrados");
@@ -994,80 +961,6 @@ export default function AgendarServico() {
               </div>
             </div>
 
-            {/* Seção de Pagamento */}
-            {companySettings?.payment_methods && companySettings.payment_methods.length > 0 && (
-              <div className="space-y-3">
-                <Label className="text-base font-medium">Forma de Pagamento *</Label>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  {companySettings.payment_methods.includes('pix') && companySettings.pix_key && (
-                    <div 
-                      className={cn(
-                        "border rounded-lg p-4 cursor-pointer transition-all",
-                        selectedPaymentMethod === 'pix' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-input hover:border-primary/50"
-                      )}
-                      onClick={() => setSelectedPaymentMethod('pix')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
-                          {selectedPaymentMethod === 'pix' && (
-                            <div className="w-2.5 h-2.5 bg-primary rounded-full"></div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">💳 PIX</div>
-                          <div className="text-sm text-muted-foreground">
-                            Pagamento instantâneo via PIX
-                          </div>
-                          {selectedPaymentMethod === 'pix' && (
-                            <div className="mt-2 p-3 bg-muted rounded-lg">
-                              <div className="text-sm font-medium mb-1">Chave PIX:</div>
-                              <div className="text-sm font-mono bg-background p-2 rounded border">
-                                {companySettings.pix_key}
-                              </div>
-                              {companySettings.requires_payment_confirmation && (
-                                <div className="text-xs text-muted-foreground mt-2">
-                                  ⚠️ Agendamento será confirmado após comprovação do pagamento
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {companySettings.payment_methods.includes('no_local') && (
-                    <div 
-                      className={cn(
-                        "border rounded-lg p-4 cursor-pointer transition-all",
-                        selectedPaymentMethod === 'no_local' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-input hover:border-primary/50"
-                      )}
-                      onClick={() => setSelectedPaymentMethod('no_local')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
-                          {selectedPaymentMethod === 'no_local' && (
-                            <div className="w-2.5 h-2.5 bg-primary rounded-full"></div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">💰 Pagamento no Local</div>
-                          <div className="text-sm text-muted-foreground">
-                            Pague na hora do atendimento
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             <Label className="mt-4">Observações</Label>
             <Textarea
               placeholder="Preferências ou observações..."
@@ -1081,7 +974,7 @@ export default function AgendarServico() {
             </div>
 
             {/* Informação sobre duração dos serviços */}
-            {selectedServiceId && selectedProfessionalId && selectedDate && selectedTime && selectedPaymentMethod && (
+            {selectedServiceId && selectedProfessionalId && selectedDate && selectedTime && (
               <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mt-4">
                 <div className="text-sm text-green-800 dark:text-green-200">
                   <strong>📅 Resumo do agendamento:</strong>
@@ -1096,12 +989,6 @@ export default function AgendarServico() {
                   • <strong>Data/Hora:</strong> {format(selectedDate, "PPP", { locale: ptBR })} às {selectedTime}
                 </div>
                 <div className="text-sm text-green-600 dark:text-green-300">
-                  • <strong>Valor:</strong> R$ {(services.find(s => s.id === selectedServiceId)?.price || 0).toFixed(2)}
-                </div>
-                <div className="text-sm text-green-600 dark:text-green-300">
-                  • <strong>Pagamento:</strong> {selectedPaymentMethod === 'pix' ? '💳 PIX' : '💰 No Local'}
-                </div>
-                <div className="text-sm text-green-600 dark:text-green-300">
                   • <strong>Término previsto:</strong> {(() => {
                     const [hours, minutes] = selectedTime.split(":").map(Number);
                     const totalMinutes = hours * 60 + minutes + (services.find(s => s.id === selectedServiceId)?.duration || 0);
@@ -1114,11 +1001,8 @@ export default function AgendarServico() {
             )}
 
             <div className="flex justify-end mt-4">
-              <Button 
-                type="submit" 
-                disabled={submitting || !selectedServiceId || !selectedProfessionalId || !selectedDate || !selectedTime || !selectedPaymentMethod}
-              >
-                {submitting ? "Confirmando..." : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? "Criar Agendamento" : "Confirmar Agendamento")}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Confirmando..." : "Confirmar Agendamento"}
               </Button>
             </div>
           </CardContent>

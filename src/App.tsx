@@ -36,8 +36,6 @@ import PlanoPremium from "./pages/PlanoPremium";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PagamentoSucesso from "./pages/PagamentoSucesso";
 import PagamentoCancelado from "./pages/PagamentoCancelado";
-import HistoricoPagamentos from "./pages/dashboard/HistoricoPagamentos";
-
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -85,7 +83,6 @@ const App = () => (
           <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
           <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
           <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-          <Route path="/dashboard/historico-pagamentos" element={<ProtectedRoute><HistoricoPagamentos /></ProtectedRoute>} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
