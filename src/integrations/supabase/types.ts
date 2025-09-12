@@ -23,10 +23,7 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
-          payment_confirmation_date: string | null
           payment_method: string | null
-          payment_status: string | null
-          pix_payment_proof: string | null
           professional_id: string | null
           service_id: string | null
           status: string
@@ -41,10 +38,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
-          payment_confirmation_date?: string | null
           payment_method?: string | null
-          payment_status?: string | null
-          pix_payment_proof?: string | null
           professional_id?: string | null
           service_id?: string | null
           status?: string
@@ -59,10 +53,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
-          payment_confirmation_date?: string | null
           payment_method?: string | null
-          payment_status?: string | null
-          pix_payment_proof?: string | null
           professional_id?: string | null
           service_id?: string | null
           status?: string
@@ -216,12 +207,8 @@ export type Database = {
           id: string
           online_booking_enabled: boolean | null
           online_payment_enabled: boolean | null
-          payment_methods: string[] | null
-          pix_key: string | null
-          pix_qr_code: string | null
           primary_color: string | null
           reminders_enabled: boolean | null
-          requires_payment_confirmation: boolean | null
           secondary_color: string | null
           updated_at: string
           whatsapp_integration_enabled: boolean | null
@@ -236,12 +223,8 @@ export type Database = {
           id?: string
           online_booking_enabled?: boolean | null
           online_payment_enabled?: boolean | null
-          payment_methods?: string[] | null
-          pix_key?: string | null
-          pix_qr_code?: string | null
           primary_color?: string | null
           reminders_enabled?: boolean | null
-          requires_payment_confirmation?: boolean | null
           secondary_color?: string | null
           updated_at?: string
           whatsapp_integration_enabled?: boolean | null
@@ -256,12 +239,8 @@ export type Database = {
           id?: string
           online_booking_enabled?: boolean | null
           online_payment_enabled?: boolean | null
-          payment_methods?: string[] | null
-          pix_key?: string | null
-          pix_qr_code?: string | null
           primary_color?: string | null
           reminders_enabled?: boolean | null
-          requires_payment_confirmation?: boolean | null
           secondary_color?: string | null
           updated_at?: string
           whatsapp_integration_enabled?: boolean | null
@@ -546,13 +525,6 @@ export type Database = {
             foreignKeyName: "reviews_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: false
-            referencedRelation: "appointment_payments_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reviews_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
             referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
@@ -724,63 +696,6 @@ export type Database = {
       }
     }
     Views: {
-      appointment_payments_view: {
-        Row: {
-          appointment_date: string | null
-          appointment_time: string | null
-          client_id: string | null
-          client_name: string | null
-          company_id: string | null
-          created_at: string | null
-          id: string | null
-          payment_confirmation_date: string | null
-          payment_method: string | null
-          payment_status: string | null
-          pix_payment_proof: string | null
-          professional_id: string | null
-          professional_name: string | null
-          service_id: string | null
-          service_name: string | null
-          total_price: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "appointments_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_professional_id_fkey"
-            columns: ["professional_id"]
-            isOneToOne: false
-            referencedRelation: "professionals"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_professional_id_fkey"
-            columns: ["professional_id"]
-            isOneToOne: false
-            referencedRelation: "professionals_public"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "appointments_service_id_fkey"
-            columns: ["service_id"]
-            isOneToOne: false
-            referencedRelation: "services"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       professionals_public: {
         Row: {
           company_id: string | null
@@ -851,12 +766,8 @@ export type Database = {
           id: string
           online_booking_enabled: boolean
           online_payment_enabled: boolean
-          payment_methods: string[]
-          pix_key: string
-          pix_qr_code: string
           primary_color: string
           reminders_enabled: boolean
-          requires_payment_confirmation: boolean
           secondary_color: string
           updated_at: string
           whatsapp_integration_enabled: boolean

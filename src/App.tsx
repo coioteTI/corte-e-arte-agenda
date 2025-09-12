@@ -18,10 +18,9 @@ import Profissionais from "./pages/dashboard/Profissionais";
 import Ranking from "./pages/dashboard/Ranking";
 import Relatorios from "./pages/dashboard/Relatorios";
 import Horarios from "./pages/dashboard/Horarios";
-import HistoricoPagamentos from "./pages/dashboard/HistoricoPagamentos";
+import Planos from "./pages/dashboard/Planos";
 import Configuracoes from "./pages/dashboard/Configuracoes";
 import WebhookLogs from "./pages/dashboard/WebhookLogs";
-import Planos from "./pages/dashboard/Planos";
 import BuscarBarbearias from "./pages/BuscarBarbearias";
 import PerfilBarbearia from "./pages/PerfilBarbearia";
 import AgendarServico from "./pages/AgendarServico";
@@ -37,7 +36,6 @@ import PlanoPremium from "./pages/PlanoPremium";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PagamentoSucesso from "./pages/PagamentoSucesso";
 import PagamentoCancelado from "./pages/PagamentoCancelado";
-
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -85,7 +83,6 @@ const App = () => (
           <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
           <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
           <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-          <Route path="/dashboard/historico-pagamentos" element={<ProtectedRoute><HistoricoPagamentos /></ProtectedRoute>} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
