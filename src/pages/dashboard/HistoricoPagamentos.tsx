@@ -113,24 +113,11 @@ export default function HistoricoPagamentos() {
       console.log("✅ Empresa encontrada:", companies.id, companies.name);
       setCompanyId(companies.id);
 
-      // Buscar agendamentos com informações de pagamento
+      // Buscar agendamentos com informações de pagamento usando a view
       console.log("🔍 Buscando agendamentos da empresa...");
       const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select(`
-          id,
-          appointment_date,
-          appointment_time,
-          total_price,
-          payment_method,
-          payment_status,
-          payment_confirmation_date,
-          pix_payment_proof,
-          created_at,
-          clients(name),
-          services(name),
-          professionals(name)
-        `)
+        .from('appointment_payments_view')
+        .select('*')
         .eq('company_id', companies.id)
         .order('created_at', { ascending: false });
 
@@ -151,6 +138,7 @@ export default function HistoricoPagamentos() {
         return;
       }
 
+      // A view já retorna os dados formatados corretamente
       const formattedAppointments = appointmentsData?.map(apt => {
         console.log("🔄 Formatando agendamento:", apt.id);
         return {
@@ -162,9 +150,9 @@ export default function HistoricoPagamentos() {
           payment_status: apt.payment_status || 'pending',
           payment_confirmation_date: apt.payment_confirmation_date,
           pix_payment_proof: apt.pix_payment_proof,
-          client_name: apt.clients?.[0]?.name || apt.clients?.name || 'Cliente não identificado',
-          service_name: apt.services?.[0]?.name || apt.services?.name || 'Serviço não identificado',
-          professional_name: apt.professionals?.[0]?.name || apt.professionals?.name || 'Profissional não identificado',
+          client_name: apt.client_name,
+          service_name: apt.service_name,
+          professional_name: apt.professional_name,
           created_at: apt.created_at
         };
       }) || [];

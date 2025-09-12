@@ -727,12 +727,12 @@ export default function AgendarServico() {
         professional_id: selectedProfessionalId!,
         appointment_date: format(selectedDate!, "yyyy-MM-dd"),
         appointment_time: selectedTime!,
-        status: selectedPaymentMethod === 'pix' && pixProofPath ? 'scheduled' : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? 'awaiting_payment' : 'scheduled'),
+        status: 'scheduled', // Será atualizado pelo trigger conforme regras de negócio
         notes: notes.trim() || null,
         total_price: services.find(s => s.id === selectedServiceId)?.price || null,
         payment_method: selectedPaymentMethod,
-        payment_status: selectedPaymentMethod === 'pix' && pixProofPath ? 'awaiting_payment' : 'pending',
         pix_payment_proof: pixProofPath
+        // payment_status será definido pelo trigger automaticamente
       };
 
       console.log("📝 Dados do agendamento:", appointmentData);
@@ -782,11 +782,19 @@ export default function AgendarServico() {
         }
       }
 
-      toast.success(
-        pixProofPath 
-          ? `🎉 Obrigado, ${fullName}! Seu comprovante foi enviado com sucesso. Seu agendamento será confirmado após validação do pagamento.`
-          : `🎉 Obrigado, ${fullName}! Seu agendamento foi confirmado com sucesso.`
-      );
+      // Mensagem de sucesso baseada no tipo de pagamento
+      let successMessage = '';
+      if (selectedPaymentMethod === 'pix' && pixProofPath) {
+        successMessage = `🎉 Obrigado, ${fullName}! Seu comprovante PIX foi enviado com sucesso. Seu agendamento será confirmado após validação do pagamento.`;
+      } else if (selectedPaymentMethod === 'pix' && !pixProofPath) {
+        successMessage = `🎉 Obrigado, ${fullName}! Seu agendamento foi registrado. Envie o comprovante PIX para confirmar o agendamento.`;
+      } else if (selectedPaymentMethod === 'no_local') {
+        successMessage = `🎉 Obrigado, ${fullName}! Seu agendamento foi confirmado com sucesso. Pagamento será realizado no local.`;
+      } else {
+        successMessage = `🎉 Obrigado, ${fullName}! Seu agendamento foi confirmado com sucesso.`;
+      }
+      
+      toast.success(successMessage);
 
       // Limpar formulário
       setSelectedServiceId(undefined);
