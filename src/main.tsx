@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Select } from "@/components/ui/select"; // ajuste o caminho conforme sua estrutura
-import api from "@/services/api"; // ajuste se você usa axios ou fetch
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"; 
+import api from "./services/api"; // ou ajuste o caminho certo
 
 interface Pagamento {
   id: string;
-  metodo: string; // exemplo: "pix", "dinheiro"
+  metodo: string;
   valor: number;
   data: string;
 }
@@ -16,7 +22,7 @@ const HistoricoPagamentos: React.FC = () => {
   useEffect(() => {
     const carregarPagamentos = async () => {
       try {
-        const resposta = await api.get("/pagamentos"); // ajuste a rota da API
+        const resposta = await api.get("/pagamentos"); 
         setPagamentos(resposta.data);
       } catch (erro) {
         console.error("Erro ao carregar pagamentos:", erro);
@@ -30,24 +36,21 @@ const HistoricoPagamentos: React.FC = () => {
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">Histórico de Pagamentos</h1>
 
-      {/* Filtro por método de pagamento */}
       <Select value={filtroMetodo} onValueChange={setFiltroMetodo}>
-        <Select.Trigger>
-          <Select.Value placeholder="Filtrar por método" />
-        </Select.Trigger>
-        <Select.Content>
-          {/* Renderiza apenas se tiver valor */}
+        <SelectTrigger>
+          <SelectValue placeholder="Filtrar por método" />
+        </SelectTrigger>
+        <SelectContent>
           {Array.from(new Set(pagamentos.map((p) => p.metodo)))
             .filter((m) => m && m.trim() !== "")
             .map((metodo) => (
-              <Select.Item key={metodo} value={metodo}>
+              <SelectItem key={metodo} value={metodo}>
                 {metodo}
-              </Select.Item>
+              </SelectItem>
             ))}
-        </Select.Content>
+        </SelectContent>
       </Select>
 
-      {/* Lista de pagamentos */}
       <ul className="mt-4 space-y-2">
         {pagamentos
           .filter((p) => !filtroMetodo || p.metodo === filtroMetodo)
