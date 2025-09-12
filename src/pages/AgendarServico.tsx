@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { validateAppointment } from "@/utils/validation";
 import { GallerySection } from "@/components/GallerySection";
+import { PaymentSection } from "@/components/PaymentSection";
 
 type Company = {
   id: string;
@@ -1121,119 +1122,12 @@ export default function AgendarServico() {
 
             {/* Seção de Pagamento */}
             {companySettings?.payment_methods && companySettings.payment_methods.length > 0 && (
-              <div className="space-y-3">
-                <Label className="text-base font-medium">Forma de Pagamento *</Label>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  {companySettings.payment_methods.includes('pix') && companySettings.pix_key && (
-                    <div 
-                      className={cn(
-                        "border rounded-lg p-4 cursor-pointer transition-all",
-                        selectedPaymentMethod === 'pix' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-input hover:border-primary/50"
-                      )}
-                      onClick={() => setSelectedPaymentMethod('pix')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
-                          {selectedPaymentMethod === 'pix' && (
-                            <div className="w-2.5 h-2.5 bg-primary rounded-full"></div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">💳 PIX</div>
-                          <div className="text-sm text-muted-foreground">
-                            Pagamento instantâneo via PIX
-                          </div>
-                          {selectedPaymentMethod === 'pix' && (
-                            <div className="mt-2 p-3 bg-muted rounded-lg">
-                              <div className="text-sm font-medium mb-1">Chave PIX:</div>
-                              <div className="text-sm font-mono bg-background p-2 rounded border">
-                                {companySettings.pix_key}
-                              </div>
-                              {companySettings.requires_payment_confirmation && (
-                                <div className="text-xs text-muted-foreground mt-2">
-                                  ⚠️ Agendamento será confirmado após comprovação do pagamento
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          
-                          {selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && (
-                            <div className="mt-3 space-y-2">
-                              <Label htmlFor="pix-proof" className="text-sm font-medium">
-                                Comprovante de Pagamento *
-                              </Label>
-                              <Input
-                                id="pix-proof"
-                                type="file"
-                                accept="image/*,.pdf"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    setPixProof(file);
-                                    // Preview da imagem
-                                    if (file.type.startsWith('image/')) {
-                                      const reader = new FileReader();
-                                      reader.onload = (e) => setPixProofUrl(e.target?.result as string);
-                                      reader.readAsDataURL(file);
-                                    }
-                                  }
-                                }}
-                                className="cursor-pointer"
-                              />
-                              <div className="text-xs text-muted-foreground">
-                                Formatos aceitos: JPG, PNG, PDF (máx. 5MB)
-                              </div>
-                              {pixProofUrl && pixProof?.type.startsWith('image/') && (
-                                <div className="mt-2">
-                                  <img 
-                                    src={pixProofUrl} 
-                                    alt="Preview do comprovante" 
-                                    className="max-w-32 h-20 object-cover rounded border"
-                                  />
-                                </div>
-                              )}
-                              {pixProof && !pixProof.type.startsWith('image/') && (
-                                <div className="text-sm text-green-600">
-                                  📄 {pixProof.name} selecionado
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {companySettings.payment_methods.includes('no_local') && (
-                    <div 
-                      className={cn(
-                        "border rounded-lg p-4 cursor-pointer transition-all",
-                        selectedPaymentMethod === 'no_local' 
-                          ? "border-primary bg-primary/5" 
-                          : "border-input hover:border-primary/50"
-                      )}
-                      onClick={() => setSelectedPaymentMethod('no_local')}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
-                          {selectedPaymentMethod === 'no_local' && (
-                            <div className="w-2.5 h-2.5 bg-primary rounded-full"></div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">💰 Pagamento no Local</div>
-                          <div className="text-sm text-muted-foreground">
-                            Pague na hora do atendimento
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <PaymentSection
+                companySettings={companySettings}
+                selectedPaymentMethod={selectedPaymentMethod}
+                onPaymentMethodChange={setSelectedPaymentMethod}
+                onProofUploaded={setPixProofUrl}
+              />
             )}
 
             <Label className="mt-4">Observações</Label>
@@ -1291,10 +1185,10 @@ export default function AgendarServico() {
                   !selectedDate || 
                   !selectedTime || 
                   !selectedPaymentMethod ||
-                  (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && !pixProof)
+                  (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && !pixProofUrl)
                 }
               >
-                {submitting ? "Processando..." : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? "Enviar Comprovante" : "Confirmar Agendamento")}
+                {submitting ? "Processando..." : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? "Enviar Agendamento" : "Confirmar Agendamento")}
               </Button>
             </div>
           </CardContent>

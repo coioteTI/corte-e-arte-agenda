@@ -18,9 +18,10 @@ import Profissionais from "./pages/dashboard/Profissionais";
 import Ranking from "./pages/dashboard/Ranking";
 import Relatorios from "./pages/dashboard/Relatorios";
 import Horarios from "./pages/dashboard/Horarios";
-import Planos from "./pages/dashboard/Planos";
+import HistoricoPagamentos from "./pages/dashboard/HistoricoPagamentos";
 import Configuracoes from "./pages/dashboard/Configuracoes";
 import WebhookLogs from "./pages/dashboard/WebhookLogs";
+import Planos from "./pages/dashboard/Planos";
 import BuscarBarbearias from "./pages/BuscarBarbearias";
 import PerfilBarbearia from "./pages/PerfilBarbearia";
 import AgendarServico from "./pages/AgendarServico";
@@ -36,7 +37,6 @@ import PlanoPremium from "./pages/PlanoPremium";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PagamentoSucesso from "./pages/PagamentoSucesso";
 import PagamentoCancelado from "./pages/PagamentoCancelado";
-import HistoricoPagamentos from "./pages/dashboard/HistoricoPagamentos";
 
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
