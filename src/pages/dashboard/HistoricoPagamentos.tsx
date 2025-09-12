@@ -44,6 +44,8 @@ interface AppointmentPayment {
 }
 
 export default function HistoricoPagamentos() {
+  console.log("🏠 HistoricoPagamentos component carregado");
+  
   const [appointments, setAppointments] = useState<AppointmentPayment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<AppointmentPayment[]>([]);
   const [loading, setLoading] = useState(true);

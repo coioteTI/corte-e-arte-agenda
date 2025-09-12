@@ -7,7 +7,7 @@ import { useTheme } from './hooks/useTheme'
 import { PWAInstallPrompt } from './components/PWAInstallPrompt'
 import { OfflineIndicator } from './components/OfflineIndicator'
 
-const AppWithPWA = () => {
+const AppWithPWA: React.FC = () => {
   usePWA(); // Initialize PWA functionality
   useTheme(); // Initialize theme functionality
   
