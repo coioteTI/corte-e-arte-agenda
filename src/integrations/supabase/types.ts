@@ -23,7 +23,10 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          payment_confirmation_date: string | null
           payment_method: string | null
+          payment_status: string | null
+          pix_payment_proof: string | null
           professional_id: string | null
           service_id: string | null
           status: string
@@ -38,7 +41,10 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payment_confirmation_date?: string | null
           payment_method?: string | null
+          payment_status?: string | null
+          pix_payment_proof?: string | null
           professional_id?: string | null
           service_id?: string | null
           status?: string
@@ -53,7 +59,10 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          payment_confirmation_date?: string | null
           payment_method?: string | null
+          payment_status?: string | null
+          pix_payment_proof?: string | null
           professional_id?: string | null
           service_id?: string | null
           status?: string
@@ -207,8 +216,12 @@ export type Database = {
           id: string
           online_booking_enabled: boolean | null
           online_payment_enabled: boolean | null
+          payment_methods: string[] | null
+          pix_key: string | null
+          pix_qr_code: string | null
           primary_color: string | null
           reminders_enabled: boolean | null
+          requires_payment_confirmation: boolean | null
           secondary_color: string | null
           updated_at: string
           whatsapp_integration_enabled: boolean | null
@@ -223,8 +236,12 @@ export type Database = {
           id?: string
           online_booking_enabled?: boolean | null
           online_payment_enabled?: boolean | null
+          payment_methods?: string[] | null
+          pix_key?: string | null
+          pix_qr_code?: string | null
           primary_color?: string | null
           reminders_enabled?: boolean | null
+          requires_payment_confirmation?: boolean | null
           secondary_color?: string | null
           updated_at?: string
           whatsapp_integration_enabled?: boolean | null
@@ -239,8 +256,12 @@ export type Database = {
           id?: string
           online_booking_enabled?: boolean | null
           online_payment_enabled?: boolean | null
+          payment_methods?: string[] | null
+          pix_key?: string | null
+          pix_qr_code?: string | null
           primary_color?: string | null
           reminders_enabled?: boolean | null
+          requires_payment_confirmation?: boolean | null
           secondary_color?: string | null
           updated_at?: string
           whatsapp_integration_enabled?: boolean | null
@@ -766,8 +787,12 @@ export type Database = {
           id: string
           online_booking_enabled: boolean
           online_payment_enabled: boolean
+          payment_methods: string[]
+          pix_key: string
+          pix_qr_code: string
           primary_color: string
           reminders_enabled: boolean
+          requires_payment_confirmation: boolean
           secondary_color: string
           updated_at: string
           whatsapp_integration_enabled: boolean

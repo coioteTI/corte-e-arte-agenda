@@ -78,6 +78,8 @@ type Appointment = {
   status: string;
   total_price?: number | null;
   payment_method?: string | null;
+  payment_status?: string | null;
+  pix_payment_proof?: string | null;
 };
 
 export default function AgendarServico() {
@@ -97,10 +99,16 @@ export default function AgendarServico() {
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | undefined>(undefined);
+  const [pixProof, setPixProof] = useState<File | null>(null);
+  const [pixProofUrl, setPixProofUrl] = useState<string>("");
 
   const [saveForFuture, setSaveForFuture] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  
+  // Estados para configurações de pagamento
+  const [companySettings, setCompanySettings] = useState<any>(null);
 
   // Função auxiliar para converter tempo em minutos
   const timeToMinutes = useCallback((timeStr: string): number => {
@@ -169,11 +177,11 @@ export default function AgendarServico() {
   async function fetchCompanyData() {
     try {
       setLoading(true);
-      console.log("Buscando empresa com slug:", slug);
+      console.log("🔍 Buscando empresa com slug:", slug);
 
       // Try to find company by slug - convert slug back to name for search
       const searchName = slug?.replace(/-/g, " ") || "";
-      console.log("Nome de busca convertido:", searchName);
+      console.log("🔍 Nome de busca convertido:", searchName);
       
       const { data: companies, error: companyError } = await supabase
         .from("companies")
@@ -181,13 +189,15 @@ export default function AgendarServico() {
         .ilike("name", `%${searchName}%`);
 
       if (companyError) {
-        console.error("Erro ao buscar empresa:", companyError);
-        throw companyError;
+        console.error("❌ Erro ao buscar empresa:", companyError);
+        toast.error(`Erro ao buscar empresa: ${companyError.message}`);
+        return;
       }
       
-      console.log("Empresas encontradas:", companies);
+      console.log("✅ Empresas encontradas:", companies?.length || 0);
       
       if (!companies || companies.length === 0) {
+        console.warn("⚠️ Nenhuma empresa encontrada");
         toast.error("Empresa não encontrada");
         return;
       }
@@ -197,49 +207,60 @@ export default function AgendarServico() {
         c.name.toLowerCase().replace(/\s+/g, '-') === slug?.toLowerCase()
       ) || companies[0];
       
-      console.log("Empresa selecionada:", companyData);
+      console.log("✅ Empresa selecionada:", companyData.name);
       setCompany(companyData);
 
       // Buscar serviços
-      console.log("Buscando serviços para empresa ID:", companyData.id);
+      console.log("🔍 Buscando serviços para empresa ID:", companyData.id);
       const { data: servicesData, error: servicesError } = await supabase
         .from("services")
         .select("*")
         .eq("company_id", companyData.id);
       
       if (servicesError) {
-        console.error("Erro ao buscar serviços:", servicesError);
+        console.error("❌ Erro ao buscar serviços:", servicesError);
+        toast.error(`Erro ao carregar serviços: ${servicesError.message}`);
+        setServices([]);
+      } else {
+        console.log("✅ Serviços encontrados:", servicesData?.length || 0);
+        setServices(servicesData || []);
       }
-      console.log("Serviços encontrados:", servicesData);
-      setServices(servicesData || []);
 
       // Buscar profissionais usando função pública
-      console.log("Buscando profissionais para empresa ID:", companyData.id);
+      console.log("🔍 Buscando profissionais para empresa ID:", companyData.id);
       
-      // Usar função que ignora RLS para busca pública
-      const { data: professionalsData, error: professionalsError } = await supabase
-        .rpc("get_professionals_for_booking", { 
-          company_uuid: companyData.id 
-        });
-      
-      if (professionalsError) {
-        console.error("Erro ao buscar profissionais:", professionalsError);
+      try {
+        // Usar função que ignora RLS para busca pública
+        const { data: professionalsData, error: professionalsError } = await supabase
+          .rpc("get_professionals_for_booking", { 
+            company_uuid: companyData.id 
+          });
+        
+        if (professionalsError) {
+          console.error("❌ Erro ao buscar profissionais via RPC:", professionalsError);
+          throw professionalsError;
+        }
+        
+        console.log("✅ Profissionais encontrados via RPC:", professionalsData?.length || 0);
+        setProfessionals(professionalsData || []);
+        
+      } catch (rpcError) {
+        console.warn("⚠️ RPC falhou, tentando fallback direto:", rpcError);
+        
         // Fallback para query direta se a função falhar
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("professionals")
           .select("*")
           .eq("company_id", companyData.id);
         
-        if (!fallbackError) {
-          console.log("Profissionais encontrados via fallback:", fallbackData);
-          setProfessionals(fallbackData || []);
-        } else {
-          console.error("Erro no fallback também:", fallbackError);
+        if (fallbackError) {
+          console.error("❌ Erro no fallback também:", fallbackError);
+          toast.error(`Erro ao carregar profissionais: ${fallbackError.message}`);
           setProfessionals([]);
+        } else {
+          console.log("✅ Profissionais encontrados via fallback:", fallbackData?.length || 0);
+          setProfessionals(fallbackData || []);
         }
-      } else {
-        console.log("Profissionais encontrados via RPC:", professionalsData);
-        setProfessionals(professionalsData || []);
       }
 
       // Buscar agendamentos
@@ -254,11 +275,50 @@ export default function AgendarServico() {
       }
       console.log("Agendamentos encontrados:", appointmentsData);
       setAppointments(appointmentsData || []);
+
+      // Buscar configurações de pagamento da empresa
+      const { data: settings, error: settingsError } = await supabase
+        .rpc('get_or_create_company_settings', { company_uuid: companyData.id });
+      
+      if (settingsError) {
+        console.error("Erro ao buscar configurações:", settingsError);
+      } else if (settings && settings[0]) {
+        console.log("Configurações encontradas:", settings[0]);
+        setCompanySettings(settings[0]);
+        
+        // Auto-selecionar método de pagamento se só tiver uma opção
+        const paymentMethods = settings[0].payment_methods || ["no_local"];
+        if (paymentMethods.length === 1) {
+          setSelectedPaymentMethod(paymentMethods[0]);
+        }
+      }
     } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-      toast.error("Erro ao carregar dados da empresa");
+      console.error("❌ ERRO CRÍTICO ao carregar dados da empresa:", error);
+      
+      let errorMessage = 'Erro desconhecido ao carregar dados';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      // Mostrar mensagens mais amigáveis para erros comuns
+      if (errorMessage.includes('JWT') || errorMessage.includes('refresh_token')) {
+        errorMessage = 'Sessão expirada. Recarregue a página.';
+        window.location.reload();
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        errorMessage = 'Problema de conexão. Verifique sua internet.';
+      }
+      
+      toast.error(`❌ ${errorMessage}`);
+      
+      // Garantir que os estados sejam limpos mesmo com erro
+      setServices([]);
+      setProfessionals([]);
+      setCompany(null);
+      
     } finally {
       setLoading(false);
+      console.log("🏁 Carregamento finalizado");
     }
   }
 
@@ -501,9 +561,27 @@ export default function AgendarServico() {
       return;
     }
 
-    if (!validate()) {
-      return;
-    }
+      if (!validate()) {
+        return;
+      }
+
+      // Validar método de pagamento
+      if (!selectedPaymentMethod) {
+        toast.error("Selecione uma forma de pagamento");
+        return;
+      }
+
+      // Se PIX foi selecionado, verificar se há chave PIX configurada
+      if (selectedPaymentMethod === 'pix' && !companySettings?.pix_key) {
+        toast.error("PIX não disponível. A empresa ainda não configurou a chave PIX.");
+        return;
+      }
+
+      // Se for PIX e requer comprovante, verificar se foi anexado
+      if (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && !pixProof) {
+        toast.error("Anexe o comprovante de pagamento PIX");
+        return;
+      }
 
     if (!company?.id) {
       toast.error("Dados da empresa não encontrados");
@@ -539,6 +617,61 @@ export default function AgendarServico() {
 
       // Criar ou buscar cliente
       let clientId: string;
+      let pixProofPath: string | null = null;
+
+      // Upload do comprovante PIX se necessário
+      if (pixProof && selectedPaymentMethod === 'pix') {
+        console.log("📤 Fazendo upload do comprovante...");
+        
+        // Validar tamanho do arquivo (máximo 10MB)
+        if (pixProof.size > 10 * 1024 * 1024) {
+          toast.error("Arquivo muito grande. Máximo permitido: 10MB");
+          return;
+        }
+        
+        // Validar tipo do arquivo
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+        if (!allowedTypes.includes(pixProof.type)) {
+          toast.error("Tipo de arquivo não permitido. Use imagens (JPEG, PNG, WEBP) ou PDF.");
+          return;
+        }
+        
+        const fileExt = pixProof.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `pix-proofs/${fileName}`;
+
+        try {
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('gallery')
+            .upload(filePath, pixProof);
+
+          if (uploadError) {
+            console.error('Erro ao fazer upload do comprovante:', uploadError);
+            
+            // Mensagens de erro mais específicas
+            if (uploadError.message?.includes('JWT')) {
+              toast.error("Sessão expirada. Recarregue a página e tente novamente.");
+            } else if (uploadError.message?.includes('policy')) {
+              toast.error("Erro de permissão. Contate o suporte.");
+            } else {
+              toast.error(`Erro ao fazer upload: ${uploadError.message}`);
+            }
+            return;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('gallery')
+            .getPublicUrl(filePath);
+
+          pixProofPath = publicUrl;
+          console.log("✅ Comprovante carregado:", pixProofPath);
+          
+        } catch (error) {
+          console.error('Erro inesperado no upload:', error);
+          toast.error("Erro inesperado ao fazer upload. Tente novamente.");
+          return;
+        }
+      }
 
       const { data: existingClient, error: clientSearchError } = await supabase
         .from("clients")
@@ -594,9 +727,12 @@ export default function AgendarServico() {
         professional_id: selectedProfessionalId!,
         appointment_date: format(selectedDate!, "yyyy-MM-dd"),
         appointment_time: selectedTime!,
-        status: "scheduled",
+        status: selectedPaymentMethod === 'pix' && pixProofPath ? 'scheduled' : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? 'awaiting_payment' : 'scheduled'),
         notes: notes.trim() || null,
-        total_price: services.find(s => s.id === selectedServiceId)?.price || null
+        total_price: services.find(s => s.id === selectedServiceId)?.price || null,
+        payment_method: selectedPaymentMethod,
+        payment_status: selectedPaymentMethod === 'pix' && pixProofPath ? 'awaiting_payment' : 'pending',
+        pix_payment_proof: pixProofPath
       };
 
       console.log("📝 Dados do agendamento:", appointmentData);
@@ -646,13 +782,20 @@ export default function AgendarServico() {
         }
       }
 
-      toast.success(`🎉 Obrigado, ${fullName}! Seu agendamento foi realizado com sucesso.`);
+      toast.success(
+        pixProofPath 
+          ? `🎉 Obrigado, ${fullName}! Seu comprovante foi enviado com sucesso. Seu agendamento será confirmado após validação do pagamento.`
+          : `🎉 Obrigado, ${fullName}! Seu agendamento foi confirmado com sucesso.`
+      );
 
       // Limpar formulário
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
       setSelectedTime(undefined);
+      setSelectedPaymentMethod(undefined);
+      setPixProof(null);
+      setPixProofUrl("");
       setNotes("");
 
     } catch (error) {
@@ -863,9 +1006,16 @@ export default function AgendarServico() {
                 console.log("Profissional selecionado:", value);
                 setSelectedProfessionalId(value || undefined);
               }}
+              disabled={!selectedServiceId || loading}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione um profissional" />
+                <SelectValue placeholder={
+                  !selectedServiceId 
+                    ? "Primeiro selecione um serviço" 
+                    : loading 
+                      ? "Carregando..." 
+                      : "Selecione um profissional"
+                } />
               </SelectTrigger>
               <SelectContent>
                 {loading ? (
@@ -961,6 +1111,123 @@ export default function AgendarServico() {
               </div>
             </div>
 
+            {/* Seção de Pagamento */}
+            {companySettings?.payment_methods && companySettings.payment_methods.length > 0 && (
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Forma de Pagamento *</Label>
+                
+                <div className="grid grid-cols-1 gap-3">
+                  {companySettings.payment_methods.includes('pix') && companySettings.pix_key && (
+                    <div 
+                      className={cn(
+                        "border rounded-lg p-4 cursor-pointer transition-all",
+                        selectedPaymentMethod === 'pix' 
+                          ? "border-primary bg-primary/5" 
+                          : "border-input hover:border-primary/50"
+                      )}
+                      onClick={() => setSelectedPaymentMethod('pix')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
+                          {selectedPaymentMethod === 'pix' && (
+                            <div className="w-2.5 h-2.5 bg-primary rounded-full"></div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium">💳 PIX</div>
+                          <div className="text-sm text-muted-foreground">
+                            Pagamento instantâneo via PIX
+                          </div>
+                          {selectedPaymentMethod === 'pix' && (
+                            <div className="mt-2 p-3 bg-muted rounded-lg">
+                              <div className="text-sm font-medium mb-1">Chave PIX:</div>
+                              <div className="text-sm font-mono bg-background p-2 rounded border">
+                                {companySettings.pix_key}
+                              </div>
+                              {companySettings.requires_payment_confirmation && (
+                                <div className="text-xs text-muted-foreground mt-2">
+                                  ⚠️ Agendamento será confirmado após comprovação do pagamento
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && (
+                            <div className="mt-3 space-y-2">
+                              <Label htmlFor="pix-proof" className="text-sm font-medium">
+                                Comprovante de Pagamento *
+                              </Label>
+                              <Input
+                                id="pix-proof"
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setPixProof(file);
+                                    // Preview da imagem
+                                    if (file.type.startsWith('image/')) {
+                                      const reader = new FileReader();
+                                      reader.onload = (e) => setPixProofUrl(e.target?.result as string);
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }
+                                }}
+                                className="cursor-pointer"
+                              />
+                              <div className="text-xs text-muted-foreground">
+                                Formatos aceitos: JPG, PNG, PDF (máx. 5MB)
+                              </div>
+                              {pixProofUrl && pixProof?.type.startsWith('image/') && (
+                                <div className="mt-2">
+                                  <img 
+                                    src={pixProofUrl} 
+                                    alt="Preview do comprovante" 
+                                    className="max-w-32 h-20 object-cover rounded border"
+                                  />
+                                </div>
+                              )}
+                              {pixProof && !pixProof.type.startsWith('image/') && (
+                                <div className="text-sm text-green-600">
+                                  📄 {pixProof.name} selecionado
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {companySettings.payment_methods.includes('no_local') && (
+                    <div 
+                      className={cn(
+                        "border rounded-lg p-4 cursor-pointer transition-all",
+                        selectedPaymentMethod === 'no_local' 
+                          ? "border-primary bg-primary/5" 
+                          : "border-input hover:border-primary/50"
+                      )}
+                      onClick={() => setSelectedPaymentMethod('no_local')}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
+                          {selectedPaymentMethod === 'no_local' && (
+                            <div className="w-2.5 h-2.5 bg-primary rounded-full"></div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium">💰 Pagamento no Local</div>
+                          <div className="text-sm text-muted-foreground">
+                            Pague na hora do atendimento
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <Label className="mt-4">Observações</Label>
             <Textarea
               placeholder="Preferências ou observações..."
@@ -974,7 +1241,7 @@ export default function AgendarServico() {
             </div>
 
             {/* Informação sobre duração dos serviços */}
-            {selectedServiceId && selectedProfessionalId && selectedDate && selectedTime && (
+            {selectedServiceId && selectedProfessionalId && selectedDate && selectedTime && selectedPaymentMethod && (
               <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mt-4">
                 <div className="text-sm text-green-800 dark:text-green-200">
                   <strong>📅 Resumo do agendamento:</strong>
@@ -989,6 +1256,12 @@ export default function AgendarServico() {
                   • <strong>Data/Hora:</strong> {format(selectedDate, "PPP", { locale: ptBR })} às {selectedTime}
                 </div>
                 <div className="text-sm text-green-600 dark:text-green-300">
+                  • <strong>Valor:</strong> R$ {(services.find(s => s.id === selectedServiceId)?.price || 0).toFixed(2)}
+                </div>
+                <div className="text-sm text-green-600 dark:text-green-300">
+                  • <strong>Pagamento:</strong> {selectedPaymentMethod === 'pix' ? '💳 PIX' : '💰 No Local'}
+                </div>
+                <div className="text-sm text-green-600 dark:text-green-300">
                   • <strong>Término previsto:</strong> {(() => {
                     const [hours, minutes] = selectedTime.split(":").map(Number);
                     const totalMinutes = hours * 60 + minutes + (services.find(s => s.id === selectedServiceId)?.duration || 0);
@@ -1001,8 +1274,19 @@ export default function AgendarServico() {
             )}
 
             <div className="flex justify-end mt-4">
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Confirmando..." : "Confirmar Agendamento"}
+              <Button 
+                type="submit" 
+                disabled={
+                  submitting || 
+                  !selectedServiceId || 
+                  !selectedProfessionalId || 
+                  !selectedDate || 
+                  !selectedTime || 
+                  !selectedPaymentMethod ||
+                  (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && !pixProof)
+                }
+              >
+                {submitting ? "Processando..." : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? "Enviar Comprovante" : "Confirmar Agendamento")}
               </Button>
             </div>
           </CardContent>

@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, MessageSquare, User, Settings, Palette, Images } from "lucide-react";
+import { useNotifications } from "@/hooks/useNotifications";
+import { Bell, MessageSquare, User, Settings, Palette, Images, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { NotificacoesSection } from "@/components/configuracoes/NotificacoesSection";
@@ -15,6 +16,7 @@ import { MessageEditDialog } from "@/components/configuracoes/MessageEditDialog"
 import { ContaEmpresaSection } from "@/components/configuracoes/ContaEmpresaSection";
 import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSection";
 import { GaleriaSection } from "@/components/configuracoes/GaleriaSection";
+import { PagamentoSection } from "@/components/configuracoes/PagamentoSection";
 
 import {
   ConfiguracoesState,
@@ -22,6 +24,7 @@ import {
   MessageType,
   CompanySettings,
   ContaEmpresaConfig,
+  PagamentoConfig,
 } from "@/types/configuracoes";
 
 const Configuracoes = () => {
@@ -50,6 +53,12 @@ const Configuracoes = () => {
       pagamentoOnline: false,
       relatoriosAvancados: true,
       integracaoWhatsApp: false
+    },
+    pagamento: {
+      pixKey: "",
+      pixQrCode: "",
+      paymentMethods: ["no_local"],
+      requiresPaymentConfirmation: false
     }
   });
 
@@ -77,6 +86,9 @@ const Configuracoes = () => {
   const [tempMessage, setTempMessage] = useState('');
 
   const { toast } = useToast();
+  
+  // Ativar notificações para esta empresa
+  useNotifications(companyId);
 
   useEffect(() => {
     loadCompanyData();
@@ -210,6 +222,12 @@ const Configuracoes = () => {
             pagamentoOnline: s.online_payment_enabled,
             relatoriosAvancados: s.advanced_reports_enabled,
             integracaoWhatsApp: s.whatsapp_integration_enabled
+          },
+          pagamento: {
+            pixKey: s.pix_key || "",
+            pixQrCode: s.pix_qr_code || "",
+            paymentMethods: s.payment_methods || ["no_local"],
+            requiresPaymentConfirmation: s.requires_payment_confirmation || false
           }
         });
       }
@@ -271,7 +289,7 @@ const Configuracoes = () => {
     }));
   };
 
-  const handleInputChange = (categoria: string, campo: string, valor: string) => {
+  const handleInputChange = (categoria: string, campo: string, valor: string | string[] | boolean) => {
     setConfiguracoes(prev => ({
       ...prev,
       [categoria]: {
@@ -325,6 +343,10 @@ const Configuracoes = () => {
           whatsapp_integration_enabled: configuracoes.sistema.integracaoWhatsApp,
           primary_color: '#8B5CF6', // Cor fixa
           secondary_color: '#ffffff',
+          pix_key: configuracoes.pagamento.pixKey || null,
+          pix_qr_code: configuracoes.pagamento.pixQrCode || null,
+          payment_methods: configuracoes.pagamento.paymentMethods,
+          requires_payment_confirmation: configuracoes.pagamento.requiresPaymentConfirmation,
         }, {
           onConflict: 'company_id'
         })
@@ -551,7 +573,7 @@ const Configuracoes = () => {
           <Tabs defaultValue="notificacoes" className="w-full">
             <div className="border-b bg-muted/30 rounded-t-lg">
               <TabsList className="w-full h-auto p-1 bg-transparent">
-                <div className="grid w-full grid-cols-3 sm:grid-cols-5 gap-0.5 sm:gap-1">
+                <div className="grid w-full grid-cols-3 sm:grid-cols-6 gap-0.5 sm:gap-1">
                   <TabsTrigger 
                     value="notificacoes" 
                     className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
@@ -582,6 +604,17 @@ const Configuracoes = () => {
                     <div className="text-center">
                       <div className="text-xs font-medium">Visual</div>
                       <div className="text-xs text-muted-foreground hidden lg:block">Cores</div>
+                    </div>
+                  </TabsTrigger>
+                  
+                  <TabsTrigger 
+                    value="pagamento" 
+                    className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                  >
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <div className="text-center">
+                      <div className="text-xs font-medium">Pagamento</div>
+                      <div className="text-xs text-muted-foreground hidden lg:block">PIX</div>
                     </div>
                   </TabsTrigger>
                   
@@ -664,6 +697,24 @@ const Configuracoes = () => {
                     companyId={companyId}
                   />
                   <HorariosFuncionamentoSection companyId={companyId} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="pagamento" className="mt-0">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-md">
+                      <CreditCard className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold">Pagamento</h3>
+                      <p className="text-xs text-muted-foreground">Configure formas de pagamento</p>
+                    </div>
+                  </div>
+                  <PagamentoSection
+                    configuracoes={configuracoes.pagamento}
+                    onInputChange={(campo, valor) => handleInputChange("pagamento", campo, valor)}
+                  />
                 </div>
               </TabsContent>
 
