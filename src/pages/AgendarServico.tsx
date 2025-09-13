@@ -111,21 +111,21 @@ export default function AgendarServico() {
   // Estados para configurações de pagamento
   const [companySettings, setCompanySettings] = useState<any>(null);
 
-  // Função auxiliar para converter tempo em minutos
-  const timeToMinutes = useCallback((timeStr: string): number => {
+  // Função auxiliar para converter tempo em minutos (sem useCallback para evitar loops)
+  const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(":").map(Number);
     return hours * 60 + minutes;
-  }, []);
+  };
 
-  // Função auxiliar para converter minutos em tempo
-  const minutesToTime = useCallback((minutes: number): string => {
+  // Função auxiliar para converter minutos em tempo (sem useCallback para evitar loops)
+  const minutesToTime = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
-  }, []);
+  };
 
-  // Função para verificar se um horário tem conflito com agendamentos existentes
-  const hasTimeConflict = useCallback((startTime: string, duration: number, professionalId: string, dateStr: string): boolean => {
+  // Função para verificar se um horário tem conflito com agendamentos existentes (sem useCallback)
+  const hasTimeConflict = (startTime: string, duration: number, professionalId: string, dateStr: string): boolean => {
     const startMinutes = timeToMinutes(startTime);
     const endMinutes = startMinutes + duration;
 
@@ -153,7 +153,7 @@ export default function AgendarServico() {
     }
 
     return false;
-  }, [appointments, services, timeToMinutes, minutesToTime]);
+  };
 
   useEffect(() => {
     try {
@@ -354,30 +354,25 @@ export default function AgendarServico() {
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
-  // Filtrar profissionais disponíveis - memoizado para evitar re-renders infinitos
-  const availableProfessionals = useMemo(() => {
-    const filtered = professionals.filter(p => {
-      const isAvailable = p.is_available;
-      
-      // Suportar diferentes tipos de valores para is_available
-      if (typeof isAvailable === 'boolean') {
-        return isAvailable === true;
-      }
-      if (typeof isAvailable === 'number') {
-        return isAvailable === 1;
-      }
-      if (typeof isAvailable === 'string') {
-        return isAvailable === "true" || isAvailable === "t";
-      }
-      return false;
-    });
+  // Filtrar profissionais disponíveis - simplificado sem memoização
+  const availableProfessionals = professionals.filter(p => {
+    const isAvailable = p.is_available;
+    
+    // Suportar diferentes tipos de valores para is_available
+    if (typeof isAvailable === 'boolean') {
+      return isAvailable === true;
+    }
+    if (typeof isAvailable === 'number') {
+      return isAvailable === 1;
+    }
+    if (typeof isAvailable === 'string') {
+      return isAvailable === "true" || isAvailable === "t";
+    }
+    return false;
+  });
 
-    console.log("Profissionais disponíveis:", filtered.length);
-    return filtered;
-  }, [professionals]);
-
-  // Filtrar profissionais com base no serviço selecionado - memoizado
-  const filteredProfessionals = useMemo(() => {
+  // Filtrar profissionais com base no serviço selecionado - simplificado
+  const filteredProfessionals = (() => {
     if (!selectedServiceId) return availableProfessionals;
 
     const selectedService = services.find(s => s.id === selectedServiceId);
@@ -392,40 +387,29 @@ export default function AgendarServico() {
       );
       
       // Se não encontrar profissional responsável específico, mostrar todos disponíveis
-      const finalList = responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
-      console.log("Profissionais filtrados para o serviço:", finalList.length);
-      return finalList;
+      return responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
     }
     
     // Se não tem profissional responsável, mostrar todos disponíveis
-    console.log("Profissionais filtrados para o serviço:", availableProfessionals.length);
     return availableProfessionals;
-  }, [selectedServiceId, availableProfessionals, services]);
+  })();
 
-  const availableTimes = useMemo(() => {
+  // Calcular horários disponíveis - simplificado sem useMemo
+  const getAvailableTimes = () => {
     if (!selectedProfessionalId || !selectedDate || !company || !selectedServiceId) {
-      console.log("❌ availableTimes: Missing required data", { 
-        selectedProfessionalId: !!selectedProfessionalId, 
-        selectedDate: !!selectedDate, 
-        company: !!company,
-        selectedServiceId: !!selectedServiceId
-      });
       return [];
     }
 
     // Buscar o serviço selecionado para obter a duração
     const selectedService = services.find(s => s.id === selectedServiceId);
     if (!selectedService) {
-      console.log("❌ availableTimes: Selected service not found");
       return [];
     }
 
     const serviceDuration = selectedService.duration; // em minutos
-    console.log(`📋 Service "${selectedService.name}" duration: ${serviceDuration} minutes`);
     
     const businessHours = company.business_hours;
     if (!businessHours) {
-      console.log("❌ availableTimes: No business hours defined");
       return [];
     }
 
@@ -436,11 +420,8 @@ export default function AgendarServico() {
 
     const daySchedule = businessHours[dayName];
     if (!daySchedule || !daySchedule.isOpen) {
-      console.log(`❌ availableTimes: ${dayName} is closed or undefined`, daySchedule);
       return [];
     }
-
-    console.log(`📅 availableTimes: Processing ${dayName}`, { start: daySchedule.start, end: daySchedule.end });
 
     const availableSlots: string[] = [];
     const start = daySchedule.start;
@@ -450,16 +431,13 @@ export default function AgendarServico() {
     const startMinutes = timeToMinutes(start);
     const endMinutes = timeToMinutes(end);
 
-    console.log(`📋 Checking slots for professional ${selectedProfessionalId} on ${appointmentDateStr}`);
-
-    // Gerar slots em intervalos de 15 minutos para maior flexibilidade
+    // Gerar slots em intervalos de 30 minutos
     let currentMinutes = startMinutes;
     let iterations = 0;
-    const maxIterations = 100; // Segurança
+    const maxIterations = 50; // Reduzido para melhor performance
 
     while (currentMinutes <= endMinutes - serviceDuration && iterations < maxIterations) {
       const currentTimeStr = minutesToTime(currentMinutes);
-      const endTimeStr = minutesToTime(currentMinutes + serviceDuration);
 
       // Verificar se o horário termina dentro do expediente
       if (currentMinutes + serviceDuration <= endMinutes) {
@@ -468,41 +446,32 @@ export default function AgendarServico() {
 
         if (!hasConflict) {
           availableSlots.push(currentTimeStr);
-          console.log(`✅ Time ${currentTimeStr}-${endTimeStr}: Available`);
-        } else {
-          console.log(`❌ Time ${currentTimeStr}-${endTimeStr}: Conflict detected`);
         }
       }
 
-      // Incrementar 15 minutos para maior flexibilidade
-      currentMinutes += 15;
+      // Incrementar 30 minutos para melhor performance
+      currentMinutes += 30;
       iterations++;
     }
-
-    console.log(`✅ Final available slots for ${dayName} ${appointmentDateStr}:`, availableSlots);
-    console.log(`📊 Summary: ${availableSlots.length} available slots for ${serviceDuration}min service`);
     
     return availableSlots;
-  }, [selectedProfessionalId, selectedDate, company, selectedServiceId, services, appointments, timeToMinutes, minutesToTime, hasTimeConflict]);
+  };
 
-  // Resetar horário quando serviço ou profissional muda - usando callback para evitar loops
-  const resetSelectedTime = useCallback(() => {
-    setSelectedTime(undefined);
-  }, []);
+  const availableTimes = getAvailableTimes();
 
+  // Resetar horário quando serviço ou profissional muda - simplificado
   useEffect(() => {
-    resetSelectedTime();
-  }, [selectedServiceId, selectedProfessionalId, resetSelectedTime]);
+    setSelectedTime(undefined);
+  }, [selectedServiceId, selectedProfessionalId]);
 
-  // Verificar disponibilidade do horário selecionado com debounce - agora considera duração do serviço
-  const checkTimeAvailability = useCallback(() => {
+  // Verificar disponibilidade do horário selecionado - removido debounce desnecessário
+  useEffect(() => {
     if (selectedTime && selectedProfessionalId && selectedDate && selectedServiceId && appointments.length > 0) {
       const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
       
       // Buscar o serviço selecionado para obter a duração
       const selectedService = services.find(s => s.id === selectedServiceId);
       if (!selectedService) {
-        console.log("❌ checkTimeAvailability: Service not found");
         return;
       }
 
@@ -514,12 +483,7 @@ export default function AgendarServico() {
         toast.error("⏰ Horário não disponível! Este horário conflita com outro agendamento. Por favor, escolha outro horário disponível.");
       }
     }
-  }, [selectedTime, selectedProfessionalId, selectedDate, selectedServiceId, appointments, services, hasTimeConflict]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(checkTimeAvailability, 100); // Debounce de 100ms
-    return () => clearTimeout(timeoutId);
-  }, [checkTimeAvailability]);
+  }, [selectedTime, selectedProfessionalId, selectedDate, selectedServiceId, appointments, services]);
 
   // Garantir que submitting seja resetado se o componente for desmontado
   useEffect(() => {
@@ -562,27 +526,21 @@ export default function AgendarServico() {
       return;
     }
 
-      if (!validate()) {
-        return;
-      }
+    if (!validate()) {
+      return;
+    }
 
-      // Validar método de pagamento
-      if (!selectedPaymentMethod) {
-        toast.error("Selecione uma forma de pagamento");
-        return;
-      }
+    // Validar método de pagamento
+    if (!selectedPaymentMethod) {
+      toast.error("Selecione uma forma de pagamento");
+      return;
+    }
 
-      // Se PIX foi selecionado, verificar se há chave PIX configurada
-      if (selectedPaymentMethod === 'pix' && !companySettings?.pix_key) {
-        toast.error("PIX não disponível. A empresa ainda não configurou a chave PIX.");
-        return;
-      }
-
-      // Se for PIX e requer comprovante, verificar se foi anexado
-      if (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && !pixProof) {
-        toast.error("Anexe o comprovante de pagamento PIX");
-        return;
-      }
+    // Se PIX foi selecionado, verificar se há chave PIX configurada
+    if (selectedPaymentMethod === 'pix' && !companySettings?.pix_key) {
+      toast.error("PIX não disponível. A empresa ainda não configurou a chave PIX.");
+      return;
+    }
 
     if (!company?.id) {
       toast.error("Dados da empresa não encontrados");
@@ -644,19 +602,13 @@ export default function AgendarServico() {
         try {
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('gallery')
-            .upload(filePath, pixProof);
+            .upload(filePath, pixProof, {
+              upsert: true
+            });
 
           if (uploadError) {
             console.error('Erro ao fazer upload do comprovante:', uploadError);
-            
-            // Mensagens de erro mais específicas
-            if (uploadError.message?.includes('JWT')) {
-              toast.error("Sessão expirada. Recarregue a página e tente novamente.");
-            } else if (uploadError.message?.includes('policy')) {
-              toast.error("Erro de permissão. Contate o suporte.");
-            } else {
-              toast.error(`Erro ao fazer upload: ${uploadError.message}`);
-            }
+            toast.error(`Erro ao fazer upload: ${uploadError.message}`);
             return;
           }
 
@@ -672,6 +624,11 @@ export default function AgendarServico() {
           toast.error("Erro inesperado ao fazer upload. Tente novamente.");
           return;
         }
+      }
+
+      // Se PIX foi selecionado mas não há URL do comprovante da seção de pagamento, usar do pixProofUrl
+      if (selectedPaymentMethod === 'pix' && !pixProofPath && pixProofUrl) {
+        pixProofPath = pixProofUrl;
       }
 
       const { data: existingClient, error: clientSearchError } = await supabase
@@ -747,14 +704,7 @@ export default function AgendarServico() {
         
         // Verificar se é erro de unique constraint (horário ocupado)
         if (appointmentError.code === '23505') {
-          // Pode ser o índice único que criamos ou outras constraints
-          if (appointmentError.message.includes('idx_unique_appointment_slot') || 
-              appointmentError.message.includes('appointments_professional_datetime_unique')) {
-            toast.error("⏰ Horário não disponível! Este horário acabou de ser ocupado por outro cliente. Por favor, escolha outro horário disponível.");
-            return;
-          }
-          // Outros erros de unique constraint
-          toast.error("🚫 Este horário foi ocupado por outro cliente. Escolha outro horário.");
+          toast.error("⏰ Horário não disponível! Este horário acabou de ser ocupado por outro cliente. Por favor, escolha outro horário disponível.");
           return;
         } else if (appointmentError.code === '23503') {
           throw new Error("Dados inválidos. Recarregue a página e tente novamente.");
@@ -788,7 +738,7 @@ export default function AgendarServico() {
       if (selectedPaymentMethod === 'pix' && pixProofPath) {
         successMessage = `🎉 Obrigado, ${fullName}! Seu comprovante PIX foi enviado com sucesso. Seu agendamento será confirmado após validação do pagamento.`;
       } else if (selectedPaymentMethod === 'pix' && !pixProofPath) {
-        successMessage = `🎉 Obrigado, ${fullName}! Seu agendamento foi registrado. Envie o comprovante PIX para confirmar o agendamento.`;
+        successMessage = `🎉 Obrigado, ${fullName}! Seu agendamento foi registrado. A empresa entrará em contato para confirmar o pagamento PIX.`;
       } else if (selectedPaymentMethod === 'no_local') {
         successMessage = `🎉 Obrigado, ${fullName}! Seu agendamento foi confirmado com sucesso. Pagamento será realizado no local.`;
       } else {
@@ -797,7 +747,11 @@ export default function AgendarServico() {
       
       toast.success(successMessage);
 
-      // Limpar formulário
+      // Limpar formulário após sucesso
+      setFullName("");
+      setWhatsapp("");
+      setEmail("");
+      setNotes("");
       setSelectedServiceId(undefined);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
@@ -805,16 +759,14 @@ export default function AgendarServico() {
       setSelectedPaymentMethod(undefined);
       setPixProof(null);
       setPixProofUrl("");
-      setNotes("");
 
-    } catch (error) {
-      console.error("❌ ERRO COMPLETO:", error);
+    } catch (error: any) {
+      console.error("❌ Erro no agendamento:", error);
       
-      let errorMessage = 'Erro desconhecido. Tente novamente.';
+      let errorMessage = 'Erro ao processar agendamento';
       
       if (error instanceof Error) {
         errorMessage = error.message;
-        console.error("Stack:", error.stack);
       }
       
       // Mostrar mensagens mais amigáveis para erros comuns
@@ -1184,11 +1136,10 @@ export default function AgendarServico() {
                   !selectedProfessionalId || 
                   !selectedDate || 
                   !selectedTime || 
-                  !selectedPaymentMethod ||
-                  (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation && !pixProofUrl)
+                  !selectedPaymentMethod
                 }
               >
-                {submitting ? "Processando..." : (selectedPaymentMethod === 'pix' && companySettings?.requires_payment_confirmation ? "Enviar Agendamento" : "Confirmar Agendamento")}
+                {submitting ? "Processando..." : "Confirmar Agendamento"}
               </Button>
             </div>
           </CardContent>

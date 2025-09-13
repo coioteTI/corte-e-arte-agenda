@@ -84,7 +84,7 @@ export const PaymentProofUpload = ({
         .from('gallery') // Usando o bucket gallery existente
         .upload(filePath, uploadedFile, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true // Permitir substituição se arquivo já existir
         });
 
       if (error) {
