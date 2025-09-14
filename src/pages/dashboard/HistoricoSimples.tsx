@@ -22,6 +22,7 @@ interface ServicoFinalizado {
   payment_status: string;
   total_price: number;
   created_at: string;
+  status: string;
 }
 
 export default function HistoricoSimples() {
@@ -34,6 +35,7 @@ export default function HistoricoSimples() {
   const [filtroData, setFiltroData] = useState("");
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatusPagamento, setFiltroStatusPagamento] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
 
   useEffect(() => {
     carregarServicosFinalizados();
@@ -41,7 +43,7 @@ export default function HistoricoSimples() {
 
   useEffect(() => {
     aplicarFiltros();
-  }, [servicos, filtroData, filtroProfissional, filtroStatusPagamento]);
+  }, [servicos, filtroData, filtroProfissional, filtroStatusPagamento, filtroStatus]);
 
   const carregarServicosFinalizados = async () => {
     try {
@@ -66,7 +68,7 @@ export default function HistoricoSimples() {
 
       setCompanyId(companies.id);
 
-      // Buscar apenas appointments com status 'completed'
+      // Buscar appointments com todos os status
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -77,12 +79,12 @@ export default function HistoricoSimples() {
           payment_status,
           total_price,
           created_at,
+          status,
           clients!inner(name),
           services!inner(name),
           professionals!inner(name)
         `)
         .eq('company_id', companies.id)
-        .eq('status', 'completed')
         .order('appointment_date', { ascending: false });
 
       if (appointmentsError) throw appointmentsError;
@@ -97,7 +99,8 @@ export default function HistoricoSimples() {
         payment_method: apt.payment_method,
         payment_status: apt.payment_status,
         total_price: apt.total_price,
-        created_at: apt.created_at
+        created_at: apt.created_at,
+        status: apt.status
       })) || [];
 
       setServicos(servicosFormatados);
@@ -111,6 +114,23 @@ export default function HistoricoSimples() {
 
   const aplicarFiltros = () => {
     let servicosFiltrados = [...servicos];
+
+    // Filtro por status
+    if (filtroStatus !== "todos") {
+      if (filtroStatus === "pago") {
+        servicosFiltrados = servicosFiltrados.filter(servico =>
+          servico.status === 'completed' && servico.payment_status === 'paid'
+        );
+      } else if (filtroStatus === "pendente") {
+        servicosFiltrados = servicosFiltrados.filter(servico =>
+          servico.status === 'completed' && servico.payment_status !== 'paid'
+        );
+      } else if (filtroStatus === "agendado") {
+        servicosFiltrados = servicosFiltrados.filter(servico =>
+          servico.status === 'scheduled' || servico.status === 'confirmed'
+        );
+      }
+    }
 
     // Filtro por data
     if (filtroData) {
@@ -140,18 +160,20 @@ export default function HistoricoSimples() {
     setFiltroData("");
     setFiltroProfissional("todos");
     setFiltroStatusPagamento("todos");
+    setFiltroStatus("todos");
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'paid':
+  const getStatusBadge = (status: string, paymentStatus: string) => {
+    if (status === 'completed') {
+      if (paymentStatus === 'paid') {
         return <Badge variant="default" className="bg-green-500">Pago</Badge>;
-      case 'pending':
-        return <Badge variant="secondary">Pendente</Badge>;
-      case 'awaiting_payment':
-        return <Badge variant="outline">Aguardando</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+      } else {
+        return <Badge variant="destructive">Pendente</Badge>;
+      }
+    } else if (status === 'scheduled' || status === 'confirmed') {
+      return <Badge variant="secondary">Agendado</Badge>;
+    } else {
+      return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -188,6 +210,45 @@ export default function HistoricoSimples() {
             {servicosFiltrados.length} serviço(s) finalizado(s)
           </Badge>
         </div>
+
+        {/* Filtros por Status */}
+        <Card className="mb-4">
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={filtroStatus === "todos" ? "default" : "outline"}
+                onClick={() => setFiltroStatus("todos")}
+                size="sm"
+              >
+                Todos
+              </Button>
+              <Button
+                variant={filtroStatus === "pago" ? "default" : "outline"}
+                onClick={() => setFiltroStatus("pago")}
+                size="sm"
+                className="bg-green-500 hover:bg-green-600 text-white"
+              >
+                Pago
+              </Button>
+              <Button
+                variant={filtroStatus === "pendente" ? "default" : "outline"}
+                onClick={() => setFiltroStatus("pendente")}
+                size="sm"
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                Pendente
+              </Button>
+              <Button
+                variant={filtroStatus === "agendado" ? "default" : "outline"}
+                onClick={() => setFiltroStatus("agendado")}
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Agendado/Em andamento
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Filtros */}
         <Card>
@@ -288,7 +349,7 @@ export default function HistoricoSimples() {
                         </div>
                       </div>
                       
-                      {getStatusBadge(servico.payment_status)}
+                      {getStatusBadge(servico.status, servico.payment_status)}
                     </div>
                   </div>
                 </CardContent>
