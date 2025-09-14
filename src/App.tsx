@@ -18,7 +18,7 @@ import Profissionais from "./pages/dashboard/Profissionais";
 import Ranking from "./pages/dashboard/Ranking";
 import Relatorios from "./pages/dashboard/Relatorios";
 import Horarios from "./pages/dashboard/Horarios";
-import HistoricoPagamentos from "./pages/dashboard/HistoricoPagamentos";
+
 import Configuracoes from "./pages/dashboard/Configuracoes";
 import WebhookLogs from "./pages/dashboard/WebhookLogs";
 import Planos from "./pages/dashboard/Planos";
@@ -85,7 +85,7 @@ const App = () => (
           <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
           <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
           <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-          <Route path="/dashboard/historico-pagamentos" element={<ProtectedRoute><HistoricoPagamentos /></ProtectedRoute>} />
+          
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
