@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar, User, Scissors, Clock, CreditCard, MapPin } from "lucide-react";
+import { Calendar, User, Scissors, Clock, CreditCard } from "lucide-react";
 
 interface ServicoFinalizado {
   id: string;
@@ -23,6 +24,7 @@ interface ServicoFinalizado {
   total_price: number;
   created_at: string;
   status: string;
+  comprovante_url?: string; // <- comprovante do agendamento
 }
 
 export default function HistoricoSimples() {
@@ -68,7 +70,7 @@ export default function HistoricoSimples() {
 
       setCompanyId(companies.id);
 
-      // Buscar appointments com todos os status
+      // Buscar appointments
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -80,6 +82,7 @@ export default function HistoricoSimples() {
           total_price,
           created_at,
           status,
+          comprovante_url,
           clients!inner(name),
           services!inner(name),
           professionals!inner(name)
@@ -100,7 +103,8 @@ export default function HistoricoSimples() {
         payment_status: apt.payment_status,
         total_price: apt.total_price,
         created_at: apt.created_at,
-        status: apt.status
+        status: apt.status,
+        comprovante_url: apt.comprovante_url
       })) || [];
 
       setServicos(servicosFormatados);
@@ -115,7 +119,6 @@ export default function HistoricoSimples() {
   const aplicarFiltros = () => {
     let servicosFiltrados = [...servicos];
 
-    // Filtro por status
     if (filtroStatus !== "todos") {
       if (filtroStatus === "pago") {
         servicosFiltrados = servicosFiltrados.filter(servico =>
@@ -132,21 +135,18 @@ export default function HistoricoSimples() {
       }
     }
 
-    // Filtro por data
     if (filtroData) {
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.appointment_date === filtroData
       );
     }
 
-    // Filtro por profissional
     if (filtroProfissional !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.professional_name.toLowerCase().includes(filtroProfissional.toLowerCase())
       );
     }
 
-    // Filtro por status de pagamento
     if (filtroStatusPagamento !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.payment_status === filtroStatusPagamento
@@ -161,6 +161,26 @@ export default function HistoricoSimples() {
     setFiltroProfissional("todos");
     setFiltroStatusPagamento("todos");
     setFiltroStatus("todos");
+  };
+
+  const concluirPagamento = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          status: "completed",
+          payment_status: "paid"
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Serviço concluído e marcado como pago!");
+      carregarServicosFinalizados();
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao concluir serviço");
+    }
   };
 
   const getStatusBadge = (status: string, paymentStatus: string) => {
@@ -207,7 +227,7 @@ export default function HistoricoSimples() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-3xl font-bold">Histórico de Pagamentos</h1>
           <Badge variant="outline" className="text-sm">
-            {servicosFiltrados.length} serviço(s) finalizado(s)
+            {servicosFiltrados.length} serviço(s) encontrado(s)
           </Badge>
         </div>
 
@@ -298,10 +318,10 @@ export default function HistoricoSimples() {
             <Card>
               <CardContent className="text-center py-8">
                 <Scissors className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Nenhum serviço finalizado</h3>
+                <h3 className="text-lg font-medium mb-2">Nenhum serviço encontrado</h3>
                 <p className="text-muted-foreground">
                   {servicos.length === 0 
-                    ? "Ainda não há serviços finalizados para mostrar."
+                    ? "Ainda não há serviços registrados."
                     : "Nenhum serviço encontrado com os filtros aplicados."
                   }
                 </p>
@@ -350,6 +370,36 @@ export default function HistoricoSimples() {
                       </div>
                       
                       {getStatusBadge(servico.status, servico.payment_status)}
+
+                      {/* Botões de ação */}
+                      <div className="flex gap-2 mt-2">
+                        {(servico.status !== "completed" || servico.payment_status !== "paid") && (
+                          <Button 
+                            size="sm" 
+                            className="bg-green-500 hover:bg-green-600 text-white"
+                            onClick={() => concluirPagamento(servico.id)}
+                          >
+                            ✅ Concluir
+                          </Button>
+                        )}
+
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline">📎 Ver Comprovante</Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            {servico.comprovante_url ? (
+                              <img 
+                                src={servico.comprovante_url} 
+                                alt="Comprovante" 
+                                className="w-full h-auto rounded-lg" 
+                              />
+                            ) : (
+                              <p>Nenhum comprovante enviado</p>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
