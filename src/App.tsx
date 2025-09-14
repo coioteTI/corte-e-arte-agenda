@@ -22,6 +22,7 @@ import Horarios from "./pages/dashboard/Horarios";
 import Configuracoes from "./pages/dashboard/Configuracoes";
 import WebhookLogs from "./pages/dashboard/WebhookLogs";
 import Planos from "./pages/dashboard/Planos";
+import HistoricoSimples from "./pages/dashboard/HistoricoSimples";
 import BuscarBarbearias from "./pages/BuscarBarbearias";
 import PerfilBarbearia from "./pages/PerfilBarbearia";
 import AgendarServico from "./pages/AgendarServico";
@@ -85,6 +86,7 @@ const App = () => (
           <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
           <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
           <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+          <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
           
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
