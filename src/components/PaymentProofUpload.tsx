@@ -81,7 +81,7 @@ export const PaymentProofUpload = ({
 
       // Upload para o Supabase Storage
       const { data, error } = await supabase.storage
-        .from('gallery') // Usando o bucket gallery existente
+        .from('payment-proofs') // Usando o bucket específico para comprovantes
         .upload(filePath, uploadedFile, {
           cacheControl: '3600',
           upsert: true // Permitir substituição se arquivo já existir
@@ -89,14 +89,14 @@ export const PaymentProofUpload = ({
 
       if (error) {
         console.error("Upload error:", error);
-        throw error;
+        throw new Error(`Erro no upload: ${error.message}`);
       }
 
       console.log("Upload success:", data);
 
       // Obter URL pública
       const { data: publicUrlData } = supabase.storage
-        .from('gallery')
+        .from('payment-proofs')
         .getPublicUrl(filePath);
 
       if (!publicUrlData.publicUrl) {
@@ -111,7 +111,10 @@ export const PaymentProofUpload = ({
 
     } catch (error) {
       console.error("Erro no upload:", error);
-      toast.error(`Erro ao enviar comprovante: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Erro desconhecido. Tente novamente.';
+      toast.error(`Erro ao enviar comprovante: ${errorMessage}`);
     } finally {
       setUploading(false);
     }
