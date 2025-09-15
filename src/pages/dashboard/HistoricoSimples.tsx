@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PaymentProofUpload } from "@/components/PaymentProofUpload";
+import { ComprovanteModal } from "@/components/ComprovanteModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -45,6 +46,11 @@ export default function HistoricoSimples() {
   // Estados para upload de comprovante
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  
+  // Estados para visualização de comprovante
+  const [comprovanteModalOpen, setComprovanteModalOpen] = useState(false);
+  const [selectedComprovanteUrl, setSelectedComprovanteUrl] = useState<string>("");
+  const [selectedClientName, setSelectedClientName] = useState<string>("");
 
   useEffect(() => {
     carregarServicosFinalizados();
@@ -220,6 +226,12 @@ export default function HistoricoSimples() {
     setUploadDialogOpen(true);
   };
 
+  const abrirComprovanteModal = (url: string, clientName: string) => {
+    setSelectedComprovanteUrl(url);
+    setSelectedClientName(clientName);
+    setComprovanteModalOpen(true);
+  };
+
   const getStatusBadge = (status: string, paymentStatus: string) => {
     if (status === 'completed') {
       if (paymentStatus === 'paid') {
@@ -335,8 +347,13 @@ export default function HistoricoSimples() {
                     mode="single"
                     selected={filtroData}
                     onSelect={setFiltroData}
+                    disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date > today;
+                    }}
                     initialFocus
-                    className={cn("p-3 pointer-events-auto")}
+                    className="p-3 pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -444,16 +461,16 @@ export default function HistoricoSimples() {
                            </Button>
                          )}
                          
-                         {servico.comprovante_url && (
-                           <Button
-                             size="sm"
-                             variant="outline"
-                             onClick={() => window.open(servico.comprovante_url, '_blank')}
-                           >
-                             <Eye className="h-3 w-3 mr-1" />
-                             Ver Comprovante
-                           </Button>
-                         )}
+                          {servico.comprovante_url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => abrirComprovanteModal(servico.comprovante_url!, servico.client_name)}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              Ver Comprovante
+                            </Button>
+                          )}
                          
                          <Button
                            size="sm"
@@ -484,6 +501,14 @@ export default function HistoricoSimples() {
             />
           </DialogContent>
         </Dialog>
+
+        {/* Modal para visualização de comprovante */}
+        <ComprovanteModal
+          open={comprovanteModalOpen}
+          onOpenChange={setComprovanteModalOpen}
+          comprovanteUrl={selectedComprovanteUrl}
+          clientName={selectedClientName}
+        />
       </div>
     </DashboardLayout>
   );
