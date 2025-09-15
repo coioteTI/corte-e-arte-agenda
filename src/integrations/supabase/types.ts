@@ -20,6 +20,7 @@ export type Database = {
           appointment_time: string
           client_id: string | null
           company_id: string | null
+          comprovante_url: string | null
           created_at: string
           id: string
           notes: string | null
@@ -38,6 +39,7 @@ export type Database = {
           appointment_time: string
           client_id?: string | null
           company_id?: string | null
+          comprovante_url?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -56,6 +58,7 @@ export type Database = {
           appointment_time?: string
           client_id?: string | null
           company_id?: string | null
+          comprovante_url?: string | null
           created_at?: string
           id?: string
           notes?: string | null

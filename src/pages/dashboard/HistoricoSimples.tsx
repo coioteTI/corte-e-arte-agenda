@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/DashboardLayout";
+import { PaymentProofUpload } from "@/components/PaymentProofUpload";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar, User, Scissors, Clock, CreditCard, MapPin } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, User, Scissors, Clock, CreditCard, CheckCircle, Eye, Upload } from "lucide-react";
 
 interface ServicoFinalizado {
   id: string;
@@ -23,6 +27,7 @@ interface ServicoFinalizado {
   total_price: number;
   created_at: string;
   status: string;
+  comprovante_url?: string;
 }
 
 export default function HistoricoSimples() {
@@ -32,10 +37,14 @@ export default function HistoricoSimples() {
   const [companyId, setCompanyId] = useState<string>("");
 
   // Filtros
-  const [filtroData, setFiltroData] = useState("");
+  const [filtroData, setFiltroData] = useState<Date | undefined>(undefined);
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatusPagamento, setFiltroStatusPagamento] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+
+  // Estados para upload de comprovante
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
   useEffect(() => {
     carregarServicosFinalizados();
@@ -80,6 +89,7 @@ export default function HistoricoSimples() {
           total_price,
           created_at,
           status,
+          comprovante_url,
           clients!inner(name),
           services!inner(name),
           professionals!inner(name)
@@ -100,7 +110,8 @@ export default function HistoricoSimples() {
         payment_status: apt.payment_status,
         total_price: apt.total_price,
         created_at: apt.created_at,
-        status: apt.status
+        status: apt.status,
+        comprovante_url: apt.comprovante_url
       })) || [];
 
       setServicos(servicosFormatados);
@@ -134,8 +145,9 @@ export default function HistoricoSimples() {
 
     // Filtro por data
     if (filtroData) {
+      const dataFormatada = format(filtroData, "yyyy-MM-dd");
       servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.appointment_date === filtroData
+        servico.appointment_date === dataFormatada
       );
     }
 
@@ -157,10 +169,55 @@ export default function HistoricoSimples() {
   };
 
   const limparFiltros = () => {
-    setFiltroData("");
+    setFiltroData(undefined);
     setFiltroProfissional("todos");
     setFiltroStatusPagamento("todos");
     setFiltroStatus("todos");
+  };
+
+  const concluirPagamento = async (appointmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'completed',
+          payment_status: 'paid'
+        })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+
+      toast.success("Pagamento marcado como concluído!");
+      carregarServicosFinalizados();
+    } catch (error) {
+      console.error("Erro ao concluir pagamento:", error);
+      toast.error("Erro ao concluir pagamento");
+    }
+  };
+
+  const handleComprovanteUpload = (url: string) => {
+    if (selectedAppointmentId) {
+      // Atualizar o appointment com o comprovante
+      supabase
+        .from('appointments')
+        .update({ comprovante_url: url })
+        .eq('id', selectedAppointmentId)
+        .then(({ error }) => {
+          if (error) {
+            toast.error("Erro ao salvar comprovante");
+          } else {
+            toast.success("Comprovante salvo com sucesso!");
+            setUploadDialogOpen(false);
+            setSelectedAppointmentId(null);
+            carregarServicosFinalizados();
+          }
+        });
+    }
+  };
+
+  const abrirUploadDialog = (appointmentId: string) => {
+    setSelectedAppointmentId(appointmentId);
+    setUploadDialogOpen(true);
   };
 
   const getStatusBadge = (status: string, paymentStatus: string) => {
@@ -260,18 +317,41 @@ export default function HistoricoSimples() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Input
-                type="date"
-                placeholder="Filtrar por data"
-                value={filtroData}
-                onChange={(e) => setFiltroData(e.target.value)}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !filtroData && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filtroData ? format(filtroData, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filtroData}
+                    onSelect={setFiltroData}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
               
-              <Input
-                placeholder="Filtrar por profissional"
-                value={filtroProfissional === "todos" ? "" : filtroProfissional}
-                onChange={(e) => setFiltroProfissional(e.target.value || "todos")}
-              />
+              <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por profissional" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os profissionais</SelectItem>
+                  {Array.from(new Set(servicos.map(s => s.professional_name))).map(name => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               
               <Select value={filtroStatusPagamento} onValueChange={setFiltroStatusPagamento}>
                 <SelectTrigger>
@@ -338,25 +418,72 @@ export default function HistoricoSimples() {
                       </div>
                     </div>
                     
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="text-right">
-                        <div className="font-bold text-lg">
-                          R$ {servico.total_price?.toFixed(2) || '0.00'}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <CreditCard className="h-3 w-3" />
-                          {getPaymentMethodText(servico.payment_method)}
-                        </div>
-                      </div>
-                      
-                      {getStatusBadge(servico.status, servico.payment_status)}
-                    </div>
+                     <div className="flex flex-col items-end gap-2">
+                       <div className="text-right">
+                         <div className="font-bold text-lg">
+                           R$ {servico.total_price?.toFixed(2) || '0.00'}
+                         </div>
+                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                           <CreditCard className="h-3 w-3" />
+                           {getPaymentMethodText(servico.payment_method)}
+                         </div>
+                       </div>
+                       
+                       {getStatusBadge(servico.status, servico.payment_status)}
+                       
+                       {/* Botões de ação */}
+                       <div className="flex flex-wrap gap-2 mt-2">
+                         {servico.status !== 'completed' && (
+                           <Button
+                             size="sm"
+                             onClick={() => concluirPagamento(servico.id)}
+                             className="bg-green-500 hover:bg-green-600"
+                           >
+                             <CheckCircle className="h-3 w-3 mr-1" />
+                             Concluir
+                           </Button>
+                         )}
+                         
+                         {servico.comprovante_url && (
+                           <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => window.open(servico.comprovante_url, '_blank')}
+                           >
+                             <Eye className="h-3 w-3 mr-1" />
+                             Ver Comprovante
+                           </Button>
+                         )}
+                         
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => abrirUploadDialog(servico.id)}
+                         >
+                           <Upload className="h-3 w-3 mr-1" />
+                           {servico.comprovante_url ? 'Alterar' : 'Adicionar'} Comprovante
+                         </Button>
+                       </div>
+                     </div>
                   </div>
                 </CardContent>
               </Card>
             ))
           )}
         </div>
+
+        {/* Dialog para upload de comprovante */}
+        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar Comprovante de Pagamento</DialogTitle>
+            </DialogHeader>
+            <PaymentProofUpload
+              onUploadComplete={handleComprovanteUpload}
+              appointmentId={selectedAppointmentId || undefined}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
