@@ -41,7 +41,7 @@ export default function HistoricoSimples() {
   const [filtroData, setFiltroData] = useState<Date | undefined>(undefined);
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatusPagamento, setFiltroStatusPagamento] = useState("todos");
-  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("pago");
 
   // Estados para upload de comprovante
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -133,20 +133,18 @@ export default function HistoricoSimples() {
     let servicosFiltrados = [...servicos];
 
     // Filtro por status
-    if (filtroStatus !== "todos") {
-      if (filtroStatus === "pago") {
-        servicosFiltrados = servicosFiltrados.filter(servico =>
-          servico.status === 'completed' && servico.payment_status === 'paid'
-        );
-      } else if (filtroStatus === "pendente") {
-        servicosFiltrados = servicosFiltrados.filter(servico =>
-          servico.status === 'completed' && servico.payment_status !== 'paid'
-        );
-      } else if (filtroStatus === "agendado") {
-        servicosFiltrados = servicosFiltrados.filter(servico =>
-          servico.status === 'scheduled' || servico.status === 'confirmed'
-        );
-      }
+    if (filtroStatus === "pago") {
+      servicosFiltrados = servicosFiltrados.filter(servico =>
+        servico.status === 'completed' && servico.payment_status === 'paid'
+      );
+    } else if (filtroStatus === "pendente") {
+      servicosFiltrados = servicosFiltrados.filter(servico =>
+        servico.status === 'completed' && servico.payment_status !== 'paid'
+      );
+    } else if (filtroStatus === "agendado") {
+      servicosFiltrados = servicosFiltrados.filter(servico =>
+        servico.status === 'scheduled' || servico.status === 'confirmed'
+      );
     }
 
     // Filtro por data
@@ -178,7 +176,7 @@ export default function HistoricoSimples() {
     setFiltroData(undefined);
     setFiltroProfissional("todos");
     setFiltroStatusPagamento("todos");
-    setFiltroStatus("todos");
+    setFiltroStatus("pago");
   };
 
   const concluirPagamento = async (appointmentId: string) => {
@@ -285,13 +283,6 @@ export default function HistoricoSimples() {
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-2">
               <Button
-                variant={filtroStatus === "todos" ? "default" : "outline"}
-                onClick={() => setFiltroStatus("todos")}
-                size="sm"
-              >
-                Todos
-              </Button>
-              <Button
                 variant={filtroStatus === "pago" ? "default" : "outline"}
                 onClick={() => setFiltroStatus("pago")}
                 size="sm"
@@ -322,44 +313,10 @@ export default function HistoricoSimples() {
         {/* Filtros */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Filtros
-            </CardTitle>
+            <CardTitle>Filtros</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !filtroData && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filtroData ? format(filtroData, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={filtroData}
-                      onSelect={setFiltroData}
-                      disabled={(date) => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        return date > today;
-                      }}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por profissional" />
