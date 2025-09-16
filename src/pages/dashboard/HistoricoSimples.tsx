@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PaymentProofUpload } from "@/components/PaymentProofUpload";
 import { ComprovanteModal } from "@/components/ComprovanteModal";
@@ -83,7 +83,6 @@ export default function HistoricoSimples() {
 
       setCompanyId(companies.id);
 
-      // Buscar appointments com todos os status
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -132,7 +131,6 @@ export default function HistoricoSimples() {
   const aplicarFiltros = () => {
     let servicosFiltrados = [...servicos];
 
-    // Filtro por status
     if (filtroStatus !== "todos") {
       if (filtroStatus === "pago") {
         servicosFiltrados = servicosFiltrados.filter(servico =>
@@ -149,7 +147,6 @@ export default function HistoricoSimples() {
       }
     }
 
-    // Filtro por data
     if (filtroData) {
       const dataFormatada = format(filtroData, "yyyy-MM-dd");
       servicosFiltrados = servicosFiltrados.filter(servico =>
@@ -157,14 +154,12 @@ export default function HistoricoSimples() {
       );
     }
 
-    // Filtro por profissional
     if (filtroProfissional !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.professional_name.toLowerCase().includes(filtroProfissional.toLowerCase())
       );
     }
 
-    // Filtro por status de pagamento
     if (filtroStatusPagamento !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.payment_status === filtroStatusPagamento
@@ -203,7 +198,6 @@ export default function HistoricoSimples() {
 
   const handleComprovanteUpload = (url: string) => {
     if (selectedAppointmentId) {
-      // Atualizar o appointment com o comprovante
       supabase
         .from('appointments')
         .update({ comprovante_url: url })
@@ -276,11 +270,11 @@ export default function HistoricoSimples() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-3xl font-bold">Histórico de Pagamentos</h1>
           <Badge variant="outline" className="text-sm">
-            {servicosFiltrados.length} serviço(s) finalizado(s)
+            {servicosFiltrados.length} serviço(s) encontrado(s)
           </Badge>
         </div>
 
-        {/* Filtros por Status */}
+        {/* Botões de filtro por status */}
         <Card className="mb-4">
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-2">
@@ -319,7 +313,7 @@ export default function HistoricoSimples() {
           </CardContent>
         </Card>
 
-        {/* Filtros */}
+        {/* Filtros extras */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -329,6 +323,7 @@ export default function HistoricoSimples() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Data */}
               <div>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -360,6 +355,7 @@ export default function HistoricoSimples() {
                 </Popover>
               </div>
               
+              {/* Profissional */}
               <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por profissional" />
@@ -372,12 +368,12 @@ export default function HistoricoSimples() {
                 </SelectContent>
               </Select>
               
+              {/* Status de pagamento - sem "Todos" visível */}
               <Select value={filtroStatusPagamento} onValueChange={setFiltroStatusPagamento}>
                 <SelectTrigger>
                   <SelectValue placeholder="Status do pagamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os status</SelectItem>
                   <SelectItem value="paid">Pago</SelectItem>
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="awaiting_payment">Aguardando</SelectItem>
@@ -391,18 +387,17 @@ export default function HistoricoSimples() {
           </CardContent>
         </Card>
 
-        {/* Lista de serviços */}
+        {/* Lista */}
         <div className="grid gap-4">
           {servicosFiltrados.length === 0 ? (
             <Card>
               <CardContent className="text-center py-8">
                 <Scissors className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">Nenhum serviço finalizado</h3>
+                <h3 className="text-lg font-medium mb-2">Nenhum serviço encontrado</h3>
                 <p className="text-muted-foreground">
                   {servicos.length === 0 
-                    ? "Ainda não há serviços finalizados para mostrar."
-                    : "Nenhum serviço encontrado com os filtros aplicados."
-                  }
+                    ? "Ainda não há serviços cadastrados."
+                    : "Nenhum resultado com os filtros aplicados."}
                 </p>
               </CardContent>
             </Card>
@@ -450,7 +445,6 @@ export default function HistoricoSimples() {
                        
                        {getStatusBadge(servico.status, servico.payment_status)}
                        
-                       {/* Botões de ação */}
                        <div className="flex flex-wrap gap-2 mt-2">
                          {servico.status !== 'completed' && (
                            <Button
@@ -491,7 +485,7 @@ export default function HistoricoSimples() {
           )}
         </div>
 
-        {/* Dialog para upload de comprovante */}
+        {/* Upload comprovante */}
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -499,15 +493,15 @@ export default function HistoricoSimples() {
             </DialogHeader>
             <PaymentProofUpload
               onUploadComplete={handleComprovanteUpload}
-              appointmentId={selectedAppointmentId || undefined}
+              appointmentId={selectedAppointmentId}
             />
           </DialogContent>
         </Dialog>
 
-        {/* Modal para visualização de comprovante */}
+        {/* Modal comprovante */}
         <ComprovanteModal
-          open={comprovanteModalOpen}
-          onOpenChange={setComprovanteModalOpen}
+          isOpen={comprovanteModalOpen}
+          onClose={() => setComprovanteModalOpen(false)}
           comprovanteUrl={selectedComprovanteUrl}
           clientName={selectedClientName}
         />
