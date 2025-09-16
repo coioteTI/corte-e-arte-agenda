@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PaymentProofUpload } from "@/components/PaymentProofUpload";
 import { ComprovanteModal } from "@/components/ComprovanteModal";
@@ -203,7 +203,6 @@ export default function HistoricoSimples() {
 
   const handleComprovanteUpload = (url: string) => {
     if (selectedAppointmentId) {
-      // Atualizar o appointment com o comprovante
       supabase
         .from('appointments')
         .update({ comprovante_url: url })
@@ -285,13 +284,6 @@ export default function HistoricoSimples() {
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-2">
               <Button
-                variant={filtroStatus === "todos" ? "default" : "outline"}
-                onClick={() => setFiltroStatus("todos")}
-                size="sm"
-              >
-                Todos
-              </Button>
-              <Button
                 variant={filtroStatus === "pago" ? "default" : "outline"}
                 onClick={() => setFiltroStatus("pago")}
                 size="sm"
@@ -323,7 +315,7 @@ export default function HistoricoSimples() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
+              <CalendarIcon className="h-5 w-5" />
               Filtros
             </CardTitle>
           </CardHeader>
@@ -377,7 +369,6 @@ export default function HistoricoSimples() {
                   <SelectValue placeholder="Status do pagamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os status</SelectItem>
                   <SelectItem value="paid">Pago</SelectItem>
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="awaiting_payment">Aguardando</SelectItem>
@@ -504,10 +495,10 @@ export default function HistoricoSimples() {
           </DialogContent>
         </Dialog>
 
-        {/* Modal para visualização de comprovante */}
+        {/* Modal para visualizar comprovante */}
         <ComprovanteModal
-          open={comprovanteModalOpen}
-          onOpenChange={setComprovanteModalOpen}
+          isOpen={comprovanteModalOpen}
+          onClose={() => setComprovanteModalOpen(false)}
           comprovanteUrl={selectedComprovanteUrl}
           clientName={selectedClientName}
         />
