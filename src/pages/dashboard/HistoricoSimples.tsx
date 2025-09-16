@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PaymentProofUpload } from "@/components/PaymentProofUpload";
 import { ComprovanteModal } from "@/components/ComprovanteModal";
@@ -11,7 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { User, Scissors, Clock, CreditCard, CheckCircle, Eye, Upload } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, User, Scissors, Clock, CreditCard, CheckCircle, Eye, Upload } from "lucide-react";
 
 interface ServicoFinalizado {
   id: string;
@@ -35,6 +38,7 @@ export default function HistoricoSimples() {
   const [companyId, setCompanyId] = useState<string>("");
 
   // Filtros
+  const [filtroData, setFiltroData] = useState<Date | undefined>(undefined);
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatusPagamento, setFiltroStatusPagamento] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("pago");
@@ -54,7 +58,7 @@ export default function HistoricoSimples() {
 
   useEffect(() => {
     aplicarFiltros();
-  }, [servicos, filtroProfissional, filtroStatusPagamento, filtroStatus]);
+  }, [servicos, filtroData, filtroProfissional, filtroStatusPagamento, filtroStatus]);
 
   const carregarServicosFinalizados = async () => {
     try {
@@ -143,6 +147,14 @@ export default function HistoricoSimples() {
       );
     }
 
+    // Filtro por data
+    if (filtroData) {
+      const dataFormatada = format(filtroData, "yyyy-MM-dd");
+      servicosFiltrados = servicosFiltrados.filter(servico =>
+        servico.appointment_date === dataFormatada
+      );
+    }
+
     // Filtro por profissional
     if (filtroProfissional !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
@@ -161,6 +173,7 @@ export default function HistoricoSimples() {
   };
 
   const limparFiltros = () => {
+    setFiltroData(undefined);
     setFiltroProfissional("todos");
     setFiltroStatusPagamento("todos");
     setFiltroStatus("pago");
@@ -321,6 +334,7 @@ export default function HistoricoSimples() {
                   <SelectValue placeholder="Status do pagamento" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="todos">Todos os status</SelectItem>
                   <SelectItem value="paid">Pago</SelectItem>
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="awaiting_payment">Aguardando</SelectItem>
