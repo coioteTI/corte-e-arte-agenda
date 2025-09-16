@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PaymentProofUpload } from "@/components/PaymentProofUpload";
 import { ComprovanteModal } from "@/components/ComprovanteModal";
@@ -83,6 +83,7 @@ export default function HistoricoSimples() {
 
       setCompanyId(companies.id);
 
+      // Buscar appointments com todos os status
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
@@ -131,6 +132,7 @@ export default function HistoricoSimples() {
   const aplicarFiltros = () => {
     let servicosFiltrados = [...servicos];
 
+    // Filtro por status
     if (filtroStatus !== "todos") {
       if (filtroStatus === "pago") {
         servicosFiltrados = servicosFiltrados.filter(servico =>
@@ -147,6 +149,7 @@ export default function HistoricoSimples() {
       }
     }
 
+    // Filtro por data
     if (filtroData) {
       const dataFormatada = format(filtroData, "yyyy-MM-dd");
       servicosFiltrados = servicosFiltrados.filter(servico =>
@@ -154,12 +157,14 @@ export default function HistoricoSimples() {
       );
     }
 
+    // Filtro por profissional
     if (filtroProfissional !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.professional_name.toLowerCase().includes(filtroProfissional.toLowerCase())
       );
     }
 
+    // Filtro por status de pagamento
     if (filtroStatusPagamento !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.payment_status === filtroStatusPagamento
@@ -198,6 +203,7 @@ export default function HistoricoSimples() {
 
   const handleComprovanteUpload = (url: string) => {
     if (selectedAppointmentId) {
+      // Atualizar o appointment com o comprovante
       supabase
         .from('appointments')
         .update({ comprovante_url: url })
@@ -267,9 +273,225 @@ export default function HistoricoSimples() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* ... seu código de filtros e lista permanece igual ... */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-3xl font-bold">Histórico de Pagamentos</h1>
+          <Badge variant="outline" className="text-sm">
+            {servicosFiltrados.length} serviço(s) finalizado(s)
+          </Badge>
+        </div>
 
-        {/* Upload comprovante */}
+        {/* Filtros por Status */}
+        <Card className="mb-4">
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={filtroStatus === "todos" ? "default" : "outline"}
+                onClick={() => setFiltroStatus("todos")}
+                size="sm"
+              >
+                Todos
+              </Button>
+              <Button
+                variant={filtroStatus === "pago" ? "default" : "outline"}
+                onClick={() => setFiltroStatus("pago")}
+                size="sm"
+                className="bg-green-500 hover:bg-green-600 text-white"
+              >
+                Pago
+              </Button>
+              <Button
+                variant={filtroStatus === "pendente" ? "default" : "outline"}
+                onClick={() => setFiltroStatus("pendente")}
+                size="sm"
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                Pendente
+              </Button>
+              <Button
+                variant={filtroStatus === "agendado" ? "default" : "outline"}
+                onClick={() => setFiltroStatus("agendado")}
+                size="sm"
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Agendado/Em andamento
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Filtros */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Filtros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !filtroData && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filtroData ? format(filtroData, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={filtroData}
+                      onSelect={setFiltroData}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date > today;
+                      }}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por profissional" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os profissionais</SelectItem>
+                  {Array.from(new Set(servicos.map(s => s.professional_name))).map(name => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={filtroStatusPagamento} onValueChange={setFiltroStatusPagamento}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status do pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os status</SelectItem>
+                  <SelectItem value="paid">Pago</SelectItem>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="awaiting_payment">Aguardando</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button variant="outline" onClick={limparFiltros}>
+                Limpar Filtros
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Lista de serviços */}
+        <div className="grid gap-4">
+          {servicosFiltrados.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <Scissors className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">Nenhum serviço finalizado</h3>
+                <p className="text-muted-foreground">
+                  {servicos.length === 0 
+                    ? "Ainda não há serviços finalizados para mostrar."
+                    : "Nenhum serviço encontrado com os filtros aplicados."
+                  }
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            servicosFiltrados.map((servico) => (
+              <Card key={servico.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-primary" />
+                        <span className="font-medium">{servico.client_name}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Scissors className="h-4 w-4 text-muted-foreground" />
+                        <span>{servico.service_name}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          Profissional: {servico.professional_name}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          {format(new Date(servico.appointment_date), "dd/MM/yyyy", { locale: ptBR })} às {servico.appointment_time}
+                        </span>
+                      </div>
+                    </div>
+                    
+                     <div className="flex flex-col items-end gap-2">
+                       <div className="text-right">
+                         <div className="font-bold text-lg">
+                           R$ {servico.total_price?.toFixed(2) || '0.00'}
+                         </div>
+                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                           <CreditCard className="h-3 w-3" />
+                           {getPaymentMethodText(servico.payment_method)}
+                         </div>
+                       </div>
+                       
+                       {getStatusBadge(servico.status, servico.payment_status)}
+                       
+                       {/* Botões de ação */}
+                       <div className="flex flex-wrap gap-2 mt-2">
+                         {servico.status !== 'completed' && (
+                           <Button
+                             size="sm"
+                             onClick={() => concluirPagamento(servico.id)}
+                             className="bg-green-500 hover:bg-green-600"
+                           >
+                             <CheckCircle className="h-3 w-3 mr-1" />
+                             Concluir
+                           </Button>
+                         )}
+                         
+                          {servico.comprovante_url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => abrirComprovanteModal(servico.comprovante_url!, servico.client_name)}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              Ver Comprovante
+                            </Button>
+                          )}
+                         
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => abrirUploadDialog(servico.id)}
+                         >
+                           <Upload className="h-3 w-3 mr-1" />
+                           {servico.comprovante_url ? 'Alterar' : 'Adicionar'} Comprovante
+                         </Button>
+                       </div>
+                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* Dialog para upload de comprovante */}
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -277,15 +499,15 @@ export default function HistoricoSimples() {
             </DialogHeader>
             <PaymentProofUpload
               onUploadComplete={handleComprovanteUpload}
-              appointmentId={selectedAppointmentId}
+              appointmentId={selectedAppointmentId || undefined}
             />
           </DialogContent>
         </Dialog>
 
-        {/* Modal comprovante - CORRIGIDO */}
+        {/* Modal para visualização de comprovante */}
         <ComprovanteModal
-          open={comprovanteModalOpen}   // <- CORREÇÃO: antes era isOpen
-          onClose={() => setComprovanteModalOpen(false)}
+          open={comprovanteModalOpen}
+          onOpenChange={setComprovanteModalOpen}
           comprovanteUrl={selectedComprovanteUrl}
           clientName={selectedClientName}
         />
