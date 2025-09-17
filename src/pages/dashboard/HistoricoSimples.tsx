@@ -40,7 +40,7 @@ export default function HistoricoSimples() {
   // Filtros
   const [filtroData, setFiltroData] = useState<Date | undefined>(undefined);
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
-  const [filtroStatusPagamento, setFiltroStatusPagamento] = useState("todos");
+  const [filtroStatusPagamento, setFiltroStatusPagamento] = useState("paid");
   const [filtroStatus, setFiltroStatus] = useState("pago");
 
   // Estados para upload de comprovante
@@ -163,11 +163,9 @@ export default function HistoricoSimples() {
     }
 
     // Filtro por status de pagamento
-    if (filtroStatusPagamento !== "todos") {
-      servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.payment_status === filtroStatusPagamento
-      );
-    }
+    servicosFiltrados = servicosFiltrados.filter(servico =>
+      servico.payment_status === filtroStatusPagamento
+    );
 
     setServicosFiltrados(servicosFiltrados);
   };
@@ -175,7 +173,7 @@ export default function HistoricoSimples() {
   const limparFiltros = () => {
     setFiltroData(undefined);
     setFiltroProfissional("todos");
-    setFiltroStatusPagamento("todos");
+    setFiltroStatusPagamento("paid");
     setFiltroStatus("pago");
   };
 
@@ -316,7 +314,7 @@ export default function HistoricoSimples() {
             <CardTitle>Filtros</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por profissional" />
@@ -334,12 +332,35 @@ export default function HistoricoSimples() {
                   <SelectValue placeholder="Status do pagamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos os status</SelectItem>
                   <SelectItem value="paid">Pago</SelectItem>
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="awaiting_payment">Aguardando</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "justify-start text-left font-normal",
+                      !filtroData && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filtroData ? format(filtroData, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={filtroData}
+                    onSelect={setFiltroData}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
               
               <Button variant="outline" onClick={limparFiltros}>
                 Limpar Filtros
