@@ -157,7 +157,7 @@ export default function HistoricoSimples() {
     // Filtro por profissional
     if (filtroProfissional !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.professional_name.toLowerCase().includes(filtroProfissional.toLowerCase())
+        servico.professional_name === filtroProfissional
       );
     }
 
@@ -410,20 +410,20 @@ export default function HistoricoSimples() {
                        
                        {getStatusBadge(servico.status, servico.payment_status)}
                        
-                       {/* Botões de ação */}
-                       <div className="flex flex-wrap gap-2 mt-2">
-                         {servico.status !== 'completed' && (
-                           <Button
-                             size="sm"
-                             onClick={() => concluirPagamento(servico.id)}
-                             className="bg-green-500 hover:bg-green-600"
-                           >
-                             <CheckCircle className="h-3 w-3 mr-1" />
-                             Concluir
-                           </Button>
-                         )}
-                         
-                          {servico.comprovante_url && (
+                        {/* Botões de ação */}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {servico.status !== 'completed' && (
+                            <Button
+                              size="sm"
+                              onClick={() => concluirPagamento(servico.id)}
+                              className="bg-green-500 hover:bg-green-600"
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Concluir
+                            </Button>
+                          )}
+                          
+                          {servico.comprovante_url ? (
                             <Button
                               size="sm"
                               variant="outline"
@@ -432,17 +432,17 @@ export default function HistoricoSimples() {
                               <Eye className="h-3 w-3 mr-1" />
                               Ver Comprovante
                             </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => abrirUploadDialog(servico.id)}
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              Adicionar Comprovante
+                            </Button>
                           )}
-                         
-                         <Button
-                           size="sm"
-                           variant="outline"
-                           onClick={() => abrirUploadDialog(servico.id)}
-                         >
-                           <Upload className="h-3 w-3 mr-1" />
-                           {servico.comprovante_url ? 'Alterar' : 'Adicionar'} Comprovante
-                         </Button>
-                       </div>
+                        </div>
                      </div>
                   </div>
                 </CardContent>
