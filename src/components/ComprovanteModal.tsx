@@ -1,4 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 interface ComprovanteModalProps {
   open: boolean;
@@ -8,13 +10,51 @@ interface ComprovanteModalProps {
 }
 
 export function ComprovanteModal({ open, onOpenChange, comprovanteUrl, clientName }: ComprovanteModalProps) {
-  const isImage = comprovanteUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
-  const isPdf = comprovanteUrl.match(/\.pdf$/i);
+  const [signedUrl, setSignedUrl] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open && comprovanteUrl) {
+      generateSignedUrl();
+    }
+  }, [open, comprovanteUrl]);
+
+  const generateSignedUrl = async () => {
+    setLoading(true);
+    try {
+      // Extract the file path from the full URL
+      const url = new URL(comprovanteUrl);
+      const filePath = url.pathname.split('/object/public/payment-proofs/')[1] || url.pathname.split('/storage/v1/object/public/payment-proofs/')[1];
+      
+      if (filePath) {
+        const { data, error } = await supabase.storage
+          .from('payment-proofs')
+          .createSignedUrl(filePath, 60 * 60); // 1 hour expiry
+
+        if (error) {
+          console.error('Error generating signed URL:', error);
+          setSignedUrl(comprovanteUrl); // Fallback to original URL
+        } else {
+          setSignedUrl(data.signedUrl);
+        }
+      } else {
+        setSignedUrl(comprovanteUrl);
+      }
+    } catch (error) {
+      console.error('Error processing URL:', error);
+      setSignedUrl(comprovanteUrl);
+    }
+    setLoading(false);
+  };
+
+  const displayUrl = signedUrl || comprovanteUrl;
+  const isImage = displayUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  const isPdf = displayUrl.match(/\.pdf$/i);
 
   const handleDownload = () => {
     const link = document.createElement('a');
-    link.href = comprovanteUrl;
-    link.download = `comprovante-${clientName || 'cliente'}.${comprovanteUrl.split('.').pop()}`;
+    link.href = displayUrl;
+    link.download = `comprovante-${clientName || 'cliente'}.${displayUrl.split('.').pop()}`;
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
@@ -30,9 +70,13 @@ export function ComprovanteModal({ open, onOpenChange, comprovanteUrl, clientNam
         
         <div className="flex flex-col gap-4">
           <div className="flex-1 overflow-auto max-h-[70vh] bg-muted rounded-lg p-4">
-            {isImage ? (
+            {loading ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : isImage ? (
               <img 
-                src={comprovanteUrl} 
+                src={displayUrl} 
                 alt="Comprovante de pagamento" 
                 className="w-full h-auto object-contain rounded-lg"
                 onError={(e) => {
@@ -42,7 +86,7 @@ export function ComprovanteModal({ open, onOpenChange, comprovanteUrl, clientNam
               />
             ) : isPdf ? (
               <iframe
-                src={comprovanteUrl}
+                src={displayUrl}
                 className="w-full h-[60vh] rounded-lg border-0"
                 title="Comprovante PDF"
               />
