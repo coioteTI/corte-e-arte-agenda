@@ -40,7 +40,6 @@ export default function HistoricoSimples() {
   // Filtros
   const [filtroData, setFiltroData] = useState<Date | undefined>(undefined);
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
-  const [filtroStatusPagamento, setFiltroStatusPagamento] = useState("paid");
   const [filtroStatus, setFiltroStatus] = useState("pago");
 
   // Estados para upload de comprovante
@@ -58,7 +57,7 @@ export default function HistoricoSimples() {
 
   useEffect(() => {
     aplicarFiltros();
-  }, [servicos, filtroData, filtroProfissional, filtroStatusPagamento, filtroStatus]);
+  }, [servicos, filtroData, filtroProfissional, filtroStatus]);
 
   const carregarServicosFinalizados = async () => {
     try {
@@ -162,18 +161,12 @@ export default function HistoricoSimples() {
       );
     }
 
-    // Filtro por status de pagamento
-    servicosFiltrados = servicosFiltrados.filter(servico =>
-      servico.payment_status === filtroStatusPagamento
-    );
-
     setServicosFiltrados(servicosFiltrados);
   };
 
   const limparFiltros = () => {
     setFiltroData(undefined);
     setFiltroProfissional("todos");
-    setFiltroStatusPagamento("paid");
     setFiltroStatus("pago");
   };
 
@@ -314,7 +307,7 @@ export default function HistoricoSimples() {
             <CardTitle>Filtros</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por profissional" />
@@ -324,17 +317,6 @@ export default function HistoricoSimples() {
                   {Array.from(new Set(servicos.map(s => s.professional_name))).map(name => (
                     <SelectItem key={name} value={name}>{name}</SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-              
-              <Select value={filtroStatusPagamento} onValueChange={setFiltroStatusPagamento}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Status do pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="paid">Pago</SelectItem>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="awaiting_payment">Aguardando</SelectItem>
                 </SelectContent>
               </Select>
 
