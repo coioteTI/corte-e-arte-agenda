@@ -409,68 +409,65 @@ export default function HistoricoSimples() {
                       </div>
                     </div>
                     
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="text-right">
-                        <div className="font-bold text-lg">
-                          R$ {servico.total_price?.toFixed(2) || "0.00"}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <CreditCard className="h-3 w-3" />
-                          {getPaymentMethodText(servico.payment_method)}
-                        </div>
-                      </div>
-                      
-                      {getStatusBadge(servico.status, servico.payment_status)}
-                      
-                      {/* Botões de ação */}
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {servico.status !== "completed" && (
-                          <Button
-                            size="sm"
-                            onClick={() => concluirPagamento(servico.id)}
-                            className="bg-green-500 hover:bg-green-600"
-                          >
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Concluir
-                          </Button>
-                        )}
-                        
-                        {(servico.comprovante_url || servico.pix_payment_proof) ? (
-                          <div className="flex gap-2">
+                     <div className="flex flex-col items-end gap-2">
+                       <div className="text-right">
+                         <div className="font-bold text-lg">
+                           R$ {servico.total_price?.toFixed(2) || '0.00'}
+                         </div>
+                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                           <CreditCard className="h-3 w-3" />
+                           {getPaymentMethodText(servico.payment_method)}
+                         </div>
+                       </div>
+                       
+                       {getStatusBadge(servico.status, servico.payment_status)}
+                       
+                        {/* Botões de ação */}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {servico.payment_status !== "paid" && (
+                            <Button
+                              size="sm"
+                              onClick={() => concluirPagamento(servico.id)}
+                              className="bg-green-500 hover:bg-green-600"
+                            >
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Concluir
+                            </Button>
+                          )}
+                          
+                          {(servico.comprovante_url || servico.pix_payment_proof) ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => abrirComprovanteModal(
+                                  servico.pix_payment_proof || servico.comprovante_url!, 
+                                  servico.client_name
+                                )}
+                              >
+                                <Eye className="h-3 w-3 mr-1" />
+                                Ver Comprovante
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => excluirComprovante(servico.id)}
+                              >
+                                Excluir
+                              </Button>
+                            </>
+                          ) : (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() =>
-                                abrirComprovanteModal(
-                                  servico.pix_payment_proof || servico.comprovante_url!,
-                                  servico.client_name
-                                )
-                              }
+                              onClick={() => abrirUploadDialog(servico.id)}
                             >
-                              <Eye className="h-3 w-3 mr-1" />
-                              Ver Comprovante
+                              <Upload className="h-3 w-3 mr-1" />
+                              Adicionar Comprovante
                             </Button>
-
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => excluirComprovante(servico.id)}
-                            >
-                              Excluir
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => abrirUploadDialog(servico.id)}
-                          >
-                            <Upload className="h-3 w-3 mr-1" />
-                            Adicionar Comprovante
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+                          )}
+                        </div>
+                     </div>
                   </div>
                 </CardContent>
               </Card>
