@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PaymentProofUpload } from "@/components/PaymentProofUpload";
 import { ComprovanteModal } from "@/components/ComprovanteModal";
@@ -70,9 +70,9 @@ export default function HistoricoSimples() {
       }
 
       const { data: companies, error: companyError } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
+        .from("companies")
+        .select("id")
+        .eq("user_id", user.id)
         .single();
 
       if (companyError) throw companyError;
@@ -83,9 +83,8 @@ export default function HistoricoSimples() {
 
       setCompanyId(companies.id);
 
-      // Buscar appointments com todos os status
       const { data: appointmentsData, error: appointmentsError } = await supabase
-        .from('appointments')
+        .from("appointments")
         .select(`
           id,
           appointment_date,
@@ -101,8 +100,8 @@ export default function HistoricoSimples() {
           services!inner(name),
           professionals!inner(name)
         `)
-        .eq('company_id', companies.id)
-        .order('appointment_date', { ascending: false });
+        .eq("company_id", companies.id)
+        .order("appointment_date", { ascending: false });
 
       if (appointmentsError) throw appointmentsError;
 
@@ -119,7 +118,7 @@ export default function HistoricoSimples() {
         created_at: apt.created_at,
         status: apt.status,
         comprovante_url: apt.comprovante_url,
-        pix_payment_proof: apt.pix_payment_proof
+        pix_payment_proof: apt.pix_payment_proof,
       })) || [];
 
       setServicos(servicosFormatados);
@@ -134,32 +133,27 @@ export default function HistoricoSimples() {
   const aplicarFiltros = () => {
     let servicosFiltrados = [...servicos];
 
-    // Filtro por status
     if (filtroStatus === "pago") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.status === 'completed' && servico.payment_status === 'paid'
+        servico.status === "completed" && servico.payment_status === "paid"
       );
     } else if (filtroStatus === "pendente") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.status === 'completed' && servico.payment_status !== 'paid'
+        servico.status === "completed" && servico.payment_status !== "paid"
       );
     } else if (filtroStatus === "agendado") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.status === 'scheduled' || servico.status === 'confirmed'
+        servico.status === "scheduled" || servico.status === "confirmed"
       );
     }
 
-    // Filtro por data
     if (filtroData) {
-      // Formatar a data selecionada diretamente sem conversões de timezone
       const dataFormatada = format(filtroData, "yyyy-MM-dd");
-      
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.appointment_date === dataFormatada
       );
     }
 
-    // Filtro por profissional
     if (filtroProfissional !== "todos") {
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.professional_name === filtroProfissional
@@ -178,12 +172,9 @@ export default function HistoricoSimples() {
   const concluirPagamento = async (appointmentId: string) => {
     try {
       const { error } = await supabase
-        .from('appointments')
-        .update({ 
-          status: 'completed',
-          payment_status: 'paid'
-        })
-        .eq('id', appointmentId);
+        .from("appointments")
+        .update({ status: "completed", payment_status: "paid" })
+        .eq("id", appointmentId);
 
       if (error) throw error;
 
@@ -197,11 +188,10 @@ export default function HistoricoSimples() {
 
   const handleComprovanteUpload = (url: string) => {
     if (selectedAppointmentId) {
-      // Atualizar o appointment com o comprovante
       supabase
-        .from('appointments')
+        .from("appointments")
         .update({ comprovante_url: url })
-        .eq('id', selectedAppointmentId)
+        .eq("id", selectedAppointmentId)
         .then(({ error }) => {
           if (error) {
             toast.error("Erro ao salvar comprovante");
@@ -212,6 +202,23 @@ export default function HistoricoSimples() {
             carregarServicosFinalizados();
           }
         });
+    }
+  };
+
+  const excluirComprovante = async (appointmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ comprovante_url: null, pix_payment_proof: null })
+        .eq("id", appointmentId);
+
+      if (error) throw error;
+
+      toast.success("Comprovante excluído com sucesso!");
+      carregarServicosFinalizados();
+    } catch (error) {
+      console.error("Erro ao excluir comprovante:", error);
+      toast.error("Erro ao excluir comprovante");
     }
   };
 
@@ -227,13 +234,13 @@ export default function HistoricoSimples() {
   };
 
   const getStatusBadge = (status: string, paymentStatus: string) => {
-    if (status === 'completed') {
-      if (paymentStatus === 'paid') {
+    if (status === "completed") {
+      if (paymentStatus === "paid") {
         return <Badge variant="default" className="bg-green-500">Pago</Badge>;
       } else {
         return <Badge variant="destructive">Pendente</Badge>;
       }
-    } else if (status === 'scheduled' || status === 'confirmed') {
+    } else if (status === "scheduled" || status === "confirmed") {
       return <Badge variant="secondary">Agendado</Badge>;
     } else {
       return <Badge variant="outline">{status}</Badge>;
@@ -242,10 +249,10 @@ export default function HistoricoSimples() {
 
   const getPaymentMethodText = (method: string) => {
     switch (method) {
-      case 'pix':
-        return 'PIX';
-      case 'no_local':
-        return 'Pagamento Local';
+      case "pix":
+        return "PIX";
+      case "no_local":
+        return "Pagamento Local";
       default:
         return method;
     }
@@ -402,56 +409,68 @@ export default function HistoricoSimples() {
                       </div>
                     </div>
                     
-                     <div className="flex flex-col items-end gap-2">
-                       <div className="text-right">
-                         <div className="font-bold text-lg">
-                           R$ {servico.total_price?.toFixed(2) || '0.00'}
-                         </div>
-                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                           <CreditCard className="h-3 w-3" />
-                           {getPaymentMethodText(servico.payment_method)}
-                         </div>
-                       </div>
-                       
-                       {getStatusBadge(servico.status, servico.payment_status)}
-                       
-                        {/* Botões de ação */}
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {servico.status !== 'completed' && (
-                            <Button
-                              size="sm"
-                              onClick={() => concluirPagamento(servico.id)}
-                              className="bg-green-500 hover:bg-green-600"
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Concluir
-                            </Button>
-                          )}
-                          
-                          {(servico.comprovante_url || servico.pix_payment_proof) ? (
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="text-right">
+                        <div className="font-bold text-lg">
+                          R$ {servico.total_price?.toFixed(2) || "0.00"}
+                        </div>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <CreditCard className="h-3 w-3" />
+                          {getPaymentMethodText(servico.payment_method)}
+                        </div>
+                      </div>
+                      
+                      {getStatusBadge(servico.status, servico.payment_status)}
+                      
+                      {/* Botões de ação */}
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {servico.status !== "completed" && (
+                          <Button
+                            size="sm"
+                            onClick={() => concluirPagamento(servico.id)}
+                            className="bg-green-500 hover:bg-green-600"
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Concluir
+                          </Button>
+                        )}
+                        
+                        {(servico.comprovante_url || servico.pix_payment_proof) ? (
+                          <div className="flex gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => abrirComprovanteModal(
-                                servico.pix_payment_proof || servico.comprovante_url!, 
-                                servico.client_name
-                              )}
+                              onClick={() =>
+                                abrirComprovanteModal(
+                                  servico.pix_payment_proof || servico.comprovante_url!,
+                                  servico.client_name
+                                )
+                              }
                             >
                               <Eye className="h-3 w-3 mr-1" />
                               Ver Comprovante
                             </Button>
-                          ) : (
+
                             <Button
                               size="sm"
-                              variant="outline"
-                              onClick={() => abrirUploadDialog(servico.id)}
+                              variant="destructive"
+                              onClick={() => excluirComprovante(servico.id)}
                             >
-                              <Upload className="h-3 w-3 mr-1" />
-                              Adicionar Comprovante
+                              Excluir
                             </Button>
-                          )}
-                        </div>
-                     </div>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => abrirUploadDialog(servico.id)}
+                          >
+                            <Upload className="h-3 w-3 mr-1" />
+                            Adicionar Comprovante
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
