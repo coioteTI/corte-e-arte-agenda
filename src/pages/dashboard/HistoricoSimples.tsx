@@ -11,7 +11,7 @@ import { PaymentProofUpload } from "@/components/PaymentProofUpload";
 import { ComprovanteModal } from "@/components/ComprovanteModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, User, Scissors, Clock, CreditCard, CheckCircle, Eye, Upload } from "lucide-react";
@@ -38,16 +38,13 @@ export default function HistoricoSimples() {
   const [loading, setLoading] = useState(true);
   const [companyId, setCompanyId] = useState<string>("");
 
-  // Filtros
   const [filtroData, setFiltroData] = useState<Date | undefined>(undefined);
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("pago");
 
-  // Estados para upload de comprovante
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
-  
-  // Estados para visualização de comprovante
+
   const [comprovanteModalOpen, setComprovanteModalOpen] = useState(false);
   const [selectedComprovanteUrl, setSelectedComprovanteUrl] = useState<string>("");
   const [selectedClientName, setSelectedClientName] = useState<string>("");
@@ -134,30 +131,24 @@ export default function HistoricoSimples() {
     let servicosFiltrados = [...servicos];
 
     if (filtroStatus === "pago") {
-      servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.status === "completed" && servico.payment_status === "paid"
-      );
+      servicosFiltrados = servicosFiltrados.filter(s => s.status === "completed" && s.payment_status === "paid");
     } else if (filtroStatus === "pendente") {
-      servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.status === "completed" && servico.payment_status !== "paid"
-      );
+      servicosFiltrados = servicosFiltrados.filter(s => s.status === "completed" && s.payment_status !== "paid");
     } else if (filtroStatus === "agendado") {
-      servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.status === "scheduled" || servico.status === "confirmed"
-      );
+      servicosFiltrados = servicosFiltrados.filter(s => s.status === "scheduled" || s.status === "confirmed");
     }
 
+    // Ajuste do calendário
     if (filtroData) {
       const dataFormatada = format(filtroData, "yyyy-MM-dd");
-      servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.appointment_date === dataFormatada
-      );
+      servicosFiltrados = servicosFiltrados.filter(s => {
+        const dataServico = format(parseISO(s.appointment_date), "yyyy-MM-dd");
+        return dataServico === dataFormatada;
+      });
     }
 
     if (filtroProfissional !== "todos") {
-      servicosFiltrados = servicosFiltrados.filter(servico =>
-        servico.professional_name === filtroProfissional
-      );
+      servicosFiltrados = servicosFiltrados.filter(s => s.professional_name === filtroProfissional);
     }
 
     setServicosFiltrados(servicosFiltrados);
@@ -193,9 +184,8 @@ export default function HistoricoSimples() {
         .update({ comprovante_url: url })
         .eq("id", selectedAppointmentId)
         .then(({ error }) => {
-          if (error) {
-            toast.error("Erro ao salvar comprovante");
-          } else {
+          if (error) toast.error("Erro ao salvar comprovante");
+          else {
             toast.success("Comprovante salvo com sucesso!");
             setUploadDialogOpen(false);
             setSelectedAppointmentId(null);
@@ -234,240 +224,109 @@ export default function HistoricoSimples() {
   };
 
   const getStatusBadge = (status: string, paymentStatus: string) => {
-    if (status === "completed") {
-      if (paymentStatus === "paid") {
-        return <Badge variant="default" className="bg-green-500">Pago</Badge>;
-      } else {
-        return <Badge variant="destructive">Pendente</Badge>;
-      }
-    } else if (status === "scheduled" || status === "confirmed") {
-      return <Badge variant="secondary">Agendado</Badge>;
-    } else {
-      return <Badge variant="outline">{status}</Badge>;
-    }
+    if (status === "completed") return paymentStatus === "paid" ? <Badge className="bg-green-500">Pago</Badge> : <Badge variant="destructive">Pendente</Badge>;
+    if (status === "scheduled" || status === "confirmed") return <Badge variant="secondary">Agendado</Badge>;
+    return <Badge variant="outline">{status}</Badge>;
   };
 
-  const getPaymentMethodText = (method: string) => {
-    switch (method) {
-      case "pix":
-        return "PIX";
-      case "no_local":
-        return "Pagamento Local";
-      default:
-        return method;
-    }
-  };
+  const getPaymentMethodText = (method: string) => method === "pix" ? "PIX" : method === "no_local" ? "Pagamento Local" : method;
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-2 text-muted-foreground">Carregando histórico...</p>
-          </div>
+  if (loading) return (
+    <DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Carregando histórico...</p>
         </div>
-      </DashboardLayout>
-    );
-  }
+      </div>
+    </DashboardLayout>
+  );
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h1 className="text-3xl font-bold">Histórico de Pagamentos</h1>
-          <Badge variant="outline" className="text-sm">
-            {servicosFiltrados.length} serviço(s) finalizado(s)
-          </Badge>
+          <Badge variant="outline" className="text-sm">{servicosFiltrados.length} serviço(s) finalizado(s)</Badge>
         </div>
 
-        {/* Filtros por Status */}
+        {/* Filtros de status */}
         <Card className="mb-4">
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={filtroStatus === "pago" ? "default" : "outline"}
-                onClick={() => setFiltroStatus("pago")}
-                size="sm"
-                className="bg-green-500 hover:bg-green-600 text-white"
-              >
-                Pago
-              </Button>
-              <Button
-                variant={filtroStatus === "pendente" ? "default" : "outline"}
-                onClick={() => setFiltroStatus("pendente")}
-                size="sm"
-                className="bg-red-500 hover:bg-red-600 text-white"
-              >
-                Pendente
-              </Button>
-              <Button
-                variant={filtroStatus === "agendado" ? "default" : "outline"}
-                onClick={() => setFiltroStatus("agendado")}
-                size="sm"
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                Agendado/Em andamento
-              </Button>
-            </div>
+          <CardContent className="pt-6 flex gap-2 flex-wrap">
+            <Button variant={filtroStatus==="pago"?"default":"outline"} onClick={()=>setFiltroStatus("pago")} size="sm" className="bg-green-500 hover:bg-green-600 text-white">Pago</Button>
+            <Button variant={filtroStatus==="pendente"?"default":"outline"} onClick={()=>setFiltroStatus("pendente")} size="sm" className="bg-red-500 hover:bg-red-600 text-white">Pendente</Button>
+            <Button variant={filtroStatus==="agendado"?"default":"outline"} onClick={()=>setFiltroStatus("agendado")} size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">Agendado/Em andamento</Button>
           </CardContent>
         </Card>
 
-        {/* Filtros */}
+        {/* Filtros avançados */}
         <Card>
-          <CardHeader>
-            <CardTitle>Filtros</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Filtros</CardTitle></CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por profissional" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Filtrar por profissional" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos os profissionais</SelectItem>
-                  {Array.from(new Set(servicos.map(s => s.professional_name))).map(name => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
+                  {Array.from(new Set(servicos.map(s=>s.professional_name))).map(name=><SelectItem key={name} value={name}>{name}</SelectItem>)}
                 </SelectContent>
               </Select>
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "justify-start text-left font-normal",
-                      !filtroData && "text-muted-foreground"
-                    )}
-                  >
+                  <Button variant="outline" className={cn("justify-start text-left font-normal", !filtroData && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filtroData ? format(filtroData, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                    {filtroData ? format(filtroData,"PPP",{locale: ptBR}) : <span>Selecione uma data</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={filtroData}
-                    onSelect={setFiltroData}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
+                  <Calendar mode="single" selected={filtroData} onSelect={setFiltroData} initialFocus className="p-3 pointer-events-auto" />
                 </PopoverContent>
               </Popover>
-              
-              <Button variant="outline" onClick={limparFiltros}>
-                Limpar Filtros
-              </Button>
+
+              <Button variant="outline" onClick={limparFiltros}>Limpar Filtros</Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Lista de serviços */}
         <div className="grid gap-4">
-          {servicosFiltrados.length === 0 ? (
+          {servicosFiltrados.length===0 ? (
             <Card>
               <CardContent className="text-center py-8">
-                <Scissors className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <Scissors className="h-12 w-12 text-muted-foreground mx-auto mb-4"/>
                 <h3 className="text-lg font-medium mb-2">Nenhum serviço finalizado</h3>
-                <p className="text-muted-foreground">
-                  {servicos.length === 0 
-                    ? "Ainda não há serviços finalizados para mostrar."
-                    : "Nenhum serviço encontrado com os filtros aplicados."
-                  }
-                </p>
+                <p className="text-muted-foreground">{servicos.length===0 ? "Ainda não há serviços finalizados para mostrar." : "Nenhum serviço encontrado com os filtros aplicados."}</p>
               </CardContent>
             </Card>
           ) : (
-            servicosFiltrados.map((servico) => (
-              <Card key={servico.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-primary" />
-                        <span className="font-medium">{servico.client_name}</span>
-                      </div>
+            servicosFiltrados.map(s => (
+              <Card key={s.id} className="hover:shadow-md transition-shadow">
+                <CardContent className="p-6 flex flex-col sm:flex-row justify-between gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2"><User className="h-4 w-4 text-primary"/> {s.client_name}</div>
+                    <div className="flex items-center gap-2"><Scissors className="h-4 w-4 text-muted-foreground"/> {s.service_name}</div>
+                    <div className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground"/> Profissional: {s.professional_name}</div>
+                    <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground"/> {format(parseISO(s.appointment_date),"dd/MM/yyyy",{locale:ptBR})} às {s.appointment_time}</div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="text-right font-bold text-lg">R$ {s.total_price?.toFixed(2) || '0.00'}</div>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground"><CreditCard className="h-3 w-3"/> {getPaymentMethodText(s.payment_method)}</div>
+                    {getStatusBadge(s.status,s.payment_status)}
+
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {s.payment_status!=="paid" && <Button size="sm" onClick={()=>concluirPagamento(s.id)} className="bg-green-500 hover:bg-green-600"><CheckCircle className="h-3 w-3 mr-1"/>Concluir</Button>}
                       
-                      <div className="flex items-center gap-2">
-                        <Scissors className="h-4 w-4 text-muted-foreground" />
-                        <span>{servico.service_name}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          Profissional: {servico.professional_name}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          {format(new Date(servico.appointment_date), "dd/MM/yyyy", { locale: ptBR })} às {servico.appointment_time}
-                        </span>
-                      </div>
+                      {s.comprovante_url || s.pix_payment_proof ? (
+                        <>
+                          <Button size="sm" variant="outline" onClick={()=>abrirComprovanteModal(s.pix_payment_proof||s.comprovante_url!, s.client_name)}><Eye className="h-3 w-3 mr-1"/>Ver</Button>
+                          <Button size="sm" variant="destructive" onClick={()=>excluirComprovante(s.id)}>Excluir</Button>
+                        </>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={()=>abrirUploadDialog(s.id)}><Upload className="h-3 w-3 mr-1"/>Adicionar</Button>
+                      )}
                     </div>
-                    
-                     <div className="flex flex-col items-end gap-2">
-                       <div className="text-right">
-                         <div className="font-bold text-lg">
-                           R$ {servico.total_price?.toFixed(2) || '0.00'}
-                         </div>
-                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                           <CreditCard className="h-3 w-3" />
-                           {getPaymentMethodText(servico.payment_method)}
-                         </div>
-                       </div>
-                       
-                       {getStatusBadge(servico.status, servico.payment_status)}
-                       
-                        {/* Botões de ação */}
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {servico.payment_status !== "paid" && (
-                            <Button
-                              size="sm"
-                              onClick={() => concluirPagamento(servico.id)}
-                              className="bg-green-500 hover:bg-green-600"
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Concluir
-                            </Button>
-                          )}
-                          
-                          {(servico.comprovante_url || servico.pix_payment_proof) ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => abrirComprovanteModal(
-                                  servico.pix_payment_proof || servico.comprovante_url!, 
-                                  servico.client_name
-                                )}
-                              >
-                                <Eye className="h-3 w-3 mr-1" />
-                                Ver Comprovante
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => excluirComprovante(servico.id)}
-                              >
-                                Excluir
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => abrirUploadDialog(servico.id)}
-                            >
-                              <Upload className="h-3 w-3 mr-1" />
-                              Adicionar Comprovante
-                            </Button>
-                          )}
-                        </div>
-                     </div>
                   </div>
                 </CardContent>
               </Card>
@@ -475,26 +334,14 @@ export default function HistoricoSimples() {
           )}
         </div>
 
-        {/* Dialog para upload de comprovante */}
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Adicionar Comprovante de Pagamento</DialogTitle>
-            </DialogHeader>
-            <PaymentProofUpload
-              onUploadComplete={handleComprovanteUpload}
-              appointmentId={selectedAppointmentId || undefined}
-            />
+            <DialogHeader><DialogTitle>Adicionar Comprovante de Pagamento</DialogTitle></DialogHeader>
+            <PaymentProofUpload onUploadComplete={handleComprovanteUpload} appointmentId={selectedAppointmentId||undefined}/>
           </DialogContent>
         </Dialog>
 
-        {/* Modal para visualização de comprovante */}
-        <ComprovanteModal
-          open={comprovanteModalOpen}
-          onOpenChange={setComprovanteModalOpen}
-          comprovanteUrl={selectedComprovanteUrl}
-          clientName={selectedClientName}
-        />
+        <ComprovanteModal open={comprovanteModalOpen} onOpenChange={setComprovanteModalOpen} comprovanteUrl={selectedComprovanteUrl} clientName={selectedClientName} />
       </div>
     </DashboardLayout>
   );
