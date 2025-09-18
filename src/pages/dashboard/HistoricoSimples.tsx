@@ -316,15 +316,23 @@ export default function HistoricoSimples() {
                     {getStatusBadge(s.status,s.payment_status)}
 
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {s.payment_status!=="paid" && <Button size="sm" onClick={()=>concluirPagamento(s.id)} className="bg-green-500 hover:bg-green-600"><CheckCircle className="h-3 w-3 mr-1"/>Concluir</Button>}
+                      {s.status !== "completed" && (
+                        <Button size="sm" onClick={()=>concluirPagamento(s.id)} className="bg-green-500 hover:bg-green-600">
+                          <CheckCircle className="h-3 w-3 mr-1"/>Concluir
+                        </Button>
+                      )}
                       
                       {s.comprovante_url || s.pix_payment_proof ? (
                         <>
-                          <Button size="sm" variant="outline" onClick={()=>abrirComprovanteModal(s.pix_payment_proof||s.comprovante_url!, s.client_name)}><Eye className="h-3 w-3 mr-1"/>Ver</Button>
+                          <Button size="sm" variant="outline" onClick={()=>abrirComprovanteModal(s.pix_payment_proof || s.comprovante_url!, s.client_name)}>
+                            <Eye className="h-3 w-3 mr-1"/>Ver
+                          </Button>
                           <Button size="sm" variant="destructive" onClick={()=>excluirComprovante(s.id)}>Excluir</Button>
                         </>
                       ) : (
-                        <Button size="sm" variant="outline" onClick={()=>abrirUploadDialog(s.id)}><Upload className="h-3 w-3 mr-1"/>Adicionar</Button>
+                        <Button size="sm" variant="outline" onClick={()=>abrirUploadDialog(s.id)}>
+                          <Upload className="h-3 w-3 mr-1"/>Adicionar
+                        </Button>
                       )}
                     </div>
                   </div>
