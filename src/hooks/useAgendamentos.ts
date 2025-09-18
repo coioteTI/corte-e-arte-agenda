@@ -13,6 +13,7 @@ interface Appointment {
   total_price?: number;
   payment_method?: string;
   notes?: string;
+  pix_payment_proof?: string;
   created_at: string;
   updated_at: string;
   clients?: { name: string } | null;
@@ -85,7 +86,7 @@ export const useAgendamentos = () => {
         supabase.from('clients').select('*'),
         supabase
           .from('appointments')
-          .select('*')
+          .select('*, pix_payment_proof')
           .eq('company_id', company.id)
           .order('appointment_date', { ascending: true })
           .order('appointment_time', { ascending: true })

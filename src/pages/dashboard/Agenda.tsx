@@ -13,6 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ptBR } from "date-fns/locale";
 import { startOfWeek, endOfWeek, isWithinInterval, format } from "date-fns";
 import { useAgendamentos } from "@/hooks/useAgendamentos";
+import { ComprovanteModal } from "@/components/ComprovanteModal";
+import { FileText } from "lucide-react";
 
 const Agenda = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -20,6 +22,9 @@ const Agenda = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAgendamento, setEditingAgendamento] = useState<any>(null);
+  const [comprovanteModalOpen, setComprovanteModalOpen] = useState(false);
+  const [selectedComprovante, setSelectedComprovante] = useState<string>("");
+  const [selectedClientName, setSelectedClientName] = useState<string>("");
   const [novoAgendamento, setNovoAgendamento] = useState({
     client_id: "",
     service_id: "",
@@ -411,11 +416,31 @@ const Agenda = () => {
                         <div className="text-sm font-medium">
                           {agendamento.appointment_time}
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <div className="font-medium">{agendamento.clients?.name}</div>
                           <div className="text-sm text-muted-foreground">
                             {agendamento.services?.name} • {agendamento.professionals?.name}
                           </div>
+                          {agendamento.pix_payment_proof && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                PIX
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-xs p-1 h-auto"
+                                onClick={() => {
+                                  setSelectedComprovante(agendamento.pix_payment_proof);
+                                  setSelectedClientName(agendamento.clients?.name || "Cliente");
+                                  setComprovanteModalOpen(true);
+                                }}
+                              >
+                                <FileText className="w-3 h-3 mr-1" />
+                                Ver Comprovante
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:space-x-2">
@@ -521,6 +546,14 @@ const Agenda = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Comprovante Modal */}
+        <ComprovanteModal
+          open={comprovanteModalOpen}
+          onOpenChange={setComprovanteModalOpen}
+          comprovanteUrl={selectedComprovante}
+          clientName={selectedClientName}
+        />
       </div>
     </DashboardLayout>
   );
