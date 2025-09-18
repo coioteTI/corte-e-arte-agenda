@@ -148,12 +148,8 @@ export default function HistoricoSimples() {
 
     // Filtro por data
     if (filtroData) {
-      // Criar nova data local para evitar problemas de timezone
-      const dataLocal = new Date(filtroData.getTime() - (filtroData.getTimezoneOffset() * 60000));
-      const year = dataLocal.getFullYear();
-      const month = String(dataLocal.getMonth() + 1).padStart(2, '0');
-      const day = String(dataLocal.getDate()).padStart(2, '0');
-      const dataFormatada = `${year}-${month}-${day}`;
+      // Formatar a data selecionada diretamente sem conversões de timezone
+      const dataFormatada = format(filtroData, "yyyy-MM-dd");
       
       servicosFiltrados = servicosFiltrados.filter(servico =>
         servico.appointment_date === dataFormatada
