@@ -29,6 +29,7 @@ interface ServicoFinalizado {
   created_at: string;
   status: string;
   comprovante_url?: string;
+  pix_payment_proof?: string;
 }
 
 export default function HistoricoSimples() {
@@ -95,6 +96,7 @@ export default function HistoricoSimples() {
           created_at,
           status,
           comprovante_url,
+          pix_payment_proof,
           clients!inner(name),
           services!inner(name),
           professionals!inner(name)
@@ -116,7 +118,8 @@ export default function HistoricoSimples() {
         total_price: apt.total_price,
         created_at: apt.created_at,
         status: apt.status,
-        comprovante_url: apt.comprovante_url
+        comprovante_url: apt.comprovante_url,
+        pix_payment_proof: apt.pix_payment_proof
       })) || [];
 
       setServicos(servicosFormatados);
@@ -425,11 +428,14 @@ export default function HistoricoSimples() {
                             </Button>
                           )}
                           
-                          {servico.comprovante_url ? (
+                          {(servico.comprovante_url || servico.pix_payment_proof) ? (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => abrirComprovanteModal(servico.comprovante_url!, servico.client_name)}
+                              onClick={() => abrirComprovanteModal(
+                                servico.pix_payment_proof || servico.comprovante_url!, 
+                                servico.client_name
+                              )}
                             >
                               <Eye className="h-3 w-3 mr-1" />
                               Ver Comprovante
