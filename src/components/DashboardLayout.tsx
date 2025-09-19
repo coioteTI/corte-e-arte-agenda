@@ -33,7 +33,12 @@ const menuItems = [
   { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
 ];
 
-const AppSidebar = () => {
+interface AppSidebarProps {
+  companyName: string;
+  companyLogo?: string;
+}
+
+const AppSidebar = ({ companyName, companyLogo }: AppSidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -51,12 +56,12 @@ const AppSidebar = () => {
       <SidebarHeader className="p-4">
         <div className="flex items-center space-x-3">
           <img 
-            src={logo} 
-            alt="Corte & Arte" 
+            src={companyLogo || logo} 
+            alt={companyName || "Dashboard"} 
             className="h-8 w-auto"
           />
           <div>
-            <h2 className="text-lg font-semibold">Corte & Arte</h2>
+            <h2 className="text-lg font-semibold">{companyName || "Dashboard"}</h2>
             <p className="text-xs text-muted-foreground">Dashboard</p>
           </div>
         </div>
@@ -99,33 +104,37 @@ interface DashboardLayoutProps {
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [companyName, setCompanyName] = useState<string>("");
+  const [companyLogo, setCompanyLogo] = useState<string>("");
 
   useEffect(() => {
-    loadCompanyName();
+    loadCompanyInfo();
   }, []);
 
-  const loadCompanyName = async () => {
+  const loadCompanyInfo = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: companies } = await supabase
           .from('companies')
-          .select('name')
+          .select('name, logo_url')
           .eq('user_id', user.id)
           .single();
         
         if (companies?.name) {
           setCompanyName(companies.name);
         }
+        if (companies?.logo_url) {
+          setCompanyLogo(companies.logo_url);
+        }
       }
     } catch (error) {
-      console.error('Error loading company name:', error);
+      console.error('Error loading company info:', error);
     }
   };
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar />
+        <AppSidebar companyName={companyName} companyLogo={companyLogo} />
         <main className="flex-1 p-3 md:p-6">
           <div className="mb-4 md:mb-6 flex items-center justify-between">
             <SidebarTrigger />
