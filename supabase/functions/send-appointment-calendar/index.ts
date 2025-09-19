@@ -69,7 +69,7 @@ END:VCALENDAR`;
 
     // Send email with ICS attachment
     const emailResponse = await resend.emails.send({
-      from: "Corte & Arte <corteearte.suporte@gmail.com>",
+      from: "Corte & Arte <onboarding@resend.dev>",
       to: [appointmentData.clientEmail],
       subject: "Confirmação de Agendamento",
       html: `
