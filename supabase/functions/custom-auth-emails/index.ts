@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
     // Send email using Resend
     const { error: emailError } = await resend.emails.send({
-      from: 'Corte & Arte <onboarding@resend.dev>',
+      from: 'Corte & Arte <onboarding@resend.dev>', // Using default Resend domain for now
       to: [user.email],
       subject,
       html: emailHtml,
