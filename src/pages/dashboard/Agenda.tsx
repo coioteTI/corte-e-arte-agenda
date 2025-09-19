@@ -81,30 +81,6 @@ const Agenda = () => {
 
       if (error) throw error;
 
-      // Send calendar invite if client email is available
-      const clientData = clients.find(c => c.id === novoAgendamento.client_id);
-      const serviceData = services.find(s => s.id === novoAgendamento.service_id);
-      
-      if (clientData?.email && clientData?.name) {
-        try {
-          await supabase.functions.invoke('send-appointment-calendar', {
-            body: {
-              clientName: clientData.name,
-              clientEmail: clientData.email,
-              appointmentDate: novoAgendamento.appointment_date,
-              appointmentTime: novoAgendamento.appointment_time,
-              serviceName: serviceData?.name,
-              companyName: 'Corte & Arte', // This could be dynamic
-              companyAddress: 'Online' // This could be dynamic
-            }
-          });
-          
-          console.log('Calendar invite sent successfully');
-        } catch (emailError) {
-          console.error('Erro ao enviar convite de calendário:', emailError);
-        }
-      }
-
       setNovoAgendamento({
         client_id: "",
         service_id: "",
@@ -117,7 +93,7 @@ const Agenda = () => {
       
       toast({
         title: "Sucesso",
-        description: "Agendamento criado e convite de calendário enviado!"
+        description: "Agendamento criado com sucesso!"
       });
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -127,7 +103,7 @@ const Agenda = () => {
         variant: "destructive"
       });
     }
-  }, [novoAgendamento, companyId, refreshData, toast, clients, services]);
+  }, [novoAgendamento, companyId, refreshData, toast]);
 
   const handleConcluirAgendamento = useCallback(async (id: string) => {
     try {
