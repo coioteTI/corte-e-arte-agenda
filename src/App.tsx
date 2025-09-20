@@ -1,12 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import CookieConsent from "@/components/CookieConsent";
-import { usePWA } from "@/hooks/usePWA";
-import { useTheme } from "@/hooks/useTheme";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -45,10 +43,75 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
-const AppWithHooks = () => {
-  // Initialize PWA and theme hooks
-  usePWA();
-  useTheme();
+// PWA and Theme logic inline to avoid hook issues
+const AppRouter = () => {
+  // PWA logic
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Theme logic
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('corte-arte-theme');
+      if (saved === 'light' || saved === 'dark') {
+        return saved;
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    // PWA setup
+    const checkIfInstalled = () => {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      const isIOSInstalled = (window.navigator as any).standalone === true;
+      setIsInstalled(isStandalone || isIOSInstalled);
+    };
+
+    const registerServiceWorker = async () => {
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('ServiceWorker registration successful:', registration);
+          
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('New content available, please refresh');
+                }
+              });
+            }
+          });
+        } catch (error) {
+          console.log('ServiceWorker registration failed:', error);
+        }
+      }
+    };
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    checkIfInstalled();
+    registerServiceWorker();
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Theme setup
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    root.setAttribute('data-theme', theme);
+    localStorage.setItem('corte-arte-theme', theme);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [theme]);
 
   return (
     <BrowserRouter>
@@ -90,8 +153,6 @@ const AppWithHooks = () => {
         <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
         <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
         
-        
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
@@ -104,7 +165,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <CookieConsent />
-      <AppWithHooks />
+      <AppRouter />
     </TooltipProvider>
   </QueryClientProvider>
 );
