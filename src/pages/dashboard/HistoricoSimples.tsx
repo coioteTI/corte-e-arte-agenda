@@ -177,6 +177,23 @@ export default function HistoricoSimples() {
     }
   };
 
+  const concluirAgendamento = async (appointmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({ status: "completed" })
+        .eq("id", appointmentId);
+
+      if (error) throw error;
+
+      toast.success("Agendamento concluído com sucesso!");
+      carregarServicosFinalizados();
+    } catch (error) {
+      console.error("Erro ao concluir agendamento:", error);
+      toast.error("Erro ao concluir agendamento");
+    }
+  };
+
   const handleComprovanteUpload = (url: string) => {
     if (selectedAppointmentId) {
       supabase
@@ -316,9 +333,17 @@ export default function HistoricoSimples() {
                     {getStatusBadge(s.status,s.payment_status)}
 
                     <div className="flex flex-wrap gap-2 mt-2">
+                      {/* Botão Concluir para agendamentos agendados/confirmados */}
+                      {(s.status === "scheduled" || s.status === "confirmed") && (
+                        <Button size="sm" onClick={()=>concluirAgendamento(s.id)} className="bg-blue-500 hover:bg-blue-600">
+                          <CheckCircle className="h-3 w-3 mr-1"/>Concluir
+                        </Button>
+                      )}
+
+                      {/* Botão Concluir Pagamento para serviços já finalizados mas sem pagamento */}
                       {(s.status === "completed" && s.payment_status !== "paid") && (
                         <Button size="sm" onClick={()=>concluirPagamento(s.id)} className="bg-green-500 hover:bg-green-600">
-                          <CheckCircle className="h-3 w-3 mr-1"/>Concluir
+                          <CheckCircle className="h-3 w-3 mr-1"/>Concluir Pagamento
                         </Button>
                       )}
                       
