@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import CookieConsent from "@/components/CookieConsent";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -114,48 +116,54 @@ const AppRouter = () => {
   }, [theme]);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        
-        {/* Rotas do Cliente */}
-        <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
-        <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
-        <Route path="/agendar/:slug" element={<AgendarServico />} />
-        <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
-        <Route path="/cliente/historico" element={<Historico />} />
-        <Route path="/cliente/agendamentos" element={<Agendamentos />} />
-        <Route path="/cliente/favoritos" element={<Favoritos />} />
-        <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
-        
-        {/* Rotas da Empresa */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/cadastro" element={<Cadastro />} />
-        <Route path="/email-confirmado" element={<EmailConfirmado />} />
-        <Route path="/teste-email" element={<TesteEmail />} />
-        <Route path="/planos" element={<Planos />} />
-        <Route path="/plano-premium" element={<PlanoPremium />} />
-        <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
-        <Route path="/payment-success" element={<PaymentSuccess />} />
-        <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
-        <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
-        <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
-        <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
-        <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
-        <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
-        <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
-        <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
-        <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
-        <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-        <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
-        
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          
+          {/* Rotas do Cliente */}
+          <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
+          <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
+          <Route path="/agendar/:slug" element={<AgendarServico />} />
+          <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
+          <Route path="/cliente/historico" element={<Historico />} />
+          <Route path="/cliente/agendamentos" element={<Agendamentos />} />
+          <Route path="/cliente/favoritos" element={<Favoritos />} />
+          <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
+          
+          {/* Rotas da Empresa */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/email-confirmado" element={<EmailConfirmado />} />
+          <Route path="/teste-email" element={<TesteEmail />} />
+          <Route path="/planos" element={<Planos />} />
+          <Route path="/plano-premium" element={<PlanoPremium />} />
+          <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+          <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+          <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
+          <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
+          <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
+          <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+          <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
+          <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
+          <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
+          <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+          <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
+          
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+      
+      {/* PWA Components */}
+      <PWAInstallPrompt />
+      <OfflineIndicator />
+    </>
   );
 };
 

@@ -718,30 +718,50 @@ export default function AgendarServico() {
       // Enviar email de confirmação se o cliente tiver email
       if (email && email.trim()) {
         try {
+          console.log("🚀 Iniciando envio de email de confirmação...");
+          
           const selectedService = services.find(s => s.id === selectedServiceId);
           const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
           
-          await supabase.functions.invoke('send-appointment-confirmation', {
-            body: {
-              clientName: fullName,
-              clientEmail: email.trim(),
-              companyName: company.name,
-              serviceName: selectedService?.name || 'Serviço',
-              professionalName: selectedProfessional?.name || 'Profissional',
-              appointmentDate: format(selectedDate!, "yyyy-MM-dd"),
-              appointmentTime: selectedTime!,
-              totalPrice: selectedService?.price,
-              paymentMethod: selectedPaymentMethod,
-              companyPhone: company.phone,
-              notes: notes.trim() || undefined,
-            }
+          const emailData = {
+            clientName: fullName,
+            clientEmail: email.trim(),
+            companyName: company.name,
+            serviceName: selectedService?.name || 'Serviço',
+            professionalName: selectedProfessional?.name || 'Profissional',
+            appointmentDate: format(selectedDate!, "yyyy-MM-dd"),
+            appointmentTime: selectedTime!,
+            totalPrice: selectedService?.price,
+            paymentMethod: selectedPaymentMethod,
+            companyPhone: company.phone,
+            notes: notes.trim() || undefined,
+          };
+          
+          console.log("📧 Dados do email:", emailData);
+          
+          const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-appointment-confirmation', {
+            body: emailData
           });
           
-          console.log("✅ Email de confirmação enviado");
+          if (emailError) {
+            console.error("❌ Erro na resposta da edge function:", emailError);
+            throw emailError;
+          }
+          
+          console.log("✅ Email de confirmação enviado com sucesso:", emailResponse);
         } catch (emailError) {
           console.error("❌ Erro ao enviar email de confirmação:", emailError);
+          console.error("❌ Detalhes do erro:", {
+            message: emailError?.message,
+            details: emailError?.details,
+            hint: emailError?.hint,
+            code: emailError?.code
+          });
           // Não interrompe o fluxo se o email falhar
+          toast.warning("Agendamento criado com sucesso, mas houve um problema ao enviar o email de confirmação.");
         }
+      } else {
+        console.log("⏭️ Pulando envio de email - email não fornecido");
       }
       
       // Recarregar agendamentos
