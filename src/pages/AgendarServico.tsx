@@ -715,6 +715,35 @@ export default function AgendarServico() {
 
       console.log("✅ Agendamento criado com sucesso");
       
+      // Enviar email de confirmação se o cliente tiver email
+      if (email && email.trim()) {
+        try {
+          const selectedService = services.find(s => s.id === selectedServiceId);
+          const selectedProfessional = professionals.find(p => p.id === selectedProfessionalId);
+          
+          await supabase.functions.invoke('send-appointment-confirmation', {
+            body: {
+              clientName: fullName,
+              clientEmail: email.trim(),
+              companyName: company.name,
+              serviceName: selectedService?.name || 'Serviço',
+              professionalName: selectedProfessional?.name || 'Profissional',
+              appointmentDate: format(selectedDate!, "yyyy-MM-dd"),
+              appointmentTime: selectedTime!,
+              totalPrice: selectedService?.price,
+              paymentMethod: selectedPaymentMethod,
+              companyPhone: company.phone,
+              notes: notes.trim() || undefined,
+            }
+          });
+          
+          console.log("✅ Email de confirmação enviado");
+        } catch (emailError) {
+          console.error("❌ Erro ao enviar email de confirmação:", emailError);
+          // Não interrompe o fluxo se o email falhar
+        }
+      }
+      
       // Recarregar agendamentos
       await reloadAppointments();
 

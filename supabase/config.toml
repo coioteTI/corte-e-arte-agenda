@@ -25,6 +25,9 @@ verify_jwt = true
 [functions.custom-auth-emails]
 verify_jwt = false
 
+[functions.send-appointment-confirmation]
+verify_jwt = false
+
 [functions.kiwify-webhook]
 verify_jwt = false
 
