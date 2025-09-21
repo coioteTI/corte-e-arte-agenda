@@ -3,7 +3,7 @@ import { Resend } from 'npm:resend@4.0.0';
 import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { AppointmentConfirmationEmail } from './_templates/appointment-confirmation-email.tsx';
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
+const resend = new Resend(Deno.env.get('REENVIAR_CHAVE_API') as string);
 
 interface AppointmentData {
   clientName: string;

@@ -1,6 +1,6 @@
 import { Resend } from 'npm:resend@4.0.0';
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string);
+const resend = new Resend(Deno.env.get('REENVIAR_CHAVE_API') as string);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
 
   try {
     console.log('🧪 Test email function called');
-    console.log('📧 RESEND_API_KEY configured:', !!Deno.env.get('RESEND_API_KEY'));
+    console.log('📧 REENVIAR_CHAVE_API configured:', !!Deno.env.get('REENVIAR_CHAVE_API'));
 
     const { email = 'test@example.com' } = await req.json();
     
