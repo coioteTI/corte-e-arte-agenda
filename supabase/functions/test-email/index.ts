@@ -1,6 +1,10 @@
 import { Resend } from 'npm:resend@4.0.0';
 
-const resend = new Resend(Deno.env.get('REENVIAR_CHAVE_API') as string);
+const resendApiKey = Deno.env.get('REENVIAR_CHAVE_API') as string;
+console.log('🔑 REENVIAR_CHAVE_API exists:', !!resendApiKey);
+console.log('🔑 REENVIAR_CHAVE_API starts with re_:', resendApiKey?.startsWith('re_'));
+
+const resend = new Resend(resendApiKey);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,11 +30,12 @@ Deno.serve(async (req) => {
 
     const { email = 'test@example.com' } = await req.json();
     
-    console.log('Sending test email to:', email);
+    console.log('📧 Sending test email to:', email);
+    console.log('📧 Using simple from address: onboarding@resend.dev');
 
     // Send simple test email using Resend
     const { data, error: emailError } = await resend.emails.send({
-      from: 'Corte & Arte Test <onboarding@resend.dev>',
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: 'Teste de Email - Corte & Arte',
       html: `
@@ -38,6 +43,7 @@ Deno.serve(async (req) => {
         <p>Este é um email de teste do sistema Corte & Arte.</p>
         <p>Se você recebeu este email, a configuração está funcionando corretamente!</p>
         <p>Timestamp: ${new Date().toISOString()}</p>
+        <p>API Key válida: ${!!Deno.env.get('REENVIAR_CHAVE_API')}</p>
       `,
     });
 

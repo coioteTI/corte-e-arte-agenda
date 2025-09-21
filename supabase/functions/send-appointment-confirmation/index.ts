@@ -3,7 +3,11 @@ import { Resend } from 'npm:resend@4.0.0';
 import { renderAsync } from 'npm:@react-email/components@0.0.22';
 import { AppointmentConfirmationEmail } from './_templates/appointment-confirmation-email.tsx';
 
-const resend = new Resend(Deno.env.get('REENVIAR_CHAVE_API') as string);
+const resendApiKey = Deno.env.get('REENVIAR_CHAVE_API') as string;
+console.log('🔑 REENVIAR_CHAVE_API exists:', !!resendApiKey);
+console.log('🔑 REENVIAR_CHAVE_API starts with re_:', resendApiKey?.startsWith('re_'));
+
+const resend = new Resend(resendApiKey);
 
 interface AppointmentData {
   clientName: string;
@@ -76,12 +80,20 @@ Deno.serve(async (req) => {
     );
 
     // Send email using Resend
-    const { error: emailError } = await resend.emails.send({
-      from: 'Corte & Arte <onboarding@resend.dev>',
+    console.log('📧 Attempting to send email with Resend...');
+    console.log('📧 From:', 'Corte & Arte <onboarding@resend.dev>');
+    console.log('📧 To:', [appointmentData.clientEmail]);
+    console.log('📧 Subject:', `Agendamento Confirmado - ${appointmentData.companyName}`);
+    
+    const { data: emailData, error: emailError } = await resend.emails.send({
+      from: 'onboarding@resend.dev',
       to: [appointmentData.clientEmail],
       subject: `Agendamento Confirmado - ${appointmentData.companyName}`,
       html: emailHtml,
     });
+    
+    console.log('📧 Resend response data:', emailData);
+    console.log('📧 Resend response error:', emailError);
 
     if (emailError) {
       console.error('Failed to send appointment confirmation email:', emailError);
