@@ -20,18 +20,19 @@ import Profissionais from "./pages/dashboard/Profissionais";
 import Ranking from "./pages/dashboard/Ranking";
 import Relatorios from "./pages/dashboard/Relatorios";
 import Horarios from "./pages/dashboard/Horarios";
-import Planos from "./pages/dashboard/Planos";
-import WebhookLogs from "./pages/dashboard/WebhookLogs";
-import HistoricoSimples from "./pages/dashboard/HistoricoSimples";
+
 import Configuracoes from "./pages/dashboard/Configuracoes";
-import Agendamentos from "./pages/cliente/Agendamentos";
-import Historico from "./pages/cliente/Historico";
-import Favoritos from "./pages/cliente/Favoritos";
-import ConfiguracoesCliente from "./pages/cliente/Configuracoes";
+import WebhookLogs from "./pages/dashboard/WebhookLogs";
+import Planos from "./pages/dashboard/Planos";
+import HistoricoSimples from "./pages/dashboard/HistoricoSimples";
 import BuscarBarbearias from "./pages/BuscarBarbearias";
 import PerfilBarbearia from "./pages/PerfilBarbearia";
 import AgendarServico from "./pages/AgendarServico";
 import AgendamentoConfirmado from "./pages/AgendamentoConfirmado";
+import Historico from "./pages/cliente/Historico";
+import Agendamentos from "./pages/cliente/Agendamentos";
+import Favoritos from "./pages/cliente/Favoritos";
+import ConfiguracoesCliente from "./pages/cliente/Configuracoes";
 import NotFound from "./pages/NotFound";
 import PlanoPremium from "./pages/PlanoPremium";
 import PaymentSuccess from "./pages/PaymentSuccess";
@@ -42,166 +43,116 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
-function App() {
-  // PWA logic inline
+// PWA logic inline to avoid hook issues
+const AppRouter = () => {
+  // PWA logic
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
     // PWA setup
     const checkIfInstalled = () => {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const isFullscreen = window.matchMedia('(display-mode: fullscreen)').matches;
-      const isMinimalUi = window.matchMedia('(display-mode: minimal-ui)').matches;
-      
-      setIsInstalled(isStandalone || isFullscreen || isMinimalUi);
+      const isIOSInstalled = (window.navigator as any).standalone === true;
+      setIsInstalled(isStandalone || isIOSInstalled);
     };
+
+    const registerServiceWorker = async () => {
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('ServiceWorker registration successful:', registration);
+          
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('New content available, please refresh');
+                }
+              });
+            }
+          });
+        } catch (error) {
+          console.log('ServiceWorker registration failed:', error);
+        }
+      }
+    };
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
     checkIfInstalled();
+    registerServiceWorker();
 
-    // Listen for app install
-    const handleAppInstalled = () => {
-      setIsInstalled(true);
-    };
-
-    // Listen for display mode changes
-    const standaloneQuery = window.matchMedia('(display-mode: standalone)');
-    const fullscreenQuery = window.matchMedia('(display-mode: fullscreen)');
-    const minimalUiQuery = window.matchMedia('(display-mode: minimal-ui)');
-    
-    const handleDisplayModeChange = () => {
-      checkIfInstalled();
-    };
-    
-    standaloneQuery.addEventListener('change', handleDisplayModeChange);
-    fullscreenQuery.addEventListener('change', handleDisplayModeChange);
-    minimalUiQuery.addEventListener('change', handleDisplayModeChange);
-    
-    window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     return () => {
-      standaloneQuery.removeEventListener('change', handleDisplayModeChange);
-      fullscreenQuery.removeEventListener('change', handleDisplayModeChange);
-      minimalUiQuery.removeEventListener('change', handleDisplayModeChange);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/cadastro" element={<Cadastro />} />
-            <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
-            <Route path="/perfil-barbearia/:id" element={<PerfilBarbearia />} />
-            <Route path="/agendar-servico/:id" element={<AgendarServico />} />
-            <Route path="/agendamento-confirmado/:id" element={<AgendamentoConfirmado />} />
-            <Route path="/planos" element={<PlanoPremium />} />
-            <Route path="/payment-success" element={<PaymentSuccess />} />
-            <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
-            <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
-            
-            {/* Dashboard Routes - Protected */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/agenda" element={
-              <ProtectedRoute>
-                <Agenda />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/clientes" element={
-              <ProtectedRoute>
-                <Clientes />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/servicos" element={
-              <ProtectedRoute>
-                <Servicos />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/profissionais" element={
-              <ProtectedRoute>
-                <Profissionais />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/ranking" element={
-              <ProtectedRoute>
-                <Ranking />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/relatorios" element={
-              <ProtectedRoute>
-                <Relatorios />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/horarios" element={
-              <ProtectedRoute>
-                <Horarios />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/planos" element={
-              <ProtectedRoute>
-                <Planos />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/webhook-logs" element={
-              <ProtectedRoute>
-                <WebhookLogs />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/historico" element={
-              <ProtectedRoute>
-                <HistoricoSimples />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard/configuracoes" element={
-              <ProtectedRoute>
-                <Configuracoes />
-              </ProtectedRoute>
-            } />
-            
-            {/* Client Routes - Protected */}
-            <Route path="/cliente/agendamentos" element={
-              <ProtectedRoute>
-                <Agendamentos />
-              </ProtectedRoute>
-            } />
-            <Route path="/cliente/historico" element={
-              <ProtectedRoute>
-                <Historico />
-              </ProtectedRoute>
-            } />
-            <Route path="/cliente/favoritos" element={
-              <ProtectedRoute>
-                <Favoritos />
-              </ProtectedRoute>
-            } />
-            <Route path="/cliente/configuracoes" element={
-              <ProtectedRoute>
-                <ConfiguracoesCliente />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+    <>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
           
-          {/* PWA Components */}
-          {!isInstalled && <PWAInstallPrompt />}
-          <OfflineIndicator />
-          <CookieConsent />
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+          {/* Rotas do Cliente */}
+          <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
+          <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
+          <Route path="/agendar/:slug" element={<AgendarServico />} />
+          <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
+          <Route path="/cliente/historico" element={<Historico />} />
+          <Route path="/cliente/agendamentos" element={<Agendamentos />} />
+          <Route path="/cliente/favoritos" element={<Favoritos />} />
+          <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
+          
+          {/* Rotas da Empresa */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/planos" element={<Planos />} />
+          <Route path="/plano-premium" element={<PlanoPremium />} />
+          <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+          <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+          <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
+          <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
+          <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
+          <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+          <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
+          <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
+          <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
+          <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+          <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
+          
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+      
+      {/* PWA Components */}
+      <PWAInstallPrompt />
+      <OfflineIndicator />
+    </>
   );
-}
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <CookieConsent />
+      <AppRouter />
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;
