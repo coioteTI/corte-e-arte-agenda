@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link, useParams } from "react-router-dom";
 import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Heart, ArrowLeft } from "lucide-react";
-import LikeButton from "@/components/LikeButton";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -194,16 +193,8 @@ const PerfilBarbearia = () => {
             Tradição e qualidade em cortes masculinos. Atendimento personalizado e ambiente acolhedor.
           </p>
           
-          {/* Likes and Ranking Info */}
-          <div className="flex flex-col items-center gap-3 mb-4">
-            {company?.id && company.id.length > 0 && (
-              <LikeButton
-                key={`like-${company.id}`}
-                targetType="company"
-                targetId={company.id}
-                className="w-full"
-              />
-            )}
+          {/* Total Likes Display */}
+          <div className="flex justify-center mb-4">
             <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
               ❤️ {company.likes_count || 0} curtidas no total
             </div>
