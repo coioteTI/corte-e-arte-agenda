@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import React, { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
@@ -8,7 +8,8 @@ if (!rootElement) {
   throw new Error("Elemento #root não encontrado no index.html");
 }
 
-createRoot(rootElement).render(
+const root = createRoot(rootElement);
+root.render(
   <StrictMode>
     <App />
   </StrictMode>
