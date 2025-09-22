@@ -1,5 +1,4 @@
 export interface NotificacoesConfig {
-  email: boolean;
   whatsapp: boolean;
   lembretes: boolean;
   confirmacoes: boolean;

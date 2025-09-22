@@ -51,7 +51,7 @@ const Cadastro = () => {
       }
 
       // Criar usuário no Supabase
-      const redirectUrl = `${window.location.origin}/email-confirmado`;
+      const redirectUrl = `${window.location.origin}/planos`;
       console.log('Redirect URL sendo usado:', redirectUrl);
       
       const { data: authData, error: authError } = await supabase.auth.signUp({

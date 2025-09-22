@@ -34,8 +34,6 @@ import Agendamentos from "./pages/cliente/Agendamentos";
 import Favoritos from "./pages/cliente/Favoritos";
 import ConfiguracoesCliente from "./pages/cliente/Configuracoes";
 import NotFound from "./pages/NotFound";
-import EmailConfirmado from "./pages/EmailConfirmado";
-import TesteEmail from "./pages/TesteEmail";
 import PlanoPremium from "./pages/PlanoPremium";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PagamentoSucesso from "./pages/PagamentoSucesso";
@@ -117,8 +115,6 @@ const AppRouter = () => {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/cadastro" element={<Cadastro />} />
-          <Route path="/email-confirmado" element={<EmailConfirmado />} />
-          <Route path="/teste-email" element={<TesteEmail />} />
           <Route path="/planos" element={<Planos />} />
           <Route path="/plano-premium" element={<PlanoPremium />} />
           <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />

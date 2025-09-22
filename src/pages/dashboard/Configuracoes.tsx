@@ -35,7 +35,6 @@ const Configuracoes = () => {
   
   const [configuracoes, setConfiguracoes] = useState<ConfiguracoesState>({
     notificacoes: {
-      email: true,
       whatsapp: false,
       lembretes: true,
       confirmacoes: true
@@ -203,7 +202,6 @@ const Configuracoes = () => {
         
         setConfiguracoes({
           notificacoes: {
-            email: s.email_notifications,
             whatsapp: s.whatsapp_notifications,
             lembretes: s.reminders_enabled,
             confirmacoes: s.confirmations_enabled
@@ -333,7 +331,6 @@ const Configuracoes = () => {
         .from('company_settings')
         .upsert({
           company_id: companyId,
-          email_notifications: configuracoes.notificacoes.email,
           whatsapp_notifications: configuracoes.notificacoes.whatsapp,
           reminders_enabled: configuracoes.notificacoes.lembretes,
           confirmations_enabled: configuracoes.notificacoes.confirmacoes,

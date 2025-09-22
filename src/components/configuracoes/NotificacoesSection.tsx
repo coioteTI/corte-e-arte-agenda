@@ -16,21 +16,6 @@ export const NotificacoesSection = ({ configuracoes, onSwitchChange }: Notificac
         <CardTitle>Notificações</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label htmlFor="email-notifications">Notificações por Email</Label>
-            <p className="text-sm text-muted-foreground">
-              Receber confirmações e lembretes por email
-            </p>
-          </div>
-          <Switch
-            id="email-notifications"
-            checked={configuracoes.email}
-            onCheckedChange={(checked) => onSwitchChange("email", checked)}
-          />
-        </div>
-
-        <Separator />
 
         <div className="flex items-center justify-between">
           <div>
