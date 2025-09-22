@@ -45,23 +45,11 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
-// PWA and Theme logic inline to avoid hook issues
+// PWA logic inline to avoid hook issues
 const AppRouter = () => {
   // PWA logic
   const [isInstalled, setIsInstalled] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  // Theme logic
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('corte-arte-theme');
-      if (saved === 'light' || saved === 'dark') {
-        return saved;
-      }
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'light';
-  });
 
   useEffect(() => {
     // PWA setup
@@ -102,18 +90,11 @@ const AppRouter = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Theme setup
-    const root = document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-    root.setAttribute('data-theme', theme);
-    localStorage.setItem('corte-arte-theme', theme);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [theme]);
+  }, []);
 
   return (
     <>
