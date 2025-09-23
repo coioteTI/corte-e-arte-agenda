@@ -240,6 +240,7 @@ export default function AgendarServico() {
         setProfessionals([]);
       } else {
         console.log("✅ Profissionais encontrados:", professionalsData?.length || 0);
+        console.log("✅ Dados dos profissionais:", professionalsData);
         setProfessionals(professionalsData || []);
       }
 
@@ -344,31 +345,9 @@ export default function AgendarServico() {
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
-  // Filtrar profissionais disponíveis - simplificado sem memoização
-  const availableProfessionals = professionals;
-
-  // Filtrar profissionais com base no serviço selecionado - simplificado
-  const filteredProfessionals = (() => {
-    if (!selectedServiceId) return availableProfessionals;
-
-    const selectedService = services.find(s => s.id === selectedServiceId);
-    
-    // Se o serviço tem um profissional responsável específico
-    if (selectedService?.professional_responsible?.trim()) {
-      // Filtrar por nome do profissional responsável
-      const responsibleProfessionals = availableProfessionals.filter(p => 
-        p.name.toLowerCase().trim() === selectedService.professional_responsible.toLowerCase().trim() ||
-        p.specialty?.toLowerCase().includes(selectedService.name.toLowerCase()) ||
-        selectedService.professional_responsible.toLowerCase().includes(p.name.toLowerCase())
-      );
-      
-      // Se não encontrar profissional responsável específico, mostrar todos disponíveis
-      return responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
-    }
-    
-    // Se não tem profissional responsável, mostrar todos disponíveis
-    return availableProfessionals;
-  })();
+  // Filtrar profissionais com base no serviço selecionado - simplificado para mostrar todos
+  // Removendo filtros complexos que causavam problemas
+  console.log("👥 Total de profissionais disponíveis:", professionals.length);
 
   // Calcular horários disponíveis - simplificado sem useMemo
   const getAvailableTimes = () => {
@@ -788,15 +767,25 @@ export default function AgendarServico() {
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
-        <div className="animate-pulse text-foreground">Carregando...</div>
+        <div className="animate-pulse text-foreground">
+          <div className="text-center">
+            <div className="text-lg mb-2">Carregando...</div>
+            <div className="text-sm text-muted-foreground">Buscando informações da empresa</div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!company) {
     return (
-      <div className="max-w-3xl mx-auto p-4 text-center">
-        <p className="text-muted-foreground">Empresa não encontrada</p>
+      <div className="max-w-3xl mx-auto p-4 text-center min-h-[50vh] flex items-center justify-center">
+        <div>
+          <p className="text-muted-foreground text-lg mb-2">Empresa não encontrada</p>
+          <Button onClick={() => window.history.back()} variant="outline">
+            🔙 Voltar
+          </Button>
+        </div>
       </div>
     );
   }
@@ -917,7 +906,18 @@ export default function AgendarServico() {
             )}
 
             <Label className="text-foreground">Escolha o Serviço *</Label>
-            <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
+            <Select 
+              value={selectedServiceId} 
+              onValueChange={(v) => {
+                console.log("Serviço selecionado:", v);
+                try {
+                  setSelectedServiceId(v || undefined);
+                } catch (error) {
+                  console.error("Erro ao selecionar serviço:", error);
+                  toast.error("Erro ao selecionar serviço");
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um serviço" />
               </SelectTrigger>
@@ -941,7 +941,12 @@ export default function AgendarServico() {
               value={selectedProfessionalId || ""} 
               onValueChange={(value) => {
                 console.log("Profissional selecionado:", value);
-                setSelectedProfessionalId(value || undefined);
+                try {
+                  setSelectedProfessionalId(value || undefined);
+                } catch (error) {
+                  console.error("Erro ao selecionar profissional:", error);
+                  toast.error("Erro ao selecionar profissional");
+                }
               }}
               disabled={!selectedServiceId || loading}
             >
@@ -954,31 +959,23 @@ export default function AgendarServico() {
                       : "Selecione um profissional"
                 } />
               </SelectTrigger>
-              <SelectContent>
-                {loading ? (
-                  <SelectItem value="loading" disabled>
-                    Carregando profissionais...
-                  </SelectItem>
-                ) : professionals.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum profissional cadastrado
-                  </SelectItem>
-                ) : availableProfessionals.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum profissional disponível
-                  </SelectItem>
-                ) : filteredProfessionals.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum profissional para este serviço
-                  </SelectItem>
-                ) : (
-                  filteredProfessionals.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.specialty && `- ${p.specialty}`}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
+               <SelectContent>
+                 {loading ? (
+                   <SelectItem value="loading" disabled>
+                     Carregando profissionais...
+                   </SelectItem>
+                 ) : professionals.length === 0 ? (
+                   <SelectItem value="none" disabled>
+                     Nenhum profissional cadastrado para esta empresa
+                   </SelectItem>
+                 ) : (
+                   professionals.map((p) => (
+                     <SelectItem key={p.id} value={p.id}>
+                       {p.name} {p.specialty && `- ${p.specialty}`}
+                     </SelectItem>
+                   ))
+                 )}
+               </SelectContent>
             </Select>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
