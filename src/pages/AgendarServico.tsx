@@ -232,8 +232,7 @@ export default function AgendarServico() {
       const { data: professionalsData, error: professionalsError } = await supabase
         .from("professionals")
         .select("*")
-        .eq("company_id", companyData.id)
-        .eq("is_available", true);
+        .eq("company_id", companyData.id);
       
       if (professionalsError) {
         console.error("❌ Erro ao buscar profissionais:", professionalsError);
