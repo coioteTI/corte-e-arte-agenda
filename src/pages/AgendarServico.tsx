@@ -227,21 +227,41 @@ export default function AgendarServico() {
         setServices(servicesData || []);
       }
 
-      // Buscar profissionais
+      // Buscar profissionais usando função pública
       console.log("🔍 Buscando profissionais para empresa ID:", companyData.id);
-      const { data: professionalsData, error: professionalsError } = await supabase
-        .from("professionals")
-        .select("*")
-        .eq("company_id", companyData.id);
       
-      if (professionalsError) {
-        console.error("❌ Erro ao buscar profissionais:", professionalsError);
-        toast.error(`Erro ao carregar profissionais: ${professionalsError.message}`);
-        setProfessionals([]);
-      } else {
-        console.log("✅ Profissionais encontrados:", professionalsData?.length || 0);
-        console.log("✅ Dados dos profissionais:", professionalsData);
+      try {
+        // Usar função que ignora RLS para busca pública
+        const { data: professionalsData, error: professionalsError } = await supabase
+          .rpc("get_professionals_for_booking", { 
+            company_uuid: companyData.id 
+          });
+        
+        if (professionalsError) {
+          console.error("❌ Erro ao buscar profissionais via RPC:", professionalsError);
+          throw professionalsError;
+        }
+        
+        console.log("✅ Profissionais encontrados via RPC:", professionalsData?.length || 0);
         setProfessionals(professionalsData || []);
+        
+      } catch (rpcError) {
+        console.warn("⚠️ RPC falhou, tentando fallback direto:", rpcError);
+        
+        // Fallback para query direta se a função falhar
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("professionals")
+          .select("*")
+          .eq("company_id", companyData.id);
+        
+        if (fallbackError) {
+          console.error("❌ Erro no fallback também:", fallbackError);
+          toast.error(`Erro ao carregar profissionais: ${fallbackError.message}`);
+          setProfessionals([]);
+        } else {
+          console.log("✅ Profissionais encontrados via fallback:", fallbackData?.length || 0);
+          setProfessionals(fallbackData || []);
+        }
       }
 
       // Buscar agendamentos
@@ -259,27 +279,16 @@ export default function AgendarServico() {
 
       // Buscar configurações de pagamento da empresa
       const { data: settings, error: settingsError } = await supabase
-        .from('company_settings')
-        .select('*')
-        .eq('company_id', companyData.id)
-        .single();
+        .rpc('get_or_create_company_settings', { company_uuid: companyData.id });
       
       if (settingsError) {
         console.error("Erro ao buscar configurações:", settingsError);
-        // Se não existe configuração, criar uma padrão
-        setCompanySettings({
-          payment_methods: ["no_local"],
-          requires_payment_confirmation: false,
-          pix_key: null,
-          pix_qr_code: null
-        });
-        setSelectedPaymentMethod("no_local");
-      } else if (settings) {
-        console.log("Configurações encontradas:", settings);
-        setCompanySettings(settings);
+      } else if (settings && settings[0]) {
+        console.log("Configurações encontradas:", settings[0]);
+        setCompanySettings(settings[0]);
         
         // Auto-selecionar método de pagamento se só tiver uma opção
-        const paymentMethods = settings.payment_methods || ["no_local"];
+        const paymentMethods = settings[0].payment_methods || ["no_local"];
         if (paymentMethods.length === 1) {
           setSelectedPaymentMethod(paymentMethods[0]);
         }
@@ -345,9 +354,45 @@ export default function AgendarServico() {
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
-  // Filtrar profissionais com base no serviço selecionado - simplificado para mostrar todos
-  // Removendo filtros complexos que causavam problemas
-  console.log("👥 Total de profissionais disponíveis:", professionals.length);
+  // Filtrar profissionais disponíveis - simplificado sem memoização
+  const availableProfessionals = professionals.filter(p => {
+    const isAvailable = p.is_available;
+    
+    // Suportar diferentes tipos de valores para is_available
+    if (typeof isAvailable === 'boolean') {
+      return isAvailable === true;
+    }
+    if (typeof isAvailable === 'number') {
+      return isAvailable === 1;
+    }
+    if (typeof isAvailable === 'string') {
+      return isAvailable === "true" || isAvailable === "t";
+    }
+    return false;
+  });
+
+  // Filtrar profissionais com base no serviço selecionado - simplificado
+  const filteredProfessionals = (() => {
+    if (!selectedServiceId) return availableProfessionals;
+
+    const selectedService = services.find(s => s.id === selectedServiceId);
+    
+    // Se o serviço tem um profissional responsável específico
+    if (selectedService?.professional_responsible?.trim()) {
+      // Filtrar por nome do profissional responsável
+      const responsibleProfessionals = availableProfessionals.filter(p => 
+        p.name.toLowerCase().trim() === selectedService.professional_responsible.toLowerCase().trim() ||
+        p.specialty?.toLowerCase().includes(selectedService.name.toLowerCase()) ||
+        selectedService.professional_responsible.toLowerCase().includes(p.name.toLowerCase())
+      );
+      
+      // Se não encontrar profissional responsável específico, mostrar todos disponíveis
+      return responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
+    }
+    
+    // Se não tem profissional responsável, mostrar todos disponíveis
+    return availableProfessionals;
+  })();
 
   // Calcular horários disponíveis - simplificado sem useMemo
   const getAvailableTimes = () => {
@@ -767,25 +812,15 @@ export default function AgendarServico() {
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto p-4 flex justify-center items-center min-h-[50vh]">
-        <div className="animate-pulse text-foreground">
-          <div className="text-center">
-            <div className="text-lg mb-2">Carregando...</div>
-            <div className="text-sm text-muted-foreground">Buscando informações da empresa</div>
-          </div>
-        </div>
+        <div className="animate-pulse text-foreground">Carregando...</div>
       </div>
     );
   }
 
   if (!company) {
     return (
-      <div className="max-w-3xl mx-auto p-4 text-center min-h-[50vh] flex items-center justify-center">
-        <div>
-          <p className="text-muted-foreground text-lg mb-2">Empresa não encontrada</p>
-          <Button onClick={() => window.history.back()} variant="outline">
-            🔙 Voltar
-          </Button>
-        </div>
+      <div className="max-w-3xl mx-auto p-4 text-center">
+        <p className="text-muted-foreground">Empresa não encontrada</p>
       </div>
     );
   }
@@ -906,18 +941,7 @@ export default function AgendarServico() {
             )}
 
             <Label className="text-foreground">Escolha o Serviço *</Label>
-            <Select 
-              value={selectedServiceId} 
-              onValueChange={(v) => {
-                console.log("Serviço selecionado:", v);
-                try {
-                  setSelectedServiceId(v || undefined);
-                } catch (error) {
-                  console.error("Erro ao selecionar serviço:", error);
-                  toast.error("Erro ao selecionar serviço");
-                }
-              }}
-            >
+            <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um serviço" />
               </SelectTrigger>
@@ -941,12 +965,7 @@ export default function AgendarServico() {
               value={selectedProfessionalId || ""} 
               onValueChange={(value) => {
                 console.log("Profissional selecionado:", value);
-                try {
-                  setSelectedProfessionalId(value || undefined);
-                } catch (error) {
-                  console.error("Erro ao selecionar profissional:", error);
-                  toast.error("Erro ao selecionar profissional");
-                }
+                setSelectedProfessionalId(value || undefined);
               }}
               disabled={!selectedServiceId || loading}
             >
@@ -959,23 +978,31 @@ export default function AgendarServico() {
                       : "Selecione um profissional"
                 } />
               </SelectTrigger>
-               <SelectContent>
-                 {loading ? (
-                   <SelectItem value="loading" disabled>
-                     Carregando profissionais...
-                   </SelectItem>
-                 ) : professionals.length === 0 ? (
-                   <SelectItem value="none" disabled>
-                     Nenhum profissional cadastrado para esta empresa
-                   </SelectItem>
-                 ) : (
-                   professionals.map((p) => (
-                     <SelectItem key={p.id} value={p.id}>
-                       {p.name} {p.specialty && `- ${p.specialty}`}
-                     </SelectItem>
-                   ))
-                 )}
-               </SelectContent>
+              <SelectContent>
+                {loading ? (
+                  <SelectItem value="loading" disabled>
+                    Carregando profissionais...
+                  </SelectItem>
+                ) : professionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional cadastrado
+                  </SelectItem>
+                ) : availableProfessionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional disponível
+                  </SelectItem>
+                ) : filteredProfessionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional para este serviço
+                  </SelectItem>
+                ) : (
+                  filteredProfessionals.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} {p.specialty && `- ${p.specialty}`}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
             </Select>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
