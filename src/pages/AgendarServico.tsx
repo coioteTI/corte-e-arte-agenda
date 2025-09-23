@@ -345,21 +345,7 @@ export default function AgendarServico() {
   }, [company?.id, reloadAppointments]);
 
   // Filtrar profissionais disponíveis - simplificado sem memoização
-  const availableProfessionals = professionals.filter(p => {
-    const isAvailable = p.is_available;
-    
-    // Suportar diferentes tipos de valores para is_available
-    if (typeof isAvailable === 'boolean') {
-      return isAvailable === true;
-    }
-    if (typeof isAvailable === 'number') {
-      return isAvailable === 1;
-    }
-    if (typeof isAvailable === 'string') {
-      return isAvailable === "true" || isAvailable === "t";
-    }
-    return false;
-  });
+  const availableProfessionals = professionals;
 
   // Filtrar profissionais com base no serviço selecionado - simplificado
   const filteredProfessionals = (() => {
