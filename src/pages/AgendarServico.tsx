@@ -227,41 +227,21 @@ export default function AgendarServico() {
         setServices(servicesData || []);
       }
 
-      // Buscar profissionais usando função pública
+      // Buscar profissionais
       console.log("🔍 Buscando profissionais para empresa ID:", companyData.id);
+      const { data: professionalsData, error: professionalsError } = await supabase
+        .from("professionals")
+        .select("*")
+        .eq("company_id", companyData.id)
+        .eq("is_available", true);
       
-      try {
-        // Usar função que ignora RLS para busca pública
-        const { data: professionalsData, error: professionalsError } = await supabase
-          .rpc("get_professionals_for_booking", { 
-            company_uuid: companyData.id 
-          });
-        
-        if (professionalsError) {
-          console.error("❌ Erro ao buscar profissionais via RPC:", professionalsError);
-          throw professionalsError;
-        }
-        
-        console.log("✅ Profissionais encontrados via RPC:", professionalsData?.length || 0);
+      if (professionalsError) {
+        console.error("❌ Erro ao buscar profissionais:", professionalsError);
+        toast.error(`Erro ao carregar profissionais: ${professionalsError.message}`);
+        setProfessionals([]);
+      } else {
+        console.log("✅ Profissionais encontrados:", professionalsData?.length || 0);
         setProfessionals(professionalsData || []);
-        
-      } catch (rpcError) {
-        console.warn("⚠️ RPC falhou, tentando fallback direto:", rpcError);
-        
-        // Fallback para query direta se a função falhar
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from("professionals")
-          .select("*")
-          .eq("company_id", companyData.id);
-        
-        if (fallbackError) {
-          console.error("❌ Erro no fallback também:", fallbackError);
-          toast.error(`Erro ao carregar profissionais: ${fallbackError.message}`);
-          setProfessionals([]);
-        } else {
-          console.log("✅ Profissionais encontrados via fallback:", fallbackData?.length || 0);
-          setProfessionals(fallbackData || []);
-        }
       }
 
       // Buscar agendamentos
@@ -279,16 +259,27 @@ export default function AgendarServico() {
 
       // Buscar configurações de pagamento da empresa
       const { data: settings, error: settingsError } = await supabase
-        .rpc('get_or_create_company_settings', { company_uuid: companyData.id });
+        .from('company_settings')
+        .select('*')
+        .eq('company_id', companyData.id)
+        .single();
       
       if (settingsError) {
         console.error("Erro ao buscar configurações:", settingsError);
-      } else if (settings && settings[0]) {
-        console.log("Configurações encontradas:", settings[0]);
-        setCompanySettings(settings[0]);
+        // Se não existe configuração, criar uma padrão
+        setCompanySettings({
+          payment_methods: ["no_local"],
+          requires_payment_confirmation: false,
+          pix_key: null,
+          pix_qr_code: null
+        });
+        setSelectedPaymentMethod("no_local");
+      } else if (settings) {
+        console.log("Configurações encontradas:", settings);
+        setCompanySettings(settings);
         
         // Auto-selecionar método de pagamento se só tiver uma opção
-        const paymentMethods = settings[0].payment_methods || ["no_local"];
+        const paymentMethods = settings.payment_methods || ["no_local"];
         if (paymentMethods.length === 1) {
           setSelectedPaymentMethod(paymentMethods[0]);
         }
