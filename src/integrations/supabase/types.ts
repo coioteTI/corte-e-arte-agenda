@@ -342,6 +342,48 @@ export type Database = {
         }
         Relationships: []
       }
+      kirvano_logs: {
+        Row: {
+          created_at: string
+          detalhes: Json | null
+          email: string
+          error_message: string | null
+          evento: string
+          id: string
+          plan_updated: boolean | null
+          produto: string | null
+          recebido_em: string
+          status_execucao: string
+          user_found: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          detalhes?: Json | null
+          email: string
+          error_message?: string | null
+          evento: string
+          id?: string
+          plan_updated?: boolean | null
+          produto?: string | null
+          recebido_em?: string
+          status_execucao?: string
+          user_found?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          detalhes?: Json | null
+          email?: string
+          error_message?: string | null
+          evento?: string
+          id?: string
+          plan_updated?: boolean | null
+          produto?: string | null
+          recebido_em?: string
+          status_execucao?: string
+          user_found?: boolean | null
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           client_key: string
