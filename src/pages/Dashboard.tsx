@@ -4,7 +4,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Users, Scissors, Clock, TrendingUp } from "lucide-react";
+import { Calendar, Users, Scissors, Clock, TrendingUp, Webhook } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, isToday } from "date-fns";
 
@@ -252,7 +252,7 @@ const Dashboard = () => {
         </div>
 
         {/* Links Rápidos */}
-        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 mx-2 sm:mx-0">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4 mx-2 sm:mx-0">
           <Card className="cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => navigate("/dashboard/clientes")}>
             <CardContent className="p-4 sm:p-6 text-center">
@@ -282,6 +282,17 @@ const Dashboard = () => {
               <h3 className="font-semibold text-sm sm:text-base">Gerenciar Profissionais</h3>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 Adicione sua equipe de profissionais
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => navigate("/dashboard/kirvano-webhooks")}>
+            <CardContent className="p-4 sm:p-6 text-center">
+              <Webhook className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 mx-auto mb-2" />
+              <h3 className="font-semibold text-sm sm:text-base">Webhooks Kirvano</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Monitore eventos de assinatura
               </p>
             </CardContent>
           </Card>

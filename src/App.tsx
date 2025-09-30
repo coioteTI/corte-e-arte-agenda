@@ -23,6 +23,7 @@ import Horarios from "./pages/dashboard/Horarios";
 
 import Configuracoes from "./pages/dashboard/Configuracoes";
 import WebhookLogs from "./pages/dashboard/WebhookLogs";
+import KirvanoWebhooks from "./pages/dashboard/KirvanoWebhooks";
 import Planos from "./pages/dashboard/Planos";
 import HistoricoSimples from "./pages/dashboard/HistoricoSimples";
 import BuscarBarbearias from "./pages/BuscarBarbearias";
@@ -130,6 +131,7 @@ const AppRouter = () => {
           <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
           <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
           <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
+          <Route path="/dashboard/kirvano-webhooks" element={<ProtectedRoute><KirvanoWebhooks /></ProtectedRoute>} />
           <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
           <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
           
