@@ -21,8 +21,8 @@ const PlanoPremium = () => {
     }
     
     const kiwifyUrls = {
-      mensal: 'https://pay.kiwify.com.br/vNAkJ7c',
-      anual: 'https://pay.kiwify.com.br/eXKTLmI'
+      mensal: 'https://pay.kirvano.com/9c9bce9b-547d-435e-91c9-0192f1a067e0',
+      anual: 'https://pay.kirvano.com/854ff17c-c700-4c7b-a085-bc216cb822d1'
     };
     
     // Abrir o checkout do Kiwify em nova aba
@@ -107,7 +107,7 @@ const PlanoPremium = () => {
                 disabled={isLoading}
                 variant="outline"
               >
-                {isLoading ? "Processando..." : "Assinar Anual - R$ 770,00"}
+                {isLoading ? "Processando..." : "Assinar Anual - R$ 500,00"}
               </Button>
             </div>
 

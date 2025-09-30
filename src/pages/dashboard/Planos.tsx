@@ -21,8 +21,8 @@ const Planos = () => {
     }
     
     const kiwifyUrls = {
-      mensal: 'https://pay.kiwify.com.br/vNAkJ7c',
-      anual: 'https://pay.kiwify.com.br/eXKTLmI',
+      mensal: 'https://pay.kirvano.com/9c9bce9b-547d-435e-91c9-0192f1a067e0',
+      anual: 'https://pay.kirvano.com/854ff17c-c700-4c7b-a085-bc216cb822d1',
       teste: 'https://pay.kiwify.com.br/9oNOaqB'
     };
     
@@ -173,12 +173,12 @@ const Planos = () => {
                 <CardTitle>Premium Anual</CardTitle>
               </div>
               <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold text-green-600">R$ 770</div>
+                <div className="text-3xl font-bold text-green-600">R$ 500</div>
                 <div className="text-sm text-muted-foreground line-through">R$ 958,80</div>
               </div>
               <p className="text-sm text-muted-foreground">pagamento à vista</p>
               <div className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded-full w-fit">
-                Economize R$ 188,80 por ano
+                Economize R$ 458,80 por ano
               </div>
             </CardHeader>
             <CardContent>
