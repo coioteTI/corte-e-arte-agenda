@@ -202,9 +202,9 @@ const WebhookLogs = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Logs de Webhook Kiwify</h1>
+          <h1 className="text-3xl font-bold">Logs de Webhook Kirvano</h1>
           <p className="text-muted-foreground">
-            Monitore e teste a integração com a Kiwify
+            Monitore e teste a integração com a Kirvano
           </p>
         </div>
 
@@ -250,7 +250,7 @@ const WebhookLogs = () => {
                               Nenhum evento de webhook registrado ainda
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              Configure o webhook na Kiwify para começar a receber eventos
+                              Configure o webhook na Kirvano para começar a receber eventos
                             </p>
                           </div>
                         </TableCell>
@@ -354,7 +354,7 @@ const WebhookLogs = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-sm font-medium">URL para configurar na Kiwify:</Label>
+                  <Label className="text-sm font-medium">URL para configurar na Kirvano:</Label>
                   <div className="flex gap-2 mt-2">
                     <Input 
                       value={webhookUrl} 
@@ -368,9 +368,9 @@ const WebhookLogs = () => {
                 </div>
 
                 <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium mb-2">Como configurar na Kiwify:</h4>
+                  <h4 className="font-medium mb-2">Como configurar na Kirvano:</h4>
                   <ol className="text-sm space-y-1 list-decimal list-inside">
-                    <li>Acesse sua conta na Kiwify</li>
+                    <li>Acesse sua conta na Kirvano</li>
                     <li>Vá em Configurações → Webhooks</li>
                     <li>Cole a URL acima no campo de webhook</li>
                     <li>Selecione os eventos: Assinatura cancelada, Assinatura atrasada, Assinatura renovada, Compra aprovada</li>
@@ -382,7 +382,7 @@ const WebhookLogs = () => {
                   <h4 className="font-medium mb-2">Token de Segurança:</h4>
                   <p className="text-sm">
                     O token de segurança <code className="bg-gray-100 px-1 rounded">tjud6lgfb19</code> é 
-                    validado automaticamente. Certifique-se de que a Kiwify está enviando este token.
+                    validado automaticamente. Certifique-se de que a Kirvano está enviando este token.
                   </p>
                 </div>
               </CardContent>

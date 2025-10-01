@@ -12,7 +12,7 @@ const PaymentSuccess = () => {
 
   useEffect(() => {
     // Limpar localStorage após sucesso
-    localStorage.removeItem('user_email_for_kiwify');
+    localStorage.removeItem('user_email_for_kirvano');
     localStorage.removeItem('selected_plan');
     
     toast({

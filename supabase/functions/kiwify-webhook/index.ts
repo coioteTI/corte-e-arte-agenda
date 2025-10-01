@@ -13,7 +13,7 @@ const corsHeaders = {
 
 const VALID_TOKEN = 'tjud6lgfb19';
 
-interface KiwifyWebhookPayload {
+interface KirvanoWebhookPayload {
   webhook_event_type: string;
   checkout_link: string;
   Customer: {
@@ -80,7 +80,7 @@ const isAccessGrantedEvent = (evento: string): boolean => {
 };
 
 serve(async (req) => {
-  console.log('🔄 Kiwify webhook called:', {
+  console.log('🔄 Kirvano webhook called:', {
     method: req.method,
     url: req.url,
     headers: Object.fromEntries(req.headers.entries())
@@ -102,10 +102,10 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Processing Kiwify webhook...');
+    console.log('🔄 Processing Kirvano webhook...');
     
     // Parse the request body
-    let payload: KiwifyWebhookPayload;
+    let payload: KirvanoWebhookPayload;
     try {
       const rawBody = await req.text();
       console.log('📦 Raw request body:', rawBody);
@@ -119,7 +119,7 @@ serve(async (req) => {
       });
     }
 
-    // Extract data from Kiwify format
+    // Extract data from Kirvano format (compatível com Kiwify)
     const email = payload.Customer?.email;
     const evento = payload.webhook_event_type;
     const produto = payload.Product?.product_name;
@@ -136,7 +136,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`✅ Processing Kiwify webhook for email: ${email}, event: ${evento}, checkout: ${checkoutLink}`);
+    console.log(`✅ Processing Kirvano webhook for email: ${email}, event: ${evento}, checkout: ${checkoutLink}`);
 
     console.log('✅ Token validation passed');
 

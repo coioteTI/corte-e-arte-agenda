@@ -16,21 +16,21 @@ const PlanoPremium = () => {
     // Salvar dados no localStorage para o webhook usar
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      localStorage.setItem('user_email_for_kiwify', user.email || '');
+      localStorage.setItem('user_email_for_kirvano', user.email || '');
       localStorage.setItem('selected_plan', planType === 'mensal' ? 'premium_mensal' : 'premium_anual');
     }
     
-    const kiwifyUrls = {
+    const kirvanoUrls = {
       mensal: 'https://pay.kirvano.com/9c9bce9b-547d-435e-91c9-0192f1a067e0',
       anual: 'https://pay.kirvano.com/854ff17c-c700-4c7b-a085-bc216cb822d1'
     };
     
-    // Abrir o checkout do Kiwify em nova aba
-    window.open(kiwifyUrls[planType], '_blank');
+    // Abrir o checkout do Kirvano em nova aba
+    window.open(kirvanoUrls[planType], '_blank');
     
     toast({
       title: "Redirecionamento para pagamento",
-      description: "Você será redirecionado para o Kiwify para finalizar sua assinatura.",
+      description: "Você será redirecionado para o Kirvano para finalizar sua assinatura.",
     });
   };
 
