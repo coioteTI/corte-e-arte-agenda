@@ -354,44 +354,46 @@ export default function AgendarServico() {
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
-  // Filtrar profissionais disponíveis - simplificado sem memoização
+  // Filtrar profissionais disponíveis
   const availableProfessionals = professionals.filter(p => {
     const isAvailable = p.is_available;
-    
-    // Suportar diferentes tipos de valores para is_available
-    if (typeof isAvailable === 'boolean') {
-      return isAvailable === true;
-    }
-    if (typeof isAvailable === 'number') {
-      return isAvailable === 1;
-    }
-    if (typeof isAvailable === 'string') {
-      return isAvailable === "true" || isAvailable === "t";
-    }
+    // Garantir que sempre retornamos um boolean
+    if (typeof isAvailable === 'boolean') return isAvailable === true;
+    if (typeof isAvailable === 'number') return isAvailable === 1;
+    if (typeof isAvailable === 'string') return isAvailable === "true" || isAvailable === "t";
     return false;
   });
 
-  // Filtrar profissionais com base no serviço selecionado - simplificado
+  // Filtrar profissionais com base no serviço - sempre retorna pelo menos os disponíveis
   const filteredProfessionals = (() => {
+    // Se nenhum serviço selecionado, mostrar todos disponíveis
     if (!selectedServiceId) return availableProfessionals;
+
+    // Se não há profissionais disponíveis, retornar array vazio
+    if (availableProfessionals.length === 0) return [];
 
     const selectedService = services.find(s => s.id === selectedServiceId);
     
-    // Se o serviço tem um profissional responsável específico
-    if (selectedService?.professional_responsible?.trim()) {
-      // Filtrar por nome do profissional responsável
-      const responsibleProfessionals = availableProfessionals.filter(p => 
-        p.name.toLowerCase().trim() === selectedService.professional_responsible.toLowerCase().trim() ||
-        p.specialty?.toLowerCase().includes(selectedService.name.toLowerCase()) ||
-        selectedService.professional_responsible.toLowerCase().includes(p.name.toLowerCase())
-      );
-      
-      // Se não encontrar profissional responsável específico, mostrar todos disponíveis
-      return responsibleProfessionals.length > 0 ? responsibleProfessionals : availableProfessionals;
-    }
+    // Se serviço não encontrado, mostrar todos disponíveis
+    if (!selectedService) return availableProfessionals;
     
-    // Se não tem profissional responsável, mostrar todos disponíveis
-    return availableProfessionals;
+    // Se o serviço não especifica profissional responsável, mostrar todos
+    if (!selectedService.professional_responsible?.trim()) {
+      return availableProfessionals;
+    }
+
+    // Tentar encontrar profissional responsável específico
+    const responsibleName = selectedService.professional_responsible.toLowerCase().trim();
+    const matched = availableProfessionals.filter(p => {
+      const professionalName = p.name.toLowerCase().trim();
+      return professionalName === responsibleName || 
+             professionalName.includes(responsibleName) ||
+             responsibleName.includes(professionalName);
+    });
+    
+    // IMPORTANTE: Se não encontrar match, retornar TODOS os disponíveis
+    // Isso evita a tela preta quando o filtro não encontra ninguém
+    return matched.length > 0 ? matched : availableProfessionals;
   })();
 
   // Calcular horários disponíveis - simplificado sem useMemo
@@ -964,7 +966,7 @@ export default function AgendarServico() {
             <Select 
               value={selectedProfessionalId || ""} 
               onValueChange={(value) => {
-                console.log("Profissional selecionado:", value);
+                console.log("✅ Profissional selecionado:", value);
                 setSelectedProfessionalId(value || undefined);
               }}
               disabled={!selectedServiceId || loading}
@@ -983,22 +985,22 @@ export default function AgendarServico() {
                   <SelectItem value="loading" disabled>
                     Carregando profissionais...
                   </SelectItem>
-                ) : professionals.length === 0 ? (
+                ) : !professionals || professionals.length === 0 ? (
                   <SelectItem value="none" disabled>
                     Nenhum profissional cadastrado
                   </SelectItem>
-                ) : availableProfessionals.length === 0 ? (
+                ) : !availableProfessionals || availableProfessionals.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    Nenhum profissional disponível no momento
+                  </SelectItem>
+                ) : !filteredProfessionals || filteredProfessionals.length === 0 ? (
                   <SelectItem value="none" disabled>
                     Nenhum profissional disponível
-                  </SelectItem>
-                ) : filteredProfessionals.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum profissional para este serviço
                   </SelectItem>
                 ) : (
                   filteredProfessionals.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} {p.specialty && `- ${p.specialty}`}
+                      {p.name}{p.specialty ? ` - ${p.specialty}` : ''}
                     </SelectItem>
                   ))
                 )}
