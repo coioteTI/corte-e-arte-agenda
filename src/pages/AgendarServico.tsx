@@ -354,18 +354,20 @@ export default function AgendarServico() {
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
-  // Filtrar profissionais disponíveis
-  const availableProfessionals = professionals.filter(p => {
-    const isAvailable = p.is_available;
-    // Garantir que sempre retornamos um boolean
-    if (typeof isAvailable === 'boolean') return isAvailable === true;
-    if (typeof isAvailable === 'number') return isAvailable === 1;
-    if (typeof isAvailable === 'string') return isAvailable === "true" || isAvailable === "t";
-    return false;
-  });
+  // Filtrar profissionais disponíveis usando useMemo para evitar re-renders
+  const availableProfessionals = useMemo(() => {
+    return professionals.filter(p => {
+      const isAvailable = p.is_available;
+      // Garantir que sempre retornamos um boolean
+      if (typeof isAvailable === 'boolean') return isAvailable === true;
+      if (typeof isAvailable === 'number') return isAvailable === 1;
+      if (typeof isAvailable === 'string') return isAvailable === "true" || isAvailable === "t";
+      return false;
+    });
+  }, [professionals]);
 
-  // Filtrar profissionais com base no serviço - sempre retorna pelo menos os disponíveis
-  const filteredProfessionals = (() => {
+  // Filtrar profissionais com base no serviço usando useMemo
+  const filteredProfessionals = useMemo(() => {
     // Se nenhum serviço selecionado, mostrar todos disponíveis
     if (!selectedServiceId) return availableProfessionals;
 
@@ -394,10 +396,10 @@ export default function AgendarServico() {
     // IMPORTANTE: Se não encontrar match, retornar TODOS os disponíveis
     // Isso evita a tela preta quando o filtro não encontra ninguém
     return matched.length > 0 ? matched : availableProfessionals;
-  })();
+  }, [availableProfessionals, selectedServiceId, services]);
 
-  // Calcular horários disponíveis - simplificado sem useMemo
-  const getAvailableTimes = () => {
+  // Calcular horários disponíveis usando useMemo
+  const availableTimes = useMemo(() => {
     if (!selectedProfessionalId || !selectedDate || !company || !selectedServiceId) {
       return [];
     }
@@ -457,9 +459,7 @@ export default function AgendarServico() {
     }
     
     return availableSlots;
-  };
-
-  const availableTimes = getAvailableTimes();
+  }, [selectedProfessionalId, selectedDate, company, selectedServiceId, services, appointments]);
 
   // Resetar horário quando serviço ou profissional muda - simplificado
   useEffect(() => {
