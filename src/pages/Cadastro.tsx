@@ -84,7 +84,9 @@ const Cadastro = () => {
           zip_code: formData.cep,
           instagram: formData.instagram || null,
           user_id: authData.user.id,
-          plan: 'nenhum'
+          plan: 'trial',
+          trial_appointments_limit: 20,
+          trial_appointments_used: 0
         };
 
         const { error: companyError } = await supabase

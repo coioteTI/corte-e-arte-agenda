@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Users, Scissors, Clock, TrendingUp, Webhook } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format, isToday } from "date-fns";
+import { TrialBanner } from "@/components/TrialBanner";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -132,6 +133,11 @@ const Dashboard = () => {
           <p className="text-sm sm:text-base text-muted-foreground">
             Bem-vindo ao seu painel de controle
           </p>
+        </div>
+
+        {/* Banner de Trial */}
+        <div className="px-2 sm:px-0">
+          <TrialBanner />
         </div>
 
         {/* Cards de Estatísticas */}

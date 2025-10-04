@@ -161,6 +161,8 @@ export type Database = {
           plan: string
           primary_color: string | null
           state: string
+          trial_appointments_limit: number | null
+          trial_appointments_used: number | null
           updated_at: string
           user_id: string
           zip_code: string
@@ -182,6 +184,8 @@ export type Database = {
           plan?: string
           primary_color?: string | null
           state: string
+          trial_appointments_limit?: number | null
+          trial_appointments_used?: number | null
           updated_at?: string
           user_id: string
           zip_code: string
@@ -203,6 +207,8 @@ export type Database = {
           plan?: string
           primary_color?: string | null
           state?: string
+          trial_appointments_limit?: number | null
+          trial_appointments_used?: number | null
           updated_at?: string
           user_id?: string
           zip_code?: string
@@ -863,6 +869,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_create_appointment: {
+        Args: { company_uuid: string }
+        Returns: boolean
+      }
       delete_user_account: {
         Args: { company_uuid: string }
         Returns: boolean

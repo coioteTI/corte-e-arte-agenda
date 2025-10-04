@@ -679,6 +679,20 @@ export default function AgendarServico() {
         console.log("✅ Cliente criado:", clientId);
       }
 
+      // Verificar se a empresa pode criar agendamentos (limite de trial)
+      const { data: canCreate, error: checkError } = await supabase
+        .rpc('can_create_appointment', { company_uuid: company.id });
+
+      if (checkError) {
+        console.error("Erro ao verificar limite:", checkError);
+        throw new Error("Erro ao verificar disponibilidade. Tente novamente.");
+      }
+
+      if (!canCreate) {
+        toast.error("🚫 Limite de agendamentos atingido! A empresa atingiu o limite de agendamentos do período trial. Entre em contato com a barbearia ou solicite que assinem um plano.");
+        return;
+      }
+
       // Criar agendamento
       const appointmentData: Appointment = {
         company_id: company.id,
