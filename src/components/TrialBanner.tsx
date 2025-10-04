@@ -49,11 +49,11 @@ export const TrialBanner = () => {
 
   return (
     <Alert variant={isLimitReached ? "destructive" : isLimitClose ? "default" : "default"} className="mb-4">
-      <Sparkles className="h-4 w-4" />
-      <AlertTitle className="flex items-center justify-between">
-        <span>Período Trial</span>
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle className="flex items-center justify-between flex-wrap gap-2">
+        <span className="font-bold">⚠️ Período Trial - Limite de 20 Agendamentos</span>
         <span className="text-sm font-normal">
-          {trialInfo.used} / {trialInfo.limit} agendamentos usados
+          {trialInfo.used} / {trialInfo.limit} usados
         </span>
       </AlertTitle>
       <AlertDescription className="mt-2">
@@ -70,17 +70,19 @@ export const TrialBanner = () => {
           </div>
           
           {isLimitReached ? (
-            <div className="flex items-center justify-between">
-              <p className="text-sm">Você atingiu o limite do período trial.</p>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <p className="text-sm font-semibold">
+                Você atingiu o limite de 20 agendamentos gratuitos. O sistema está bloqueado até assinar um plano premium.
+              </p>
               <Button size="sm" onClick={() => navigate('/planos')}>
-                Ver Planos
+                Ver Planos Premium
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <p className="text-sm">
-                {remaining} agendamento{remaining !== 1 ? 's' : ''} restante{remaining !== 1 ? 's' : ''}. 
-                {isLimitClose && ' Assine um plano para agendamentos ilimitados!'}
+                Restam {remaining} agendamento{remaining !== 1 ? 's' : ''} gratuito{remaining !== 1 ? 's' : ''}. 
+                {isLimitClose && ' Após o limite, o sistema será bloqueado até assinar um plano.'}
               </p>
               {isLimitClose && (
                 <Button size="sm" variant="outline" onClick={() => navigate('/planos')}>

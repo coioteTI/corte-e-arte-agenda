@@ -58,38 +58,43 @@ const Planos = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {/* Plano Gratuito */}
+          {/* Plano Trial/Gratuito */}
           <Card className="relative">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Star className="h-5 w-5 text-muted-foreground" />
-                <CardTitle>Plano Gratuito</CardTitle>
+                <CardTitle>Plano Trial</CardTitle>
               </div>
               <Badge variant="secondary" className="w-fit">Atual</Badge>
               <div className="text-3xl font-bold">R$ 0</div>
-              <p className="text-sm text-muted-foreground">Para sempre</p>
+              <p className="text-sm text-muted-foreground">Limite de 20 agendamentos</p>
             </CardHeader>
             <CardContent>
+              <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
+                <p className="text-xs text-yellow-800 dark:text-yellow-200 font-semibold">
+                  ⚠️ Após 20 agendamentos, o sistema será bloqueado
+                </p>
+              </div>
               <ul className="space-y-3">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Cadastro básico da empresa</span>
+                  <span className="text-sm font-semibold">20 agendamentos gratuitos</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Perfil público limitado</span>
+                  <span className="text-sm">Todas as funcionalidades liberadas</span>
                 </li>
-                <li className="flex items-center gap-2 opacity-50">
-                  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
-                  <span className="text-sm line-through">Sistema de agendamentos</span>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Sistema de agendamentos</span>
                 </li>
-                <li className="flex items-center gap-2 opacity-50">
-                  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
-                  <span className="text-sm line-through">Gestão de clientes</span>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Gestão de clientes</span>
                 </li>
-                <li className="flex items-center gap-2 opacity-50">
-                  <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
-                  <span className="text-sm line-through">Relatórios avançados</span>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-sm">Relatórios básicos</span>
                 </li>
               </ul>
               <Button variant="outline" className="w-full mt-6" disabled>
