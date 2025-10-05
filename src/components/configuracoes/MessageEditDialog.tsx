@@ -49,7 +49,7 @@ export const MessageEditDialog = ({
               <span className="bg-gray-200 px-2 py-1 rounded">{"{nome}"} - Nome do cliente</span>
               <span className="bg-gray-200 px-2 py-1 rounded">{"{data}"} - Data do agendamento</span>
               <span className="bg-gray-200 px-2 py-1 rounded">{"{horario}"} - Horário do agendamento</span>
-              <span className="bg-gray-200 px-2 py-1 rounded">{"{barbearia}"} - Nome da barbearia</span>
+              <span className="bg-gray-200 px-2 py-1 rounded">{"{empresa}"} - Nome da empresa</span>
             </div>
           </div>
 

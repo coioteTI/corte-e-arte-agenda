@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Cadastro = () => {
   const [formData, setFormData] = useState({
-    nomeBarbearia: "",
+    nomeEmpresa: "",
     endereco: "",
     numero: "",
     bairro: "",
@@ -38,7 +38,7 @@ const Cadastro = () => {
     
     try {
       // Validar campos obrigatórios
-      if (!formData.nomeBarbearia || !formData.endereco || !formData.telefone || 
+      if (!formData.nomeEmpresa || !formData.endereco || !formData.telefone ||
           !formData.emailContato || !formData.nomeAdmin || !formData.emailAdmin || 
           !formData.senhaAdmin || !formData.numero || !formData.bairro || 
           !formData.cidade || !formData.estado || !formData.cep) {
@@ -73,7 +73,7 @@ const Cadastro = () => {
       // Tentar criar empresa (não mostrar erro ao usuário)
       if (authData?.user) {
         const companyData = {
-          name: formData.nomeBarbearia,
+          name: formData.nomeEmpresa,
           email: formData.emailContato,
           phone: formData.telefone,
           address: formData.endereco,
@@ -107,7 +107,7 @@ const Cadastro = () => {
 
       // Limpar formulário
       setFormData({
-        nomeBarbearia: "",
+        nomeEmpresa: "",
         endereco: "",
         numero: "",
         bairro: "",
@@ -146,21 +146,21 @@ const Cadastro = () => {
               alt="Corte & Arte" 
               className="h-10 md:h-12 w-auto mx-auto mb-4"
             />
-            <CardTitle className="text-lg md:text-xl">Cadastrar Barbearia & Salão</CardTitle>
+            <CardTitle className="text-lg md:text-xl">Cadastrar Nova Empresa</CardTitle>
           </CardHeader>
           <CardContent className="p-4 md:p-6">
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-              {/* Dados da Barbearia */}
+              {/* Dados da Empresa */}
               <div className="space-y-3 md:space-y-4">
-                <h3 className="text-base md:text-lg font-medium">Dados da Barbearia/Salão</h3>
+                <h3 className="text-base md:text-lg font-medium">Dados da Empresa</h3>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="nomeBarbearia">Nome da barbearia/salão</Label>
+                  <Label htmlFor="nomeEmpresa">Nome da empresa</Label>
                   <Input
-                    id="nomeBarbearia"
-                    placeholder="Ex: Minha Barbearia"
-                    value={formData.nomeBarbearia}
-                    onChange={(e) => handleInputChange("nomeBarbearia", e.target.value)}
+                    id="nomeEmpresa"
+                    placeholder="Ex: Minha Empresa"
+                    value={formData.nomeEmpresa}
+                    onChange={(e) => handleInputChange("nomeEmpresa", e.target.value)}
                     required
                   />
                 </div>
@@ -254,7 +254,7 @@ const Cadastro = () => {
                     <Input
                       id="emailContato"
                       type="email"
-                      placeholder="contato@barbearia.com"
+                      placeholder="contato@empresa.com"
                       value={formData.emailContato}
                       onChange={(e) => handleInputChange("emailContato", e.target.value)}
                       required
@@ -265,7 +265,7 @@ const Cadastro = () => {
                     <Label htmlFor="instagram">Instagram (opcional)</Label>
                     <Input
                       id="instagram"
-                      placeholder="@barbearia_do_joao"
+                      placeholder="@minha_empresa"
                       value={formData.instagram}
                       onChange={(e) => handleInputChange("instagram", e.target.value)}
                     />
@@ -315,7 +315,7 @@ const Cadastro = () => {
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-                {isLoading ? "Cadastrando..." : "Cadastrar Barbearia"}
+                {isLoading ? "Cadastrando..." : "Cadastrar Empresa"}
               </Button>
             </form>
             

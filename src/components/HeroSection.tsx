@@ -14,7 +14,7 @@ export const HeroSection = ({ onLoginClick }: HeroSectionProps) => {
             Agende seu <span className="text-primary">Corte</span> com Estilo
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Sistema profissional de agendamentos para barbearias e salões. 
+            Sistema profissional de agendamentos para empresas de beleza. 
             Marque seu horário de forma rápida e prática.
           </p>
           

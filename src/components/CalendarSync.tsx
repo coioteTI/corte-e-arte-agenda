@@ -39,7 +39,7 @@ BEGIN:VEVENT
 UID:${appointment.id}@corteearte.site
 DTSTART:${formatDate(startDate)}
 DTEND:${formatDate(endDate)}
-SUMMARY:${appointment.services?.name || 'Serviço'} - ${appointment.companies?.name || 'Barbearia'}
+SUMMARY:${appointment.services?.name || 'Serviço'} - ${appointment.companies?.name || 'Empresa'}
 DESCRIPTION:Agendamento confirmado\\nProfissional: ${appointment.professionals?.name || 'Não definido'}\\nServiço: ${appointment.services?.name || 'Não definido'}
 LOCATION:${appointment.companies?.address || 'Endereço não informado'}
 STATUS:CONFIRMED
@@ -76,7 +76,7 @@ END:VCALENDAR`;
       return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     };
 
-    const title = encodeURIComponent(`${appointment.services?.name || 'Serviço'} - ${appointment.companies?.name || 'Barbearia'}`);
+    const title = encodeURIComponent(`${appointment.services?.name || 'Serviço'} - ${appointment.companies?.name || 'Empresa'}`);
     const details = encodeURIComponent(`Profissional: ${appointment.professionals?.name || 'Não definido'}\nServiço: ${appointment.services?.name || 'Não definido'}`);
     const location = encodeURIComponent(appointment.companies?.address || '');
 

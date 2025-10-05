@@ -45,7 +45,7 @@ const AgendamentoConfirmado = () => {
       console.error('Error fetching company:', error);
       toast({
         title: "Erro ao carregar dados",
-        description: "Não foi possível carregar os dados da barbearia.",
+        description: "Não foi possível carregar os dados da empresa.",
         variant: "destructive",
       });
     } finally {
@@ -82,10 +82,10 @@ const AgendamentoConfirmado = () => {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-8 text-center space-y-4">
-            <h1 className="text-xl font-semibold">Barbearia não encontrada</h1>
-            <Link to="/buscar-barbearias" className="text-primary hover:underline">
-              ← Voltar à busca
-            </Link>
+            <h1 className="text-xl font-semibold">Empresa não encontrada</h1>
+            <Button asChild variant="outline">
+              <Link to="/">← Voltar ao início</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -101,7 +101,7 @@ const AgendamentoConfirmado = () => {
             <CheckCircle className="h-16 w-16 text-green-600" />
           </div>
 
-          {/* Logo da Barbearia */}
+          {/* Logo da Empresa */}
           {company.logo_url ? (
             <img 
               src={company.logo_url} 
@@ -131,7 +131,7 @@ const AgendamentoConfirmado = () => {
             <div className="p-4 bg-muted rounded-lg text-left">
               <h3 className="font-medium mb-2">Próximos passos:</h3>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• A barbearia receberá sua solicitação</li>
+                <li>• A empresa receberá sua solicitação</li>
                 <li>• Eles entrarão em contato via WhatsApp</li>
                 <li>• Confirmarão a disponibilidade do horário</li>
                 <li>• Você receberá a confirmação final</li>
@@ -161,13 +161,7 @@ const AgendamentoConfirmado = () => {
           <div className="space-y-2 pt-4 border-t">
             <Button asChild variant="outline" className="w-full">
               <Link to={`/barbearia/${slug}`}>
-                Ver Perfil da Barbearia
-              </Link>
-            </Button>
-            
-            <Button asChild variant="ghost" className="w-full">
-              <Link to="/buscar-barbearias">
-                Buscar Outras Barbearias
+                Ver Perfil da Empresa
               </Link>
             </Button>
             

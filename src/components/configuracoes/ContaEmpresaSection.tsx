@@ -115,7 +115,7 @@ export const ContaEmpresaSection = ({ contaEmpresa, onInputChange, onSalvar, sav
               id="nome-empresa"
               value={contaEmpresa.nome}
               onChange={(e) => onInputChange("nome", e.target.value)}
-              placeholder="Nome da sua barbearia"
+              placeholder="Nome da sua empresa"
               className="h-8"
             />
           </div>
@@ -218,7 +218,7 @@ export const ContaEmpresaSection = ({ contaEmpresa, onInputChange, onSalvar, sav
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1.5 text-sm">
             <ImageIcon className="h-3 w-3" />
-            Logo da Barbearia
+            Logo da Empresa
           </Label>
           
           {logoPreview ? (

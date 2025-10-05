@@ -9,7 +9,7 @@ interface WhatsAppWidgetProps {
   companyName?: string;
 }
 
-const WhatsAppWidget = ({ companyPhone, companyName = "barbearia" }: WhatsAppWidgetProps) => {
+const WhatsAppWidget = ({ companyPhone, companyName = "empresa" }: WhatsAppWidgetProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
   // Debug logs

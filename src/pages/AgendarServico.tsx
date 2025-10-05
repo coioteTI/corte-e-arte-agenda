@@ -689,7 +689,7 @@ export default function AgendarServico() {
       }
 
       if (!canCreate) {
-        toast.error("🚫 Limite de agendamentos atingido! A empresa atingiu o limite de agendamentos do período trial. Entre em contato com a barbearia ou solicite que assinem um plano.");
+        toast.error("🚫 Limite de agendamentos atingido! A empresa atingiu o limite de agendamentos do período trial. Entre em contato com a empresa ou solicite que assinem um plano.");
         return;
       }
 

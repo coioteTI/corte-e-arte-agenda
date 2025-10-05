@@ -18,9 +18,9 @@ export const PersonalizacaoSection = ({ configuracoes, onInputChange }: Personal
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="nome-barbearia">Nome da Barbearia</Label>
+            <Label htmlFor="nome-empresa">Nome da Empresa</Label>
             <Input
-              id="nome-barbearia"
+              id="nome-empresa"
               value={configuracoes.nomeBarbearia}
               onChange={(e) => onInputChange("nomeBarbearia", e.target.value)}
             />
@@ -53,7 +53,7 @@ export const PersonalizacaoSection = ({ configuracoes, onInputChange }: Personal
             id="instagram"
             value={configuracoes.instagram || ""}
             onChange={(e) => onInputChange("instagram", e.target.value)}
-            placeholder="@sua_barbearia"
+            placeholder="@sua_empresa"
           />
         </div>
 

@@ -43,7 +43,7 @@ const Index = () => {
             
             <div className="text-sm text-muted-foreground">
               <Link to="/cadastro" className="hover:text-foreground transition-colors">
-                Cadastrar nova barbearia/salão
+                Cadastrar nova empresa
               </Link>
             </div>
           </CardContent>
