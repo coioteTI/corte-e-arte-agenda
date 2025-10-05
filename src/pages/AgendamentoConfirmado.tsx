@@ -83,8 +83,8 @@ const AgendamentoConfirmado = () => {
         <Card className="w-full max-w-md">
           <CardContent className="p-8 text-center space-y-4">
             <h1 className="text-xl font-semibold">Barbearia não encontrada</h1>
-            <Link to="/buscar-barbearias" className="text-primary hover:underline">
-              ← Voltar à busca
+            <Link to="/" className="text-primary hover:underline">
+              ← Voltar ao início
             </Link>
           </CardContent>
         </Card>
@@ -159,18 +159,6 @@ const AgendamentoConfirmado = () => {
 
           {/* Botões de Navegação */}
           <div className="space-y-2 pt-4 border-t">
-            <Button asChild variant="outline" className="w-full">
-              <Link to={`/barbearia/${slug}`}>
-                Ver Perfil da Barbearia
-              </Link>
-            </Button>
-            
-            <Button asChild variant="ghost" className="w-full">
-              <Link to="/buscar-barbearias">
-                Buscar Outras Barbearias
-              </Link>
-            </Button>
-            
             <div className="text-sm">
               <Link to="/" className="text-muted-foreground hover:text-foreground">
                 ← Voltar ao início

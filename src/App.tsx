@@ -24,8 +24,6 @@ import WebhookLogs from "./pages/dashboard/WebhookLogs";
 import KirvanoWebhooks from "./pages/dashboard/KirvanoWebhooks";
 import Planos from "./pages/dashboard/Planos";
 import HistoricoSimples from "./pages/dashboard/HistoricoSimples";
-import BuscarBarbearias from "./pages/BuscarBarbearias";
-import PerfilBarbearia from "./pages/PerfilBarbearia";
 import AgendarServico from "./pages/AgendarServico";
 import AgendamentoConfirmado from "./pages/AgendamentoConfirmado";
 import Historico from "./pages/cliente/Historico";
@@ -63,8 +61,6 @@ const App = () => (
         <Route path="/" element={<Index />} />
         
         {/* Rotas do Cliente */}
-        <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
-        <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
         <Route path="/agendar/:slug" element={<AgendarServico />} />
         <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
         <Route path="/cliente/historico" element={<Historico />} />

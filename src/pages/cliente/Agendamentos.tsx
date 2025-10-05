@@ -204,9 +204,6 @@ const Agendamentos = () => {
                 <p className="text-sm text-muted-foreground mt-2">
                   Que tal agendar um novo serviço?
                 </p>
-                <Button className="mt-4" onClick={() => window.location.href = '/buscar-barbearias'}>
-                  Buscar Barbearias
-                </Button>
               </div>
             ) : (
               <div className="space-y-4">

@@ -164,9 +164,6 @@ const Historico = () => {
                 <p className="text-muted-foreground">
                   Você ainda não possui histórico de agendamentos.
                 </p>
-                <Button className="mt-4" onClick={() => window.location.href = '/buscar-barbearias'}>
-                  Fazer Primeiro Agendamento
-                </Button>
               </div>
             ) : (
               <div className="space-y-4">

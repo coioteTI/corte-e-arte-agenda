@@ -16,7 +16,6 @@ import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 
 const menuItems = [
-  { title: "Buscar Barbearias", url: "/buscar-barbearias", icon: Calendar },
   { title: "Meus Agendamentos", url: "/cliente/agendamentos", icon: Calendar },
   { title: "Histórico", url: "/cliente/historico", icon: History },
   { title: "Favoritos", url: "/cliente/favoritos", icon: Heart },
