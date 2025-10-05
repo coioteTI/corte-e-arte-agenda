@@ -119,6 +119,9 @@ const Favoritos = () => {
               <p className="text-muted-foreground text-sm mt-2">
                 Favorite suas barbearias preferidas para encontrá-las mais facilmente
               </p>
+              <Button className="mt-4" onClick={() => window.location.href = '/buscar-barbearias'}>
+                Buscar Barbearias
+              </Button>
             </CardContent>
           </Card>
         ) : (

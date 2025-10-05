@@ -29,8 +29,14 @@ const Index = () => {
             
             <div className="space-y-3">
               <Button asChild className="w-full" size="lg">
+                <Link to="/buscar-barbearias">
+                  Sou Cliente – Procurar Barbearias
+                </Link>
+              </Button>
+              
+              <Button asChild variant="outline" className="w-full" size="lg">
                 <Link to="/login">
-                  Entrar no Sistema
+                  Sou Profissional – Entrar no Sistema
                 </Link>
               </Button>
             </div>
