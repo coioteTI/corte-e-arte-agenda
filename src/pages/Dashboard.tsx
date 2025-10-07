@@ -141,50 +141,58 @@ const Dashboard = () => {
         </div>
 
         {/* Cards de Estatísticas */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-4 px-2 sm:px-0">
-          <Card>
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center space-x-2">
-                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 px-2 sm:px-0">
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center justify-between">
+                  <Users className="h-8 w-8 text-blue-600" />
+                </div>
                 <div>
-                  <p className="text-lg sm:text-2xl font-bold">{dashboardData.totalClientes}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Total de Clientes</p>
+                  <p className="text-3xl font-bold">{dashboardData.totalClientes}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Total de Clientes</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center space-x-2">
-                <Scissors className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center justify-between">
+                  <Scissors className="h-8 w-8 text-purple-600" />
+                </div>
                 <div>
-                  <p className="text-lg sm:text-2xl font-bold">{dashboardData.totalServicos}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Serviços Cadastrados</p>
+                  <p className="text-3xl font-bold">{dashboardData.totalServicos}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Serviços Cadastrados</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center space-x-2">
-                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center justify-between">
+                  <Users className="h-8 w-8 text-green-600" />
+                </div>
                 <div>
-                  <p className="text-lg sm:text-2xl font-bold">{dashboardData.totalProfissionais}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Profissionais</p>
+                  <p className="text-3xl font-bold">{dashboardData.totalProfissionais}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Profissionais</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center justify-between">
+                  <TrendingUp className="h-8 w-8 text-orange-600" />
+                </div>
                 <div>
-                  <p className="text-lg sm:text-2xl font-bold">{dashboardData.totalAgendamentos}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Total de Agendamentos</p>
+                  <p className="text-3xl font-bold">{dashboardData.totalAgendamentos}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Total de Agendamentos</p>
                 </div>
               </div>
             </CardContent>
@@ -192,60 +200,58 @@ const Dashboard = () => {
         </div>
 
         {/* Agendamentos de Hoje */}
-        <div className="mx-2 sm:mx-0">
+        <div className="px-2 sm:px-0">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3 sm:pb-6">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="flex items-center gap-2 text-xl font-bold">
+                <Calendar className="h-5 w-5" />
                 Agendamentos de Hoje ({dashboardData.agendamentosHoje.length})
               </CardTitle>
               <Button 
                 onClick={() => navigate("/dashboard/agenda")}
                 size="sm"
-                className="text-xs sm:text-sm"
               >
                 Ver Agenda Completa
               </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4">
               {dashboardData.agendamentosHoje.length === 0 ? (
-                <div className="text-center py-6 sm:py-8">
-                  <Clock className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground text-base sm:text-lg">
+                <div className="text-center py-12">
+                  <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground text-lg font-medium">
                     Nenhum agendamento para hoje
                   </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+                  <p className="text-sm text-muted-foreground mt-2">
                     Que tal aproveitar para organizar sua agenda?
                   </p>
                   <Button 
-                    className="mt-4" 
+                    className="mt-6" 
                     onClick={() => navigate("/dashboard/agenda")}
-                    size="sm"
                   >
                     Criar Agendamento
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2 sm:space-y-3">
+                <div className="space-y-3">
                   {dashboardData.agendamentosHoje.map((agendamento) => (
                     <div
                       key={agendamento.id}
-                      className="flex items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50"
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
-                        <div className="text-xs sm:text-sm font-medium min-w-12 sm:min-w-16">
+                      <div className="flex items-center space-x-4 flex-1 min-w-0">
+                        <div className="text-sm font-semibold min-w-[60px] text-primary">
                           {agendamento.appointment_time}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-sm sm:text-base truncate">{agendamento.clients?.name}</div>
-                          <div className="text-xs sm:text-sm text-muted-foreground truncate">
+                          <div className="font-semibold text-base truncate">{agendamento.clients?.name}</div>
+                          <div className="text-sm text-muted-foreground truncate">
                             {agendamento.services?.name} • {agendamento.professionals?.name}
                           </div>
                         </div>
                       </div>
                       <Badge 
                         variant="secondary"
-                        className={`${getStatusColor(agendamento.status)} text-white text-xs sm:text-sm`}
+                        className={`${getStatusColor(agendamento.status)} text-white shrink-0`}
                       >
                         {getStatusText(agendamento.status)}
                       </Badge>
@@ -258,35 +264,35 @@ const Dashboard = () => {
         </div>
 
         {/* Links Rápidos */}
-        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4 mx-2 sm:mx-0">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow"
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 px-2 sm:px-0">
+          <Card className="cursor-pointer hover:shadow-lg transition-all hover:scale-105"
                 onClick={() => navigate("/dashboard/clientes")}>
-            <CardContent className="p-4 sm:p-6 text-center">
-              <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 mx-auto mb-2" />
-              <h3 className="font-semibold text-sm sm:text-base">Gerenciar Clientes</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">
+            <CardContent className="p-6 text-center">
+              <Users className="h-10 w-10 text-blue-600 mx-auto mb-3" />
+              <h3 className="font-semibold text-base mb-2">Gerenciar Clientes</h3>
+              <p className="text-sm text-muted-foreground">
                 Adicione e gerencie seus clientes
               </p>
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow"
+          <Card className="cursor-pointer hover:shadow-lg transition-all hover:scale-105"
                 onClick={() => navigate("/dashboard/servicos")}>
-            <CardContent className="p-4 sm:p-6 text-center">
-              <Scissors className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 mx-auto mb-2" />
-              <h3 className="font-semibold text-sm sm:text-base">Gerenciar Serviços</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">
+            <CardContent className="p-6 text-center">
+              <Scissors className="h-10 w-10 text-purple-600 mx-auto mb-3" />
+              <h3 className="font-semibold text-base mb-2">Gerenciar Serviços</h3>
+              <p className="text-sm text-muted-foreground">
                 Configure seus serviços e preços
               </p>
             </CardContent>
           </Card>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow"
+          <Card className="cursor-pointer hover:shadow-lg transition-all hover:scale-105"
                 onClick={() => navigate("/dashboard/profissionais")}>
-            <CardContent className="p-4 sm:p-6 text-center">
-              <Users className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 mx-auto mb-2" />
-              <h3 className="font-semibold text-sm sm:text-base">Gerenciar Profissionais</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">
+            <CardContent className="p-6 text-center">
+              <Users className="h-10 w-10 text-green-600 mx-auto mb-3" />
+              <h3 className="font-semibold text-base mb-2">Gerenciar Profissionais</h3>
+              <p className="text-sm text-muted-foreground">
                 Adicione sua equipe de profissionais
               </p>
             </CardContent>
