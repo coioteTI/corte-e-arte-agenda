@@ -40,7 +40,7 @@ export const usePlanAccess = (requiredPlan?: 'premium_mensal' | 'premium_anual')
       // Se está em trial, verificar limite de agendamentos
       if (userPlan === 'trial') {
         const appointmentsUsed = company.trial_appointments_used || 0;
-        const appointmentsLimit = company.trial_appointments_limit || 20;
+        const appointmentsLimit = company.trial_appointments_limit || 50;
         
         if (appointmentsUsed >= appointmentsLimit) {
           setHasAccess(false);

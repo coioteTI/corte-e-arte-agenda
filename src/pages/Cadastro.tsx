@@ -50,8 +50,8 @@ const Cadastro = () => {
         return;
       }
 
-      // Criar usuário no Supabase
-      const redirectUrl = `${window.location.origin}/planos`;
+      // Criar usuário no Supabase - redirecionar para dashboard após confirmar email
+      const redirectUrl = `${window.location.origin}/dashboard`;
       console.log('Redirect URL sendo usado:', redirectUrl);
       
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -85,7 +85,7 @@ const Cadastro = () => {
           instagram: formData.instagram || null,
           user_id: authData.user.id,
           plan: 'trial',
-          trial_appointments_limit: 20,
+          trial_appointments_limit: 50,
           trial_appointments_used: 0
         };
 
