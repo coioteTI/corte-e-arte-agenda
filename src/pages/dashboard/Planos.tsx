@@ -67,18 +67,18 @@ const Planos = () => {
               </div>
               <Badge variant="secondary" className="w-fit">Atual</Badge>
               <div className="text-3xl font-bold">R$ 0</div>
-              <p className="text-sm text-muted-foreground">Limite de 20 agendamentos</p>
+              <p className="text-sm text-muted-foreground">Limite de 50 agendamentos</p>
             </CardHeader>
             <CardContent>
               <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
                 <p className="text-xs text-yellow-800 dark:text-yellow-200 font-semibold">
-                  ⚠️ Após 20 agendamentos, o sistema será bloqueado
+                  ⚠️ Após 50 agendamentos, o sistema será bloqueado
                 </p>
               </div>
               <ul className="space-y-3">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm font-semibold">20 agendamentos gratuitos</span>
+                  <span className="text-sm font-semibold">50 agendamentos gratuitos</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />

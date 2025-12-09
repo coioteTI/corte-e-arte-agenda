@@ -32,11 +32,14 @@ export const PlanStatusChecker = () => {
 
       if (!company) return;
 
-      const hasActivePlan = company.plan && company.plan !== 'nenhum';
+      // Trial é um plano ativo válido enquanto não atingir o limite
+      const isPremiumPlan = company.plan === 'premium_mensal' || company.plan === 'premium_anual';
+      const isTrialPlan = company.plan === 'trial';
+      const hasActivePlan = isPremiumPlan || isTrialPlan;
       
-      // Calcular dias até expiração (assumindo plano mensal de 30 dias)
+      // Calcular dias até expiração (apenas para planos premium)
       let daysUntilExpiry;
-      if (hasActivePlan && company.updated_at) {
+      if (isPremiumPlan && company.updated_at) {
         const lastUpdate = new Date(company.updated_at);
         const now = new Date();
         const daysSinceUpdate = Math.floor((now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60 * 24));
@@ -49,14 +52,14 @@ export const PlanStatusChecker = () => {
         daysUntilExpiry
       });
 
-      // Mostrar avisos baseados no status do plano
+      // Mostrar avisos baseados no status do plano (NÃO para trial ativo)
       if (!hasActivePlan) {
         toast({
           title: "Plano inativo",
           description: "Escolha um plano para acessar todas as funcionalidades.",
           variant: "destructive"
         });
-      } else if (daysUntilExpiry && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+      } else if (isPremiumPlan && daysUntilExpiry && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
         toast({
           title: "Plano expirando em breve",
           description: `Seu plano expira em ${daysUntilExpiry} dias. Renove para continuar usando.`,
@@ -80,7 +83,10 @@ export const PlanStatusChecker = () => {
 
   if (!planStatus) return null;
 
-  // Mostrar alerta se plano está inativo ou próximo do vencimento
+  // Não mostrar alerta para plano trial ativo
+  if (planStatus.plan === 'trial') return null;
+
+  // Mostrar alerta se plano está inativo ou próximo do vencimento (apenas para premium)
   if (!planStatus.hasActivePlan || (planStatus.daysUntilExpiry && planStatus.daysUntilExpiry <= 7)) {
     return (
       <div className="mb-4">
