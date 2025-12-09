@@ -873,12 +873,9 @@ export type Database = {
         Args: { company_uuid: string }
         Returns: boolean
       }
-      delete_user_account: {
-        Args: { company_uuid: string }
-        Returns: boolean
-      }
+      delete_user_account: { Args: { company_uuid: string }; Returns: boolean }
       get_company_rankings: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           id: string
           likes_count: number
@@ -887,7 +884,7 @@ export type Database = {
         }[]
       }
       get_company_rankings_by_appointments: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           appointments_count: number
           id: string
@@ -950,20 +947,14 @@ export type Database = {
           zip_code: string
         }[]
       }
-      get_user_client_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_user_client_id: { Args: never; Returns: string }
       get_user_companies: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           company_id: string
         }[]
       }
-      increment_likes: {
-        Args: { company_id: string }
-        Returns: undefined
-      }
+      increment_likes: { Args: { company_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
