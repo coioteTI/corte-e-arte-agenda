@@ -31,7 +31,7 @@ export const TrialBanner = () => {
       if (company && company.plan === 'trial') {
         setTrialInfo({
           used: company.trial_appointments_used || 0,
-          limit: company.trial_appointments_limit || 20,
+          limit: company.trial_appointments_limit || 50,
           plan: company.plan
         });
       }
@@ -44,14 +44,14 @@ export const TrialBanner = () => {
 
   const remaining = trialInfo.limit - trialInfo.used;
   const percentage = (trialInfo.used / trialInfo.limit) * 100;
-  const isLimitClose = remaining <= 5;
+  const isLimitClose = remaining <= 10;
   const isLimitReached = remaining <= 0;
 
   return (
     <Alert variant={isLimitReached ? "destructive" : isLimitClose ? "default" : "default"} className="mb-4">
       <AlertCircle className="h-4 w-4" />
       <AlertTitle className="flex items-center justify-between flex-wrap gap-2">
-        <span className="font-bold">⚠️ Período Trial - Limite de 20 Agendamentos</span>
+        <span className="font-bold">⚠️ Período Trial - Limite de 50 Agendamentos</span>
         <span className="text-sm font-normal">
           {trialInfo.used} / {trialInfo.limit} usados
         </span>
@@ -72,7 +72,7 @@ export const TrialBanner = () => {
           {isLimitReached ? (
             <div className="flex items-center justify-between flex-wrap gap-2">
               <p className="text-sm font-semibold">
-                Você atingiu o limite de 20 agendamentos gratuitos. O sistema está bloqueado até assinar um plano premium.
+                Você atingiu o limite de 50 agendamentos gratuitos. O sistema está bloqueado até assinar um plano premium.
               </p>
               <Button size="sm" onClick={() => navigate('/planos')}>
                 Ver Planos Premium
