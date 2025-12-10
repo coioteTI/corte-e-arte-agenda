@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import CookieConsent from "@/components/CookieConsent";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -41,7 +42,14 @@ import PagamentoCancelado from "./pages/PagamentoCancelado";
 
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000,
+    },
+  },
+});
 
 // Initialize PWA
 if ('serviceWorker' in navigator) {
@@ -53,55 +61,57 @@ if ('serviceWorker' in navigator) {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <Toaster />
-      <Sonner />
-      <CookieConsent />
-      <PWAInstallPrompt />
-      <OfflineIndicator />
-      <Routes>
-        <Route path="/" element={<Index />} />
-        
-        {/* Rotas do Cliente */}
-        <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
-        <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
-        <Route path="/agendar/:slug" element={<AgendarServico />} />
-        <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
-        <Route path="/cliente/historico" element={<Historico />} />
-        <Route path="/cliente/agendamentos" element={<Agendamentos />} />
-        <Route path="/cliente/favoritos" element={<Favoritos />} />
-        <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
-        
-        {/* Rotas da Empresa */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/cadastro" element={<Cadastro />} />
-        <Route path="/planos" element={<Planos />} />
-        <Route path="/plano-premium" element={<PlanoPremium />} />
-        <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
-        <Route path="/payment-success" element={<PaymentSuccess />} />
-        <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
-        <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
-        <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
-        <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
-        <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
-        <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
-        <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
-        <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
-        <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
-        <Route path="/dashboard/kirvano-webhooks" element={<ProtectedRoute><KirvanoWebhooks /></ProtectedRoute>} />
-        <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-        <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
-        <Route path="/dashboard/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
-        
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Toaster />
+        <Sonner />
+        <CookieConsent />
+        <PWAInstallPrompt />
+        <OfflineIndicator />
+        <Routes>
+          <Route path="/" element={<Index />} />
+          
+          {/* Rotas do Cliente */}
+          <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
+          <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
+          <Route path="/agendar/:slug" element={<AgendarServico />} />
+          <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
+          <Route path="/cliente/historico" element={<Historico />} />
+          <Route path="/cliente/agendamentos" element={<Agendamentos />} />
+          <Route path="/cliente/favoritos" element={<Favoritos />} />
+          <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
+          
+          {/* Rotas da Empresa */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/planos" element={<Planos />} />
+          <Route path="/plano-premium" element={<PlanoPremium />} />
+          <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+          <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+          <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
+          <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
+          <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
+          <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+          <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
+          <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
+          <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
+          <Route path="/dashboard/kirvano-webhooks" element={<ProtectedRoute><KirvanoWebhooks /></ProtectedRoute>} />
+          <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+          <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
+          <Route path="/dashboard/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
+          
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

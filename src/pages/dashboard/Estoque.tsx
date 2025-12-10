@@ -613,8 +613,17 @@ const Estoque = () => {
       </Dialog>
 
       {/* Move Product Dialog */}
-      <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
-        <DialogContent>
+      <Dialog 
+        open={moveDialogOpen} 
+        onOpenChange={(open) => {
+          setMoveDialogOpen(open);
+          if (!open) {
+            setMovingProduct(null);
+            setTargetCategoryId("");
+          }
+        }}
+      >
+        <DialogContent className="z-50">
           <DialogHeader>
             <DialogTitle>Mover Produto</DialogTitle>
           </DialogHeader>
@@ -622,11 +631,14 @@ const Estoque = () => {
             <p className="text-sm text-muted-foreground">
               Mover "{movingProduct?.name}" para:
             </p>
-            <Select value={targetCategoryId} onValueChange={setTargetCategoryId}>
-              <SelectTrigger>
+            <Select 
+              value={targetCategoryId} 
+              onValueChange={setTargetCategoryId}
+            >
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecione a categoria destino" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="z-[100] bg-background border">
                 {categories
                   .filter((cat) => cat.id !== movingProduct?.category_id)
                   .map((cat) => (
@@ -636,9 +648,22 @@ const Estoque = () => {
                   ))}
               </SelectContent>
             </Select>
-            <Button onClick={handleMoveProduct} className="w-full" disabled={!targetCategoryId}>
-              Mover Produto
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setMoveDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleMoveProduct} 
+                className="flex-1" 
+                disabled={!targetCategoryId}
+              >
+                Mover Produto
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
