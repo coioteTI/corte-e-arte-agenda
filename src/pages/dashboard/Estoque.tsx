@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, MoveRight, Package, FolderOpen } from "lucide-react";
+import { Plus, Edit, Trash2, MoveRight, Package, FolderOpen, ShoppingCart, History, Check, Clock } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -37,8 +39,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Category {
   id: string;
@@ -56,11 +68,35 @@ interface Product {
   company_id: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+interface Sale {
+  id: string;
+  product_id: string;
+  client_id: string | null;
+  client_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  payment_status: string;
+  payment_method: string | null;
+  notes: string | null;
+  sold_at: string;
+  product?: Product;
+}
+
 const Estoque = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("products");
 
   // Category form state
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -82,6 +118,16 @@ const Estoque = () => {
   const [movingProduct, setMovingProduct] = useState<Product | null>(null);
   const [targetCategoryId, setTargetCategoryId] = useState("");
 
+  // Sale form state
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
+  const [sellingProduct, setSellingProduct] = useState<Product | null>(null);
+  const [saleClientId, setSaleClientId] = useState("");
+  const [saleClientName, setSaleClientName] = useState("");
+  const [saleQuantity, setSaleQuantity] = useState("1");
+  const [salePaymentStatus, setSalePaymentStatus] = useState("pending");
+  const [salePaymentMethod, setSalePaymentMethod] = useState("");
+  const [saleNotes, setSaleNotes] = useState("");
+
   useEffect(() => {
     loadData();
   }, []);
@@ -95,18 +141,22 @@ const Estoque = () => {
         .from("companies")
         .select("id")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (!company) return;
       setCompanyId(company.id);
 
-      const [categoriesRes, productsRes] = await Promise.all([
+      const [categoriesRes, productsRes, clientsRes, salesRes] = await Promise.all([
         supabase.from("stock_categories").select("*").eq("company_id", company.id).order("name"),
         supabase.from("stock_products").select("*").eq("company_id", company.id).order("name"),
+        supabase.from("clients").select("id, name, phone").order("name"),
+        supabase.from("stock_sales").select("*").eq("company_id", company.id).order("sold_at", { ascending: false }).limit(100),
       ]);
 
       if (categoriesRes.data) setCategories(categoriesRes.data);
       if (productsRes.data) setProducts(productsRes.data);
+      if (clientsRes.data) setClients(clientsRes.data);
+      if (salesRes.data) setSales(salesRes.data);
     } catch (error) {
       console.error("Error loading data:", error);
       toast.error("Erro ao carregar dados");
@@ -313,8 +363,82 @@ const Estoque = () => {
     setMoveDialogOpen(true);
   };
 
+  // Sale functions
+  const openSaleDialog = (product: Product) => {
+    setSellingProduct(product);
+    setSaleClientId("");
+    setSaleClientName("");
+    setSaleQuantity("1");
+    setSalePaymentStatus("pending");
+    setSalePaymentMethod("");
+    setSaleNotes("");
+    setSaleDialogOpen(true);
+  };
+
+  const handleClientSelect = (clientId: string) => {
+    setSaleClientId(clientId);
+    const client = clients.find(c => c.id === clientId);
+    if (client) {
+      setSaleClientName(client.name);
+    }
+  };
+
+  const handleSaveSale = async () => {
+    if (!sellingProduct || !saleClientName.trim() || !companyId) {
+      toast.error("Preencha o nome do cliente");
+      return;
+    }
+
+    const quantity = parseInt(saleQuantity) || 1;
+    const totalPrice = sellingProduct.price * quantity;
+
+    try {
+      const { error } = await supabase.from("stock_sales").insert({
+        company_id: companyId,
+        product_id: sellingProduct.id,
+        client_id: saleClientId || null,
+        client_name: saleClientName.trim(),
+        quantity,
+        unit_price: sellingProduct.price,
+        total_price: totalPrice,
+        payment_status: salePaymentStatus,
+        payment_method: salePaymentMethod || null,
+        notes: saleNotes.trim() || null,
+      });
+
+      if (error) throw error;
+      toast.success("Venda registrada com sucesso!");
+      setSaleDialogOpen(false);
+      loadData();
+    } catch (error) {
+      console.error("Error saving sale:", error);
+      toast.error("Erro ao registrar venda");
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (saleId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from("stock_sales")
+        .update({ payment_status: newStatus })
+        .eq("id", saleId);
+
+      if (error) throw error;
+      toast.success("Status atualizado");
+      loadData();
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      toast.error("Erro ao atualizar status");
+    }
+  };
+
   const getProductsByCategory = (categoryId: string) => {
     return products.filter((p) => p.category_id === categoryId);
+  };
+
+  const getProductName = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    return product?.name || "Produto removido";
   };
 
   if (loading) {
@@ -333,197 +457,300 @@ const Estoque = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold">Estoque</h1>
-            <p className="text-muted-foreground">Gerencie seus produtos por categoria</p>
+            <p className="text-muted-foreground">Gerencie seus produtos e vendas</p>
           </div>
-
-          <Dialog open={categoryDialogOpen} onOpenChange={(open) => {
-            setCategoryDialogOpen(open);
-            if (!open) resetCategoryForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Categoria
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingCategory ? "Editar Categoria" : "Nova Categoria"}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="categoryName">Nome da Categoria</Label>
-                  <Input
-                    id="categoryName"
-                    value={categoryName}
-                    onChange={(e) => setCategoryName(e.target.value)}
-                    placeholder="Ex: Roupas, Eletrônicos..."
-                  />
-                </div>
-                <Button onClick={handleSaveCategory} className="w-full">
-                  {editingCategory ? "Salvar Alterações" : "Criar Categoria"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
 
-        {categories.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Nenhuma categoria criada</h3>
-              <p className="text-muted-foreground text-center mb-4">
-                Crie sua primeira categoria para começar a organizar seu estoque
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Accordion type="multiple" className="space-y-4">
-            {categories.map((category) => (
-              <AccordionItem
-                key={category.id}
-                value={category.id}
-                className="border rounded-lg px-4"
-              >
-                <AccordionTrigger className="hover:no-underline">
-                  <div className="flex items-center justify-between w-full pr-4">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="h-5 w-5 text-primary" />
-                      <span className="font-medium">{category.name}</span>
-                      <span className="text-sm text-muted-foreground">
-                        ({getProductsByCategory(category.id).length} produtos)
-                      </span>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="pt-4 space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openAddProduct(category.id)}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Adicionar Produto
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditCategory(category)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="ghost" className="text-destructive">
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Excluir
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta ação não pode ser desfeita. Todos os produtos desta categoria também serão excluídos.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteCategory(category.id)}
-                              className="bg-destructive text-destructive-foreground"
-                            >
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Produtos
+            </TabsTrigger>
+            <TabsTrigger value="sales" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Vendas
+            </TabsTrigger>
+          </TabsList>
 
-                    {getProductsByCategory(category.id).length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>Nenhum produto nesta categoria</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {getProductsByCategory(category.id).map((product) => (
-                          <Card key={product.id}>
-                            <CardHeader className="pb-2">
-                              {product.image_url && (
-                                <img
-                                  src={product.image_url}
-                                  alt={product.name}
-                                  className="w-full h-32 object-cover rounded-md mb-2"
-                                />
-                              )}
-                              <CardTitle className="text-base">{product.name}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                              <p className="text-lg font-semibold text-primary">
-                                R$ {product.price.toFixed(2)}
-                              </p>
-                              {product.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-2">
-                                  {product.description}
-                                </p>
-                              )}
-                              <div className="flex flex-wrap gap-1 pt-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => openEditProduct(product)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => openMoveProduct(product)}
-                                >
-                                  <MoveRight className="h-4 w-4" />
-                                </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="ghost" className="text-destructive">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esta ação não pode ser desfeita.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleDeleteProduct(product.id)}
-                                        className="bg-destructive text-destructive-foreground"
-                                      >
-                                        Excluir
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    )}
+          <TabsContent value="products" className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog open={categoryDialogOpen} onOpenChange={(open) => {
+                setCategoryDialogOpen(open);
+                if (!open) resetCategoryForm();
+              }}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Categoria
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingCategory ? "Editar Categoria" : "Nova Categoria"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="categoryName">Nome da Categoria</Label>
+                      <Input
+                        id="categoryName"
+                        value={categoryName}
+                        onChange={(e) => setCategoryName(e.target.value)}
+                        placeholder="Ex: Roupas, Eletrônicos..."
+                      />
+                    </div>
+                    <Button onClick={handleSaveCategory} className="w-full">
+                      {editingCategory ? "Salvar Alterações" : "Criar Categoria"}
+                    </Button>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        )}
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {categories.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <FolderOpen className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Nenhuma categoria criada</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Crie sua primeira categoria para começar a organizar seu estoque
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <Accordion type="multiple" className="space-y-4">
+                {categories.map((category) => (
+                  <AccordionItem
+                    key={category.id}
+                    value={category.id}
+                    className="border rounded-lg px-4"
+                  >
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center justify-between w-full pr-4">
+                        <div className="flex items-center gap-2">
+                          <FolderOpen className="h-5 w-5 text-primary" />
+                          <span className="font-medium">{category.name}</span>
+                          <span className="text-sm text-muted-foreground">
+                            ({getProductsByCategory(category.id).length} produtos)
+                          </span>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pt-4 space-y-4">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openAddProduct(category.id)}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Adicionar Produto
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditCategory(category)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="ghost" className="text-destructive">
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Excluir
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta ação não pode ser desfeita. Todos os produtos desta categoria também serão excluídos.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteCategory(category.id)}
+                                  className="bg-destructive text-destructive-foreground"
+                                >
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+
+                        {getProductsByCategory(category.id).length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p>Nenhum produto nesta categoria</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {getProductsByCategory(category.id).map((product) => (
+                              <Card key={product.id}>
+                                <CardHeader className="pb-2">
+                                  {product.image_url && (
+                                    <img
+                                      src={product.image_url}
+                                      alt={product.name}
+                                      className="w-full h-32 object-cover rounded-md mb-2"
+                                    />
+                                  )}
+                                  <CardTitle className="text-base">{product.name}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-2">
+                                  <p className="text-lg font-semibold text-primary">
+                                    R$ {product.price.toFixed(2)}
+                                  </p>
+                                  {product.description && (
+                                    <p className="text-sm text-muted-foreground line-clamp-2">
+                                      {product.description}
+                                    </p>
+                                  )}
+                                  <div className="flex flex-wrap gap-1 pt-2">
+                                    <Button
+                                      size="sm"
+                                      variant="default"
+                                      onClick={() => openSaleDialog(product)}
+                                    >
+                                      <ShoppingCart className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => openEditProduct(product)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => openMoveProduct(product)}
+                                    >
+                                      <MoveRight className="h-4 w-4" />
+                                    </Button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button size="sm" variant="ghost" className="text-destructive">
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Excluir produto?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Esta ação não pode ser desfeita.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => handleDeleteProduct(product.id)}
+                                            className="bg-destructive text-destructive-foreground"
+                                          >
+                                            Excluir
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
+          </TabsContent>
+
+          <TabsContent value="sales" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  Histórico de Vendas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {sales.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhuma venda registrada ainda</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Data</TableHead>
+                          <TableHead>Produto</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Qtd</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sales.map((sale) => (
+                          <TableRow key={sale.id}>
+                            <TableCell className="whitespace-nowrap">
+                              {format(new Date(sale.sold_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            </TableCell>
+                            <TableCell>{getProductName(sale.product_id)}</TableCell>
+                            <TableCell>{sale.client_name}</TableCell>
+                            <TableCell>{sale.quantity}</TableCell>
+                            <TableCell className="font-medium">
+                              R$ {sale.total_price.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={sale.payment_status === "paid" ? "default" : "secondary"}>
+                                {sale.payment_status === "paid" ? (
+                                  <><Check className="h-3 w-3 mr-1" /> Pago</>
+                                ) : (
+                                  <><Clock className="h-3 w-3 mr-1" /> Pendente</>
+                                )}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {sale.payment_status === "pending" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleUpdatePaymentStatus(sale.id, "paid")}
+                                >
+                                  Marcar como pago
+                                </Button>
+                              )}
+                              {sale.payment_status === "paid" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleUpdatePaymentStatus(sale.id, "pending")}
+                                >
+                                  Marcar pendente
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Product Dialog */}
@@ -577,7 +804,7 @@ const Estoque = () => {
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[100] bg-background border">
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
@@ -664,6 +891,115 @@ const Estoque = () => {
                 Mover Produto
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sale Dialog */}
+      <Dialog open={saleDialogOpen} onOpenChange={setSaleDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Registrar Venda
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {sellingProduct && (
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="font-medium">{sellingProduct.name}</p>
+                <p className="text-primary font-semibold">R$ {sellingProduct.price.toFixed(2)}</p>
+              </div>
+            )}
+
+            <div>
+              <Label>Cliente cadastrado (opcional)</Label>
+              <Select value={saleClientId} onValueChange={handleClientSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um cliente" />
+                </SelectTrigger>
+                <SelectContent className="z-[100] bg-background border">
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="saleClientName">Nome do Cliente *</Label>
+              <Input
+                id="saleClientName"
+                value={saleClientName}
+                onChange={(e) => setSaleClientName(e.target.value)}
+                placeholder="Digite o nome do cliente"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="saleQuantity">Quantidade</Label>
+              <Input
+                id="saleQuantity"
+                type="number"
+                min="1"
+                value={saleQuantity}
+                onChange={(e) => setSaleQuantity(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Status do Pagamento</Label>
+              <Select value={salePaymentStatus} onValueChange={setSalePaymentStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[100] bg-background border">
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="paid">Pago</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Forma de Pagamento</Label>
+              <Select value={salePaymentMethod} onValueChange={setSalePaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent className="z-[100] bg-background border">
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="saleNotes">Observações</Label>
+              <Textarea
+                id="saleNotes"
+                value={saleNotes}
+                onChange={(e) => setSaleNotes(e.target.value)}
+                placeholder="Observações sobre a venda..."
+                rows={2}
+              />
+            </div>
+
+            {sellingProduct && (
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <p className="text-sm text-muted-foreground">Total da venda:</p>
+                <p className="text-xl font-bold text-primary">
+                  R$ {(sellingProduct.price * (parseInt(saleQuantity) || 1)).toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            <Button onClick={handleSaveSale} className="w-full">
+              Confirmar Venda
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

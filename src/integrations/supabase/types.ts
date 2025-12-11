@@ -770,6 +770,79 @@ export type Database = {
           },
         ]
       }
+      stock_sales: {
+        Row: {
+          client_id: string | null
+          client_name: string
+          company_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          payment_method: string | null
+          payment_status: string
+          product_id: string
+          quantity: number
+          sold_at: string
+          total_price: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          client_name: string
+          company_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          payment_status?: string
+          product_id: string
+          quantity?: number
+          sold_at?: string
+          total_price: number
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_method?: string | null
+          payment_status?: string
+          product_id?: string
+          quantity?: number
+          sold_at?: string
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_sales_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_sales_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "stock_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           amount: number
