@@ -281,32 +281,7 @@ const Relatorios = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-2xl font-semibold">Relatórios</h1>
-          
-          {companyData.professionals.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Filtrar por profissional:</span>
-              <Select 
-                value={selectedProfessional} 
-                onValueChange={(value) => {
-                  console.log("Profissional selecionado:", value);
-                  setSelectedProfessional(value);
-                }}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Todos os profissionais" />
-                </SelectTrigger>
-                <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
-                  <SelectItem value="all">Todos os profissionais</SelectItem>
-                  {companyData.professionals.map(prof => (
-                    <SelectItem key={prof.id} value={prof.id}>{prof.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
+        <h1 className="text-2xl font-semibold">Relatórios</h1>
 
         {!temDados ? (
           <Card>
