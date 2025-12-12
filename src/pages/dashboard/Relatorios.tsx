@@ -287,11 +287,17 @@ const Relatorios = () => {
           {companyData.professionals.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Filtrar por profissional:</span>
-              <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
+              <Select 
+                value={selectedProfessional} 
+                onValueChange={(value) => {
+                  console.log("Profissional selecionado:", value);
+                  setSelectedProfessional(value);
+                }}
+              >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Todos os profissionais" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[9999]" position="popper" sideOffset={4}>
                   <SelectItem value="all">Todos os profissionais</SelectItem>
                   {companyData.professionals.map(prof => (
                     <SelectItem key={prof.id} value={prof.id}>{prof.name}</SelectItem>
