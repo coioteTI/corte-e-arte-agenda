@@ -62,6 +62,7 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  quantity: number;
   description: string | null;
   image_url: string | null;
   category_id: string;
@@ -108,6 +109,7 @@ const Estoque = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productName, setProductName] = useState("");
   const [productPrice, setProductPrice] = useState("");
+  const [productQuantity, setProductQuantity] = useState("");
   const [productDescription, setProductDescription] = useState("");
   const [productImageUrl, setProductImageUrl] = useState("");
   const [productCategoryId, setProductCategoryId] = useState("");
@@ -263,6 +265,7 @@ const Estoque = () => {
       const productData = {
         name: productName.trim(),
         price: parseFloat(productPrice) || 0,
+        quantity: parseInt(productQuantity) || 0,
         description: productDescription.trim() || null,
         image_url: productImageUrl || null,
         category_id: productCategoryId,
@@ -336,6 +339,7 @@ const Estoque = () => {
     setEditingProduct(null);
     setProductName("");
     setProductPrice("");
+    setProductQuantity("");
     setProductDescription("");
     setProductImageUrl("");
     setProductCategoryId("");
@@ -345,6 +349,7 @@ const Estoque = () => {
     setEditingProduct(product);
     setProductName(product.name);
     setProductPrice(product.price.toString());
+    setProductQuantity(product.quantity.toString());
     setProductDescription(product.description || "");
     setProductImageUrl(product.image_url || "");
     setProductCategoryId(product.category_id);
@@ -390,6 +395,13 @@ const Estoque = () => {
     }
 
     const quantity = parseInt(saleQuantity) || 1;
+    
+    // Verificar se há estoque suficiente
+    if (quantity > sellingProduct.quantity) {
+      toast.error(`Estoque insuficiente! Disponível: ${sellingProduct.quantity} unidades`);
+      return;
+    }
+    
     const totalPrice = sellingProduct.price * quantity;
 
     try {
@@ -604,9 +616,20 @@ const Estoque = () => {
                                   <CardTitle className="text-base">{product.name}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-2">
-                                  <p className="text-lg font-semibold text-primary">
-                                    R$ {product.price.toFixed(2)}
-                                  </p>
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-lg font-semibold text-primary">
+                                      R$ {product.price.toFixed(2)}
+                                    </p>
+                                    <Badge variant={product.quantity > 0 ? (product.quantity <= 5 ? "secondary" : "default") : "destructive"}>
+                                      {product.quantity} un.
+                                    </Badge>
+                                  </div>
+                                  {product.quantity <= 5 && product.quantity > 0 && (
+                                    <p className="text-xs text-yellow-600">Estoque baixo</p>
+                                  )}
+                                  {product.quantity === 0 && (
+                                    <p className="text-xs text-destructive">Sem estoque</p>
+                                  )}
                                   {product.description && (
                                     <p className="text-sm text-muted-foreground line-clamp-2">
                                       {product.description}
@@ -775,16 +798,30 @@ const Estoque = () => {
               />
             </div>
 
-            <div>
-              <Label htmlFor="productPrice">Valor (R$)</Label>
-              <Input
-                id="productPrice"
-                type="number"
-                step="0.01"
-                value={productPrice}
-                onChange={(e) => setProductPrice(e.target.value)}
-                placeholder="0.00"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="productPrice">Valor (R$)</Label>
+                <Input
+                  id="productPrice"
+                  type="number"
+                  step="0.01"
+                  value={productPrice}
+                  onChange={(e) => setProductPrice(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="productQuantity">Quantidade em Estoque</Label>
+                <Input
+                  id="productQuantity"
+                  type="number"
+                  min="0"
+                  value={productQuantity}
+                  onChange={(e) => setProductQuantity(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
             </div>
 
             <div>
@@ -908,7 +945,12 @@ const Estoque = () => {
             {sellingProduct && (
               <div className="p-3 bg-muted rounded-lg">
                 <p className="font-medium">{sellingProduct.name}</p>
-                <p className="text-primary font-semibold">R$ {sellingProduct.price.toFixed(2)}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-primary font-semibold">R$ {sellingProduct.price.toFixed(2)}</p>
+                  <Badge variant={sellingProduct.quantity > 0 ? "default" : "destructive"}>
+                    {sellingProduct.quantity} un. disponíveis
+                  </Badge>
+                </div>
               </div>
             )}
 
@@ -944,9 +986,15 @@ const Estoque = () => {
                 id="saleQuantity"
                 type="number"
                 min="1"
+                max={sellingProduct?.quantity || 1}
                 value={saleQuantity}
                 onChange={(e) => setSaleQuantity(e.target.value)}
               />
+              {sellingProduct && parseInt(saleQuantity) > sellingProduct.quantity && (
+                <p className="text-xs text-destructive mt-1">
+                  Quantidade maior que o estoque disponível ({sellingProduct.quantity})
+                </p>
+              )}
             </div>
 
             <div>
