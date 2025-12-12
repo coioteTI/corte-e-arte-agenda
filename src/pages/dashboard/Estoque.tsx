@@ -640,6 +640,8 @@ const Estoque = () => {
                                       size="sm"
                                       variant="default"
                                       onClick={() => openSaleDialog(product)}
+                                      disabled={product.quantity === 0}
+                                      title={product.quantity === 0 ? "Sem estoque disponível" : "Vender produto"}
                                     >
                                       <ShoppingCart className="h-4 w-4" />
                                     </Button>
@@ -1045,7 +1047,11 @@ const Estoque = () => {
               </div>
             )}
 
-            <Button onClick={handleSaveSale} className="w-full">
+            <Button 
+              onClick={handleSaveSale} 
+              className="w-full"
+              disabled={!sellingProduct || sellingProduct.quantity === 0 || parseInt(saleQuantity) > sellingProduct.quantity}
+            >
               Confirmar Venda
             </Button>
           </div>
