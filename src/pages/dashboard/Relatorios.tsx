@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -23,7 +24,9 @@ import {
   Area,
   AreaChart
 } from "recharts";
-import { Users, ShoppingBag, TrendingUp, Package } from "lucide-react";
+import { Users, ShoppingBag, TrendingUp, Package, Download, Loader2 } from "lucide-react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 interface CompanyData {
   services: any[];
@@ -36,7 +39,12 @@ interface CompanyData {
 
 const Relatorios = () => {
   const [loading, setLoading] = useState(true);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [companyData, setCompanyData] = useState<CompanyData>({
     services: [],
     appointments: [],
@@ -46,6 +54,7 @@ const Relatorios = () => {
     stockProducts: []
   });
   const { toast } = useToast();
+  const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchCompanyData();
@@ -93,10 +102,20 @@ const Relatorios = () => {
     }
   };
 
-  // Filter appointments by selected professional
-  const filteredAppointments = selectedProfessional === "all" 
-    ? companyData.appointments 
-    : companyData.appointments.filter(apt => apt.professional_id === selectedProfessional);
+  // Filter by month
+  const filterByMonth = (dateString: string) => {
+    const itemDate = new Date(dateString);
+    const [year, month] = selectedMonth.split('-').map(Number);
+    return itemDate.getFullYear() === year && itemDate.getMonth() + 1 === month;
+  };
+
+  // Filter appointments by selected professional and month
+  const filteredAppointments = companyData.appointments
+    .filter(apt => filterByMonth(apt.created_at))
+    .filter(apt => selectedProfessional === "all" || apt.professional_id === selectedProfessional);
+
+  // Filter stock sales by month
+  const filteredStockSales = companyData.stockSales.filter(sale => filterByMonth(sale.sold_at));
 
   // Calculate metrics based on filtered data
   const totalFaturado = filteredAppointments
@@ -283,6 +302,99 @@ const Relatorios = () => {
     ? companyData.professionals.find(p => p.id === selectedProfessional)
     : null;
 
+  // Generate month options
+  const getMonthOptions = () => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      options.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    }
+    return options;
+  };
+
+  const monthOptions = getMonthOptions();
+
+  // PDF Generation
+  const generatePDF = async () => {
+    if (!reportRef.current) return;
+
+    setGeneratingPdf(true);
+    toast({
+      title: "Gerando PDF...",
+      description: "Por favor aguarde enquanto o relatório é gerado.",
+    });
+
+    try {
+      const element = reportRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 10;
+
+      // Calculate pages needed
+      const contentHeight = imgHeight * ratio;
+      const pageHeight = pdfHeight - 20;
+      let position = 0;
+      let page = 1;
+
+      while (position < contentHeight) {
+        if (page > 1) {
+          pdf.addPage();
+        }
+        
+        pdf.addImage(
+          imgData,
+          'PNG',
+          imgX,
+          imgY - position,
+          imgWidth * ratio,
+          imgHeight * ratio
+        );
+        
+        position += pageHeight;
+        page++;
+      }
+
+      const monthLabel = monthOptions.find(m => m.value === selectedMonth)?.label || selectedMonth;
+      pdf.save(`relatorio-${monthLabel.toLowerCase().replace(/ /g, '-')}.pdf`);
+
+      toast({
+        title: "PDF gerado com sucesso!",
+        description: "O download foi iniciado automaticamente.",
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar o relatório em PDF.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -301,12 +413,62 @@ const Relatorios = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Relatórios</h1>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <h1 className="text-2xl font-semibold">Relatórios</h1>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Selecionar mês" />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-        {!temDados ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground text-lg">
+            <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar profissional" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os profissionais</SelectItem>
+                {companyData.professionals.map((prof) => (
+                  <SelectItem key={prof.id} value={prof.id}>
+                    {prof.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button
+              onClick={generatePDF}
+              disabled={generatingPdf || !temDados}
+              className="gap-2"
+            >
+              {generatingPdf ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Baixar PDF
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div ref={reportRef} className="bg-background">
+          {!temDados ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-muted-foreground text-lg">
                 Nenhum dado ainda. Cadastre serviços ou receba agendamentos para gerar seus relatórios.
               </p>
             </CardContent>
@@ -799,6 +961,7 @@ const Relatorios = () => {
             </TabsContent>
           </Tabs>
         )}
+        </div>
       </div>
     </DashboardLayout>
   );
