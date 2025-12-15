@@ -233,15 +233,35 @@ const Relatorios = () => {
 
   const popularProducts = getPopularProducts();
 
-  const servicosPopulares = companyData.services.slice(0, 4).map((service, index) => {
-    const serviceAppointments = filteredAppointments.filter(apt => apt.service_id === service.id);
-    return {
-      nome: service.name,
-      quantidade: serviceAppointments.length,
-      percentual: filteredAppointments.length > 0 ? Math.round((serviceAppointments.length / filteredAppointments.length) * 100) : 0,
-      valor: ['#F0D18A', '#E6C875', '#DCC060', '#D2B84B'][index]
-    };
-  });
+  // Calculate most requested services based on appointments
+  const getServicosPopulares = () => {
+    const serviceCounts: { [key: string]: { nome: string; quantidade: number } } = {};
+    
+    filteredAppointments.forEach(apt => {
+      const serviceId = apt.service_id;
+      const serviceName = apt.services?.name || 'Não especificado';
+      
+      if (!serviceCounts[serviceId]) {
+        serviceCounts[serviceId] = { nome: serviceName, quantidade: 0 };
+      }
+      serviceCounts[serviceId].quantidade += 1;
+    });
+
+    const totalAppointments = filteredAppointments.length;
+    const colors = ['#F0D18A', '#E6C875', '#DCC060', '#D2B84B', '#C8B036', '#BEA821'];
+
+    return Object.values(serviceCounts)
+      .sort((a, b) => b.quantidade - a.quantidade)
+      .slice(0, 6)
+      .map((service, index) => ({
+        nome: service.nome,
+        quantidade: service.quantidade,
+        percentual: totalAppointments > 0 ? Math.round((service.quantidade / totalAppointments) * 100) : 0,
+        valor: colors[index] || '#9CA3AF'
+      }));
+  };
+
+  const servicosPopulares = getServicosPopulares();
 
   const calculateGrowthPercentage = () => {
     if (dadosLucro.length < 2) return 0;
@@ -439,65 +459,122 @@ const Relatorios = () => {
                 </CardContent>
               </Card>
 
-              {/* Gráficos de Serviços e Resumo */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Serviços Mais Solicitados</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={servicosPopulares} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="quantidade">
-                            {servicosPopulares.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.valor} />
-                            ))}
-                          </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#000000' }} />
-                          <Legend verticalAlign="bottom" height={36} />
-                        </PieChart>
-                      </ResponsiveContainer>
+              {/* Serviços Mais Solicitados - Full Width */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Serviços Mais Solicitados</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {servicosPopulares.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Nenhum agendamento registrado ainda.
                     </div>
-                  </CardContent>
-                </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Gráfico de Pizza */}
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie 
+                              data={servicosPopulares} 
+                              cx="50%" 
+                              cy="50%" 
+                              innerRadius={60} 
+                              outerRadius={100} 
+                              paddingAngle={2} 
+                              dataKey="quantidade"
+                              label={({ percentual }) => `${percentual}%`}
+                            >
+                              {servicosPopulares.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.valor} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#000000' }}
+                              formatter={(value: number, name: string, props: any) => [
+                                `${value} agendamentos (${props.payload.percentual}%)`,
+                                props.payload.nome
+                              ]}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resumo do Período</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Melhor mês:</span>
-                        <span className="font-medium">
-                          {dadosLucro.length > 0 
-                            ? `${dadosLucro.reduce((max, month) => month.lucro > max.lucro ? month : max).mes}`
-                            : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total faturado:</span>
-                        <span className="font-medium text-green-600">
-                          R$ {totalFaturado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Média por atendimento:</span>
-                        <span className="font-medium">R$ {ticketMedio.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Clientes únicos:</span>
-                        <span className="font-medium">{clientesUnicos}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total de agendamentos:</span>
-                        <span className="font-medium">{filteredAppointments.length}</span>
+                      {/* Lista com Percentagens */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm text-muted-foreground mb-4">Detalhes dos Serviços</h4>
+                        {servicosPopulares.map((servico, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <div 
+                              className="w-4 h-4 rounded-full flex-shrink-0" 
+                              style={{ backgroundColor: servico.valor }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-medium truncate">{servico.nome}</span>
+                                <Badge variant="secondary" className="flex-shrink-0">
+                                  {servico.percentual}%
+                                </Badge>
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <div className="w-full bg-muted rounded-full h-2 mr-3">
+                                  <div 
+                                    className="h-2 rounded-full transition-all duration-500" 
+                                    style={{ 
+                                      width: `${servico.percentual}%`,
+                                      backgroundColor: servico.valor 
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-sm text-muted-foreground flex-shrink-0">
+                                  {servico.quantidade} agend.
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Resumo do Período */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resumo do Período</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Melhor mês</span>
+                      <div className="font-medium mt-1">
+                        {dadosLucro.length > 0 
+                          ? `${dadosLucro.reduce((max, month) => month.lucro > max.lucro ? month : max).mes}`
+                          : 'N/A'}
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Total faturado</span>
+                      <div className="font-medium text-green-600 mt-1">
+                        R$ {totalFaturado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Média/atend.</span>
+                      <div className="font-medium mt-1">R$ {ticketMedio.toFixed(2)}</div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Clientes únicos</span>
+                      <div className="font-medium mt-1">{clientesUnicos}</div>
+                    </div>
+                    <div className="text-center p-4 bg-muted/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Agendamentos</span>
+                      <div className="font-medium mt-1">{filteredAppointments.length}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Aba Profissionais */}
