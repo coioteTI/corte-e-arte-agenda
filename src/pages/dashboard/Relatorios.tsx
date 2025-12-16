@@ -109,7 +109,7 @@ const Relatorios = () => {
 
   // Filter appointments by selected professional and month
   const filteredAppointments = companyData.appointments
-    .filter(apt => filterByMonth(apt.created_at))
+    .filter(apt => filterByMonth(apt.appointment_date))
     .filter(apt => selectedProfessional === "all" || apt.professional_id === selectedProfessional);
 
   // Filter stock sales by month
