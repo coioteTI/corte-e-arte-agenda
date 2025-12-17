@@ -11,6 +11,7 @@ export const PlanStatusChecker = () => {
     hasActivePlan: boolean;
     plan: string;
     daysUntilExpiry?: number;
+    isFreePlan?: boolean;
   } | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -32,10 +33,12 @@ export const PlanStatusChecker = () => {
 
       if (!company) return;
 
-      // Trial é um plano ativo válido enquanto não atingir o limite
+      // Planos ativos: premium, trial, pro (padrão) - apenas 'free' ou 'nenhum' são inativos
       const isPremiumPlan = company.plan === 'premium_mensal' || company.plan === 'premium_anual';
       const isTrialPlan = company.plan === 'trial';
-      const hasActivePlan = isPremiumPlan || isTrialPlan;
+      const isProPlan = company.plan === 'pro';
+      const isFreePlan = company.plan === 'free' || company.plan === 'nenhum' || !company.plan;
+      const hasActivePlan = isPremiumPlan || isTrialPlan || isProPlan;
       
       // Calcular dias até expiração (apenas para planos premium)
       let daysUntilExpiry;
@@ -49,23 +52,24 @@ export const PlanStatusChecker = () => {
       setPlanStatus({
         hasActivePlan,
         plan: company.plan || 'nenhum',
-        daysUntilExpiry
+        daysUntilExpiry,
+        isFreePlan
       });
 
-      // Mostrar avisos baseados no status do plano (NÃO para trial ativo)
-      if (!hasActivePlan) {
+      // Mostrar avisos apenas para planos explicitamente inativos (free/nenhum) ou expirados
+      if (isFreePlan) {
         toast({
           title: "Plano inativo",
           description: "Escolha um plano para acessar todas as funcionalidades.",
           variant: "destructive"
         });
-      } else if (isPremiumPlan && daysUntilExpiry && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+      } else if (isPremiumPlan && daysUntilExpiry !== undefined && daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
         toast({
           title: "Plano expirando em breve",
           description: `Seu plano expira em ${daysUntilExpiry} dias. Renove para continuar usando.`,
           variant: "destructive"
         });
-      } else if (daysUntilExpiry && daysUntilExpiry <= 0) {
+      } else if (isPremiumPlan && daysUntilExpiry !== undefined && daysUntilExpiry <= 0) {
         toast({
           title: "Plano expirado",
           description: "Seu plano expirou. Renove para continuar usando todas as funcionalidades.",
@@ -83,11 +87,11 @@ export const PlanStatusChecker = () => {
 
   if (!planStatus) return null;
 
-  // Não mostrar alerta para plano trial ativo
-  if (planStatus.plan === 'trial') return null;
+  // Não mostrar alerta para planos ativos (trial, pro, premium válido)
+  if (planStatus.plan === 'trial' || planStatus.plan === 'pro') return null;
 
-  // Mostrar alerta se plano está inativo ou próximo do vencimento (apenas para premium)
-  if (!planStatus.hasActivePlan || (planStatus.daysUntilExpiry && planStatus.daysUntilExpiry <= 7)) {
+  // Mostrar alerta apenas se plano é free/nenhum OU premium próximo do vencimento
+  if (planStatus.isFreePlan || (planStatus.daysUntilExpiry !== undefined && planStatus.daysUntilExpiry <= 7)) {
     return (
       <div className="mb-4">
         <Alert variant="destructive">
