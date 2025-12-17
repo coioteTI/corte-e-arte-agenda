@@ -37,8 +37,8 @@ export const usePlanAccess = (requiredPlan?: 'premium_mensal' | 'premium_anual')
       const userPlan = company.plan || 'trial';
       setCurrentPlan(userPlan);
 
-      // Se está em trial, verificar limite de agendamentos
-      if (userPlan === 'trial') {
+      // Se está em trial ou pro (padrão), verificar limite de agendamentos
+      if (userPlan === 'trial' || userPlan === 'pro') {
         const appointmentsUsed = company.trial_appointments_used || 0;
         const appointmentsLimit = company.trial_appointments_limit || 50;
         
@@ -52,7 +52,7 @@ export const usePlanAccess = (requiredPlan?: 'premium_mensal' | 'premium_anual')
           return;
         }
         
-        // Ainda tem agendamentos disponíveis no trial
+        // Ainda tem agendamentos disponíveis no trial/pro
         setHasAccess(true);
         return;
       }
