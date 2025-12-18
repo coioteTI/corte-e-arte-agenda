@@ -135,7 +135,7 @@ export default function HistoricoSimples() {
             payment_status,
             payment_method,
             sold_at,
-            stock_products!inner(name)
+            stock_products(name)
           `)
           .eq("company_id", companies.id)
           .order("sold_at", { ascending: false })
