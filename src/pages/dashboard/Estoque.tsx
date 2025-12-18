@@ -123,12 +123,18 @@ const Estoque = () => {
   // Sale form state
   const [saleDialogOpen, setSaleDialogOpen] = useState(false);
   const [sellingProduct, setSellingProduct] = useState<Product | null>(null);
-  const [saleClientId, setSaleClientId] = useState("");
-  const [saleClientName, setSaleClientName] = useState("");
   const [saleQuantity, setSaleQuantity] = useState("1");
   const [salePaymentStatus, setSalePaymentStatus] = useState("pending");
   const [salePaymentMethod, setSalePaymentMethod] = useState("");
   const [saleNotes, setSaleNotes] = useState("");
+
+  // Edit sale state
+  const [editSaleDialogOpen, setEditSaleDialogOpen] = useState(false);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [editSaleQuantity, setEditSaleQuantity] = useState("1");
+  const [editSalePaymentStatus, setEditSalePaymentStatus] = useState("pending");
+  const [editSalePaymentMethod, setEditSalePaymentMethod] = useState("");
+  const [editSaleNotes, setEditSaleNotes] = useState("");
 
   useEffect(() => {
     loadData();
@@ -371,8 +377,6 @@ const Estoque = () => {
   // Sale functions
   const openSaleDialog = (product: Product) => {
     setSellingProduct(product);
-    setSaleClientId("");
-    setSaleClientName("");
     setSaleQuantity("1");
     setSalePaymentStatus("pending");
     setSalePaymentMethod("");
@@ -380,17 +384,9 @@ const Estoque = () => {
     setSaleDialogOpen(true);
   };
 
-  const handleClientSelect = (clientId: string) => {
-    setSaleClientId(clientId);
-    const client = clients.find(c => c.id === clientId);
-    if (client) {
-      setSaleClientName(client.name);
-    }
-  };
-
   const handleSaveSale = async () => {
-    if (!sellingProduct || !saleClientName.trim() || !companyId) {
-      toast.error("Preencha o nome do cliente");
+    if (!sellingProduct || !companyId) {
+      toast.error("Erro ao registrar venda");
       return;
     }
 
@@ -408,8 +404,8 @@ const Estoque = () => {
       const { error } = await supabase.from("stock_sales").insert({
         company_id: companyId,
         product_id: sellingProduct.id,
-        client_id: saleClientId || null,
-        client_name: saleClientName.trim(),
+        client_id: null,
+        client_name: "Venda avulsa",
         quantity,
         unit_price: sellingProduct.price,
         total_price: totalPrice,
@@ -425,6 +421,71 @@ const Estoque = () => {
     } catch (error) {
       console.error("Error saving sale:", error);
       toast.error("Erro ao registrar venda");
+    }
+  };
+
+  // Edit sale functions
+  const openEditSaleDialog = (sale: Sale) => {
+    setEditingSale(sale);
+    setEditSaleQuantity(sale.quantity.toString());
+    setEditSalePaymentStatus(sale.payment_status);
+    setEditSalePaymentMethod(sale.payment_method || "");
+    setEditSaleNotes(sale.notes || "");
+    setEditSaleDialogOpen(true);
+  };
+
+  const handleUpdateSale = async () => {
+    if (!editingSale || !companyId) return;
+
+    const quantity = parseInt(editSaleQuantity) || 1;
+    const product = products.find(p => p.id === editingSale.product_id);
+    
+    // Calcular diferença de quantidade para verificar estoque
+    const quantityDiff = quantity - editingSale.quantity;
+    if (product && quantityDiff > product.quantity) {
+      toast.error(`Estoque insuficiente! Disponível: ${product.quantity} unidades adicionais`);
+      return;
+    }
+
+    const unitPrice = editingSale.unit_price;
+    const totalPrice = unitPrice * quantity;
+
+    try {
+      const { error } = await supabase
+        .from("stock_sales")
+        .update({
+          quantity,
+          total_price: totalPrice,
+          payment_status: editSalePaymentStatus,
+          payment_method: editSalePaymentMethod || null,
+          notes: editSaleNotes.trim() || null,
+        })
+        .eq("id", editingSale.id);
+
+      if (error) throw error;
+      toast.success("Venda atualizada com sucesso!");
+      setEditSaleDialogOpen(false);
+      setEditingSale(null);
+      loadData();
+    } catch (error) {
+      console.error("Error updating sale:", error);
+      toast.error("Erro ao atualizar venda");
+    }
+  };
+
+  const handleDeleteSale = async (saleId: string) => {
+    try {
+      const { error } = await supabase
+        .from("stock_sales")
+        .delete()
+        .eq("id", saleId);
+
+      if (error) throw error;
+      toast.success("Venda excluída com sucesso!");
+      loadData();
+    } catch (error) {
+      console.error("Error deleting sale:", error);
+      toast.error("Erro ao excluir venda");
     }
   };
 
@@ -718,7 +779,6 @@ const Estoque = () => {
                         <TableRow>
                           <TableHead>Data</TableHead>
                           <TableHead>Produto</TableHead>
-                          <TableHead>Cliente</TableHead>
                           <TableHead>Qtd</TableHead>
                           <TableHead>Total</TableHead>
                           <TableHead>Status</TableHead>
@@ -732,7 +792,6 @@ const Estoque = () => {
                               {format(new Date(sale.sold_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                             </TableCell>
                             <TableCell>{getProductName(sale.product_id)}</TableCell>
-                            <TableCell>{sale.client_name}</TableCell>
                             <TableCell>{sale.quantity}</TableCell>
                             <TableCell className="font-medium">
                               R$ {sale.total_price.toFixed(2)}
@@ -747,24 +806,40 @@ const Estoque = () => {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              {sale.payment_status === "pending" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleUpdatePaymentStatus(sale.id, "paid")}
-                                >
-                                  Marcar como pago
-                                </Button>
-                              )}
-                              {sale.payment_status === "paid" && (
+                              <div className="flex items-center gap-1">
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => handleUpdatePaymentStatus(sale.id, "pending")}
+                                  onClick={() => openEditSaleDialog(sale)}
+                                  title="Editar venda"
                                 >
-                                  Marcar pendente
+                                  <Edit className="h-4 w-4" />
                                 </Button>
-                              )}
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="text-destructive" title="Excluir venda">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Excluir venda?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta ação não pode ser desfeita. A venda será removida do histórico.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteSale(sale.id)}
+                                        className="bg-destructive text-destructive-foreground"
+                                      >
+                                        Excluir
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -957,32 +1032,6 @@ const Estoque = () => {
             )}
 
             <div>
-              <Label>Cliente cadastrado (opcional)</Label>
-              <Select value={saleClientId} onValueChange={handleClientSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um cliente" />
-                </SelectTrigger>
-                <SelectContent className="z-[100] bg-background border">
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="saleClientName">Nome do Cliente *</Label>
-              <Input
-                id="saleClientName"
-                value={saleClientName}
-                onChange={(e) => setSaleClientName(e.target.value)}
-                placeholder="Digite o nome do cliente"
-              />
-            </div>
-
-            <div>
               <Label htmlFor="saleQuantity">Quantidade</Label>
               <Input
                 id="saleQuantity"
@@ -1053,6 +1102,94 @@ const Estoque = () => {
               disabled={!sellingProduct || sellingProduct.quantity === 0 || parseInt(saleQuantity) > sellingProduct.quantity}
             >
               Confirmar Venda
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Sale Dialog */}
+      <Dialog open={editSaleDialogOpen} onOpenChange={(open) => {
+        setEditSaleDialogOpen(open);
+        if (!open) setEditingSale(null);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5" />
+              Editar Venda
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {editingSale && (
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="font-medium">{getProductName(editingSale.product_id)}</p>
+                <p className="text-sm text-muted-foreground">
+                  Preço unitário: R$ {editingSale.unit_price.toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="editSaleQuantity">Quantidade</Label>
+              <Input
+                id="editSaleQuantity"
+                type="number"
+                min="1"
+                value={editSaleQuantity}
+                onChange={(e) => setEditSaleQuantity(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Status do Pagamento</Label>
+              <Select value={editSalePaymentStatus} onValueChange={setEditSalePaymentStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[100] bg-background border">
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="paid">Pago</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Forma de Pagamento</Label>
+              <Select value={editSalePaymentMethod} onValueChange={setEditSalePaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent className="z-[100] bg-background border">
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de Débito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="editSaleNotes">Observações</Label>
+              <Textarea
+                id="editSaleNotes"
+                value={editSaleNotes}
+                onChange={(e) => setEditSaleNotes(e.target.value)}
+                placeholder="Observações sobre a venda..."
+                rows={2}
+              />
+            </div>
+
+            {editingSale && (
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <p className="text-sm text-muted-foreground">Total da venda:</p>
+                <p className="text-xl font-bold text-primary">
+                  R$ {(editingSale.unit_price * (parseInt(editSaleQuantity) || 1)).toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            <Button onClick={handleUpdateSale} className="w-full">
+              Salvar Alterações
             </Button>
           </div>
         </DialogContent>
