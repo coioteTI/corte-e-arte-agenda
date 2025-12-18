@@ -964,7 +964,7 @@ const Estoque = () => {
           }
         }}
       >
-        <DialogContent className="z-50">
+        <DialogContent className="z-50" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Mover Produto</DialogTitle>
           </DialogHeader>
@@ -1011,7 +1011,7 @@ const Estoque = () => {
 
       {/* Sale Dialog */}
       <Dialog open={saleDialogOpen} onOpenChange={setSaleDialogOpen}>
-        <DialogContent>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
@@ -1112,7 +1112,7 @@ const Estoque = () => {
         setEditSaleDialogOpen(open);
         if (!open) setEditingSale(null);
       }}>
-        <DialogContent>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5" />
