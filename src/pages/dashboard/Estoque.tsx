@@ -428,8 +428,8 @@ const Estoque = () => {
   const openEditSaleDialog = (sale: Sale) => {
     setEditingSale(sale);
     setEditSaleQuantity(sale.quantity.toString());
-    setEditSalePaymentStatus(sale.payment_status);
-    setEditSalePaymentMethod(sale.payment_method || "");
+    setEditSalePaymentStatus(sale.payment_status || "pending");
+    setEditSalePaymentMethod(sale.payment_method || "none");
     setEditSaleNotes(sale.notes || "");
     setEditSaleDialogOpen(true);
   };
@@ -457,7 +457,7 @@ const Estoque = () => {
           quantity,
           total_price: totalPrice,
           payment_status: editSalePaymentStatus,
-          payment_method: editSalePaymentMethod || null,
+          payment_method: editSalePaymentMethod === "none" ? null : editSalePaymentMethod || null,
           notes: editSaleNotes.trim() || null,
         })
         .eq("id", editingSale.id);
@@ -1160,6 +1160,7 @@ const Estoque = () => {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent className="z-[100] bg-background border">
+                  <SelectItem value="none">Não informado</SelectItem>
                   <SelectItem value="dinheiro">Dinheiro</SelectItem>
                   <SelectItem value="pix">PIX</SelectItem>
                   <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>

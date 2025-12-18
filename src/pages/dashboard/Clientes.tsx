@@ -7,10 +7,24 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Edit, History } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar, Edit, History, Zap } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+interface Service {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
+interface Professional {
+  id: string;
+  name: string;
+  specialty: string | null;
+}
 
 const Clientes = () => {
   const { toast } = useToast();
@@ -34,6 +48,15 @@ const Clientes = () => {
     email: ""
   });
 
+  // Quick Service state
+  const [isQuickServiceOpen, setIsQuickServiceOpen] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState("");
+  const [quickServiceLoading, setQuickServiceLoading] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+
   useEffect(() => {
     loadClientes();
   }, []);
@@ -51,20 +74,38 @@ const Clientes = () => {
         .single();
 
       if (!company) return;
+      setCompanyId(company.id);
 
-      // Get all appointments for this company to find associated clients
-      const { data: appointments } = await supabase
-        .from('appointments')
-        .select('client_id')
-        .eq('company_id', company.id);
+      // Load clients, services and professionals in parallel
+      const [appointmentsRes, servicesRes, professionalsRes] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select('client_id')
+          .eq('company_id', company.id),
+        supabase
+          .from('services')
+          .select('id, name, price, duration')
+          .eq('company_id', company.id)
+          .order('name'),
+        supabase
+          .from('professionals')
+          .select('id, name, specialty')
+          .eq('company_id', company.id)
+          .eq('is_available', true)
+          .order('name')
+      ]);
 
-      if (!appointments || appointments.length === 0) {
+      // Set services and professionals
+      if (servicesRes.data) setServices(servicesRes.data);
+      if (professionalsRes.data) setProfessionals(professionalsRes.data);
+
+      if (!appointmentsRes.data || appointmentsRes.data.length === 0) {
         setClientes([]);
         return;
       }
 
       // Get unique client IDs
-      const clientIds = [...new Set(appointments.map(a => a.client_id).filter(Boolean))];
+      const clientIds = [...new Set(appointmentsRes.data.map(a => a.client_id).filter(Boolean))];
 
       if (clientIds.length > 0) {
         // Fetch all clients that have appointments with this company
@@ -241,6 +282,75 @@ const Clientes = () => {
     });
   };
   
+  const selectedService = services.find(s => s.id === selectedServiceId);
+
+  const handleQuickService = async () => {
+    if (!selectedServiceId || !selectedProfessionalId || !companyId) {
+      toast({
+        title: "Erro",
+        description: "Selecione o serviço e o profissional",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setQuickServiceLoading(true);
+    try {
+      const service = services.find(s => s.id === selectedServiceId);
+      if (!service) throw new Error("Serviço não encontrado");
+
+      // Create a client for this quick service
+      const { data: newClient, error: clientError } = await supabase
+        .from('clients')
+        .insert({
+          name: "Cliente Avulso",
+          phone: "0000000000"
+        })
+        .select()
+        .single();
+
+      if (clientError) throw clientError;
+
+      // Create completed appointment
+      const today = new Date();
+      const { error: appointmentError } = await supabase
+        .from('appointments')
+        .insert({
+          company_id: companyId,
+          client_id: newClient.id,
+          service_id: selectedServiceId,
+          professional_id: selectedProfessionalId,
+          appointment_date: today.toISOString().split('T')[0],
+          appointment_time: today.toTimeString().slice(0, 5),
+          status: 'completed',
+          payment_status: 'paid',
+          payment_method: 'no_local',
+          total_price: service.price
+        });
+
+      if (appointmentError) throw appointmentError;
+
+      toast({
+        title: "Serviço finalizado!",
+        description: `${service.name} - R$ ${service.price.toFixed(2)}`
+      });
+
+      setIsQuickServiceOpen(false);
+      setSelectedServiceId("");
+      setSelectedProfessionalId("");
+      loadClientes();
+    } catch (error) {
+      console.error('Error creating quick service:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível finalizar o serviço",
+        variant: "destructive"
+      });
+    } finally {
+      setQuickServiceLoading(false);
+    }
+  };
+
   const filteredClientes = clientes.filter(cliente =>
     cliente.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cliente.phone.includes(searchTerm) ||
@@ -252,10 +362,90 @@ const Clientes = () => {
       <div className="space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between px-2 sm:px-0">
           <h1 className="text-xl sm:text-2xl font-semibold">Clientes</h1>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="text-xs sm:text-sm">Novo Cliente</Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Dialog open={isQuickServiceOpen} onOpenChange={(open) => {
+              setIsQuickServiceOpen(open);
+              if (!open) {
+                setSelectedServiceId("");
+                setSelectedProfessionalId("");
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="secondary" className="text-xs sm:text-sm">
+                  <Zap className="h-3 w-3 mr-1" />
+                  Serviço Rápido
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-primary" />
+                    Serviço Rápido
+                  </DialogTitle>
+                  <DialogDescription>
+                    Registre um serviço finalizado rapidamente.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Serviço*</Label>
+                    <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o serviço" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[100] bg-background border">
+                        {services.map((service) => (
+                          <SelectItem key={service.id} value={service.id}>
+                            {service.name} - R$ {service.price.toFixed(2)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Profissional*</Label>
+                    <Select value={selectedProfessionalId} onValueChange={setSelectedProfessionalId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o profissional" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[100] bg-background border">
+                        {professionals.map((prof) => (
+                          <SelectItem key={prof.id} value={prof.id}>
+                            {prof.name} {prof.specialty ? `(${prof.specialty})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedService && (
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <div className="text-sm text-muted-foreground mb-1">Valor do serviço:</div>
+                      <div className="text-2xl font-bold text-primary">
+                        R$ {selectedService.price.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Duração: {selectedService.duration} minutos
+                      </div>
+                    </div>
+                  )}
+
+                  <Button 
+                    onClick={handleQuickService} 
+                    className="w-full"
+                    disabled={!selectedServiceId || !selectedProfessionalId || quickServiceLoading}
+                  >
+                    {quickServiceLoading ? "Finalizando..." : "Finalizar Serviço"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="text-xs sm:text-sm">Novo Cliente</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Novo Cliente</DialogTitle>
@@ -307,6 +497,7 @@ const Clientes = () => {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Estatísticas */}
