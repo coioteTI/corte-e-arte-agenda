@@ -118,9 +118,9 @@ export default function HistoricoSimples() {
             status,
             comprovante_url,
             pix_payment_proof,
-            clients!inner(name),
-            services!inner(name),
-            professionals!inner(name)
+            clients(name),
+            services(name),
+            professionals(name)
           `)
           .eq("company_id", companies.id)
           .order("appointment_date", { ascending: false }),
@@ -148,9 +148,9 @@ export default function HistoricoSimples() {
         id: apt.id,
         appointment_date: apt.appointment_date,
         appointment_time: apt.appointment_time,
-        client_name: apt.clients.name,
-        service_name: apt.services.name,
-        professional_name: apt.professionals.name,
+        client_name: (apt.clients as any)?.name || "Cliente removido",
+        service_name: (apt.services as any)?.name || "Serviço removido",
+        professional_name: (apt.professionals as any)?.name || "Profissional removido",
         payment_method: apt.payment_method,
         payment_status: apt.payment_status,
         total_price: apt.total_price,

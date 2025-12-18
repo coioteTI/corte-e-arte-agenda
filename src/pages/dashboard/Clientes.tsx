@@ -376,7 +376,7 @@ const Clientes = () => {
                   Serviço Rápido
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent onInteractOutside={(e) => e.preventDefault()}>
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Zap className="h-5 w-5 text-primary" />
