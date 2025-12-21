@@ -161,6 +161,9 @@ export type Database = {
           plan: string
           primary_color: string | null
           state: string
+          subscription_end_date: string | null
+          subscription_start_date: string | null
+          subscription_status: string | null
           trial_appointments_limit: number | null
           trial_appointments_used: number | null
           updated_at: string
@@ -184,6 +187,9 @@ export type Database = {
           plan?: string
           primary_color?: string | null
           state: string
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          subscription_status?: string | null
           trial_appointments_limit?: number | null
           trial_appointments_used?: number | null
           updated_at?: string
@@ -207,6 +213,9 @@ export type Database = {
           plan?: string
           primary_color?: string | null
           state?: string
+          subscription_end_date?: string | null
+          subscription_start_date?: string | null
+          subscription_status?: string | null
           trial_appointments_limit?: number | null
           trial_appointments_used?: number | null
           updated_at?: string
