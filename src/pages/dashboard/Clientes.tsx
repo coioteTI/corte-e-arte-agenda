@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Edit, History, Zap, XCircle, AlertTriangle } from "lucide-react";
+import { Calendar, Edit, History, Zap, XCircle, AlertTriangle, Plus } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,7 +64,7 @@ const Clientes = () => {
   // Admin password protection state
   const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
-    type: 'edit' | 'cancel_service';
+    type: 'edit' | 'cancel_service' | 'add_service';
     data?: any;
   } | null>(null);
   const [hasAdminPasswordConfigured, setHasAdminPasswordConfigured] = useState(false);
@@ -73,6 +73,12 @@ const Clientes = () => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState<any>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+
+  // Add service to existing appointment state
+  const [isAddServiceDialogOpen, setIsAddServiceDialogOpen] = useState(false);
+  const [appointmentToAddService, setAppointmentToAddService] = useState<any>(null);
+  const [addServiceIds, setAddServiceIds] = useState<string[]>([]);
+  const [addServiceLoading, setAddServiceLoading] = useState(false);
 
   useEffect(() => {
     loadClientes();
@@ -333,9 +339,106 @@ const Clientes = () => {
       proceedWithEdit(pendingAction.data);
     } else if (pendingAction?.type === 'cancel_service' && pendingAction.data) {
       proceedWithCancelService(pendingAction.data);
+    } else if (pendingAction?.type === 'add_service' && pendingAction.data) {
+      proceedWithAddService(pendingAction.data);
     }
     setPendingAction(null);
   };
+
+  // Protected add service action - requires admin password
+  const handleAddService = (appointment: any) => {
+    if (hasAdminPasswordConfigured) {
+      setPendingAction({ type: 'add_service', data: appointment });
+      setShowAdminPasswordModal(true);
+    } else {
+      // No password configured, proceed directly
+      proceedWithAddService(appointment);
+    }
+  };
+
+  const proceedWithAddService = (appointment: any) => {
+    setAppointmentToAddService(appointment);
+    setAddServiceIds([]);
+    setIsAddServiceDialogOpen(true);
+  };
+
+  const toggleAddServiceSelection = (serviceId: string) => {
+    setAddServiceIds(prev => 
+      prev.includes(serviceId) 
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  };
+
+  const addServicesToAppointment = async () => {
+    if (!appointmentToAddService || addServiceIds.length === 0 || !companyId) return;
+
+    setAddServiceLoading(true);
+    try {
+      const today = new Date();
+      let cumulativeMinutes = 0;
+
+      // Create new appointments for the additional services
+      const newAppointments = addServiceIds.map((serviceId) => {
+        const service = services.find(s => s.id === serviceId);
+        
+        const appointmentTime = new Date(today.getTime() + cumulativeMinutes * 60000);
+        const timeString = appointmentTime.toTimeString().slice(0, 5);
+        
+        cumulativeMinutes += (service?.duration || 30);
+        
+        return {
+          company_id: companyId,
+          client_id: appointmentToAddService.client_id,
+          service_id: serviceId,
+          professional_id: appointmentToAddService.professional_id,
+          appointment_date: appointmentToAddService.appointment_date,
+          appointment_time: timeString,
+          status: 'completed',
+          payment_status: 'paid',
+          payment_method: appointmentToAddService.payment_method || 'no_local',
+          total_price: service?.price || 0
+        };
+      });
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert(newAppointments);
+
+      if (error) throw error;
+
+      const addedServices = services.filter(s => addServiceIds.includes(s.id));
+      const totalAdded = addedServices.reduce((sum, s) => sum + s.price, 0);
+      const serviceNames = addedServices.map(s => s.name).join(', ');
+
+      toast({
+        title: "Serviço(s) adicionado(s)!",
+        description: `${serviceNames} - R$ ${totalAdded.toFixed(2)} adicionado ao atendimento.`
+      });
+
+      setIsAddServiceDialogOpen(false);
+      setAppointmentToAddService(null);
+      setAddServiceIds([]);
+
+      // Reload client history
+      if (selectedCliente) {
+        await handleVerHistorico(selectedCliente);
+      }
+    } catch (error) {
+      console.error('Error adding services:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar os serviços",
+        variant: "destructive"
+      });
+    } finally {
+      setAddServiceLoading(false);
+    }
+  };
+
+  const addServiceTotal = services
+    .filter(s => addServiceIds.includes(s.id))
+    .reduce((sum, s) => sum + s.price, 0);
 
   const handleSalvarEdicao = async () => {
     if (!editingCliente.nome || !editingCliente.telefone) {
@@ -826,8 +929,20 @@ const Clientes = () => {
                               Profissional: {appointment.professionals?.name}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
                             {getStatusBadge(appointment.status)}
+                            {/* Show add service button for non-cancelled appointments */}
+                            {appointment.status !== 'cancelled' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                                onClick={() => handleAddService(appointment)}
+                                title="Adicionar serviço"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            )}
                             {/* Show cancel button only for non-cancelled appointments */}
                             {appointment.status !== 'cancelled' && (
                               <Button
@@ -835,6 +950,7 @@ const Clientes = () => {
                                 variant="ghost"
                                 className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => handleCancelService(appointment)}
+                                title="Cancelar serviço"
                               >
                                 <XCircle className="h-4 w-4" />
                               </Button>
@@ -981,6 +1097,95 @@ const Clientes = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Modal de Adicionar Serviço */}
+        <Dialog open={isAddServiceDialogOpen} onOpenChange={(open) => {
+          setIsAddServiceDialogOpen(open);
+          if (!open) {
+            setAddServiceIds([]);
+            setAppointmentToAddService(null);
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5 text-primary" />
+                Adicionar Serviços
+              </DialogTitle>
+              <DialogDescription>
+                Selecione os serviços adicionais para incluir neste atendimento.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {appointmentToAddService && (
+                <div className="p-3 bg-muted rounded-lg text-sm">
+                  <p><strong>Atendimento original:</strong> {appointmentToAddService.services?.name}</p>
+                  <p><strong>Data:</strong> {new Date(appointmentToAddService.appointment_date).toLocaleDateString('pt-BR')}</p>
+                  <p><strong>Profissional:</strong> {appointmentToAddService.professionals?.name}</p>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label>Selecione os serviços adicionais:</Label>
+                <div className="border rounded-lg max-h-48 overflow-y-auto">
+                  {services.map((service) => (
+                    <div 
+                      key={service.id}
+                      onClick={() => toggleAddServiceSelection(service.id)}
+                      className={`flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${
+                        addServiceIds.includes(service.id) ? 'bg-primary/10' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 border rounded flex items-center justify-center ${
+                          addServiceIds.includes(service.id) ? 'bg-primary border-primary' : 'border-muted-foreground'
+                        }`}>
+                          {addServiceIds.includes(service.id) && (
+                            <span className="text-primary-foreground text-xs">✓</span>
+                          )}
+                        </div>
+                        <span className="text-sm">{service.name}</span>
+                      </div>
+                      <span className="text-sm font-medium">R$ {service.price.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {addServiceIds.length > 0 && (
+                <div className="p-4 bg-primary/10 rounded-lg">
+                  <div className="text-sm text-muted-foreground mb-1">
+                    Total a adicionar:
+                  </div>
+                  <div className="text-2xl font-bold text-primary">
+                    R$ {addServiceTotal.toFixed(2)}
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {services.filter(s => addServiceIds.includes(s.id)).map(s => s.name).join(' + ')}
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsAddServiceDialogOpen(false);
+                  setAddServiceIds([]);
+                  setAppointmentToAddService(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={addServicesToAppointment}
+                disabled={addServiceIds.length === 0 || addServiceLoading}
+              >
+                {addServiceLoading ? "Adicionando..." : "Adicionar Serviços"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Admin Password Modal */}
         {companyId && (
           <AdminPasswordModal
@@ -998,6 +1203,8 @@ const Clientes = () => {
                 ? 'editar as informações do cliente' 
                 : pendingAction?.type === 'cancel_service'
                 ? 'cancelar este serviço'
+                : pendingAction?.type === 'add_service'
+                ? 'adicionar serviços ao atendimento'
                 : 'realizar esta ação'
             }
           />
