@@ -40,6 +40,7 @@ const Relatorios = () => {
   const [loading, setLoading] = useState(true);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("month"); // day, week, month
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -100,20 +101,37 @@ const Relatorios = () => {
     }
   };
 
-  // Filter by month
-  const filterByMonth = (dateString: string) => {
+  // Filter by period (day, week, month)
+  const filterByPeriod = (dateString: string) => {
     const itemDate = new Date(dateString);
-    const [year, month] = selectedMonth.split('-').map(Number);
-    return itemDate.getFullYear() === year && itemDate.getMonth() + 1 === month;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedPeriod === "day") {
+      const itemDay = new Date(itemDate);
+      itemDay.setHours(0, 0, 0, 0);
+      return itemDay.getTime() === today.getTime();
+    } else if (selectedPeriod === "week") {
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+      return itemDate >= startOfWeek && itemDate <= endOfWeek;
+    } else {
+      // month - uses the existing month filter
+      const [year, month] = selectedMonth.split('-').map(Number);
+      return itemDate.getFullYear() === year && itemDate.getMonth() + 1 === month;
+    }
   };
 
-  // Filter appointments by selected professional and month
+  // Filter appointments by selected professional and period
   const filteredAppointments = companyData.appointments
-    .filter(apt => filterByMonth(apt.appointment_date))
+    .filter(apt => filterByPeriod(apt.appointment_date))
     .filter(apt => selectedProfessional === "all" || apt.professional_id === selectedProfessional);
 
-  // Filter stock sales by month
-  const filteredStockSales = companyData.stockSales.filter(sale => filterByMonth(sale.sold_at));
+  // Filter stock sales by period
+  const filteredStockSales = companyData.stockSales.filter(sale => filterByPeriod(sale.sold_at));
 
   // Calculate metrics based on filtered data
   const totalFaturado = filteredAppointments
@@ -318,6 +336,22 @@ const Relatorios = () => {
   };
 
   const monthOptions = getMonthOptions();
+
+  // Get period label for display
+  const getPeriodLabel = () => {
+    const today = new Date();
+    if (selectedPeriod === "day") {
+      return `Hoje (${today.toLocaleDateString('pt-BR')})`;
+    } else if (selectedPeriod === "week") {
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      return `Semana (${startOfWeek.toLocaleDateString('pt-BR')} - ${endOfWeek.toLocaleDateString('pt-BR')})`;
+    } else {
+      return monthOptions.find(m => m.value === selectedMonth)?.label || selectedMonth;
+    }
+  };
 
   // PDF Generation - Complete Report
   const generatePDF = async () => {
@@ -554,18 +588,31 @@ const Relatorios = () => {
           <h1 className="text-2xl font-semibold">Relatórios</h1>
           
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Selecionar mês" />
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Período" />
               </SelectTrigger>
               <SelectContent>
-                {monthOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="day">Hoje</SelectItem>
+                <SelectItem value="week">Semana</SelectItem>
+                <SelectItem value="month">Mês</SelectItem>
               </SelectContent>
             </Select>
+
+            {selectedPeriod === "month" && (
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Selecionar mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <Select value={selectedProfessional} onValueChange={setSelectedProfessional}>
               <SelectTrigger className="w-[180px]">
@@ -620,6 +667,12 @@ const Relatorios = () => {
 
             {/* Aba Visão Geral */}
             <TabsContent value="geral" className="space-y-6">
+              {/* Period Indicator */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                <span>Exibindo dados de:</span>
+                <Badge variant="secondary" className="font-medium">{getPeriodLabel()}</Badge>
+              </div>
+              
               {/* Cards de Resumo */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
