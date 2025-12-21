@@ -7,6 +7,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -18,12 +19,14 @@ import {
 import DashboardLayout from "@/components/DashboardLayout";
 import { PaymentProofUpload } from "@/components/PaymentProofUpload";
 import { ComprovanteModal } from "@/components/ComprovanteModal";
+import { useAdminPassword } from "@/hooks/useAdminPassword";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, User, Scissors, Clock, CreditCard, CheckCircle, Eye, Upload, Package, Check } from "lucide-react";
+import { CalendarIcon, User, Scissors, Clock, CreditCard, CheckCircle, Eye, Upload, Package, Check, Lock, ShieldAlert, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface ServicoFinalizado {
   id: string;
@@ -54,6 +57,7 @@ interface StockSale {
 }
 
 export default function HistoricoSimples() {
+  const navigate = useNavigate();
   const [servicos, setServicos] = useState<ServicoFinalizado[]>([]);
   const [servicosFiltrados, setServicosFiltrados] = useState<ServicoFinalizado[]>([]);
   const [stockSales, setStockSales] = useState<StockSale[]>([]);
@@ -72,13 +76,78 @@ export default function HistoricoSimples() {
   const [selectedComprovanteUrl, setSelectedComprovanteUrl] = useState<string>("");
   const [selectedClientName, setSelectedClientName] = useState<string>("");
 
+  // Admin password protection states
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [validatingPassword, setValidatingPassword] = useState(false);
+  const { hasAdminPassword, validateAdminPassword } = useAdminPassword();
+
+  // Check if admin password is configured and require authentication
   useEffect(() => {
-    carregarDados();
+    const checkAdminPassword = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: companies } = await supabase
+          .from("companies")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (companies) {
+          setCompanyId(companies.id);
+          const passwordExists = await hasAdminPassword(companies.id);
+          setHasPassword(passwordExists);
+          
+          if (passwordExists) {
+            // Password is required - don't load data yet
+            setLoading(false);
+          } else {
+            // No password configured, allow access
+            setIsAuthenticated(true);
+            carregarDados();
+          }
+        }
+      } catch (error) {
+        console.error("Error checking admin password:", error);
+        setIsAuthenticated(true);
+        carregarDados();
+      }
+    };
+
+    checkAdminPassword();
   }, []);
 
   useEffect(() => {
     aplicarFiltros();
   }, [servicos, filtroData, filtroProfissional, filtroStatus]);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordInput.trim()) {
+      setPasswordError("Digite a senha de administrador");
+      return;
+    }
+
+    setValidatingPassword(true);
+    setPasswordError("");
+
+    const isValid = await validateAdminPassword(companyId, passwordInput);
+    
+    if (isValid) {
+      setIsAuthenticated(true);
+      setLoading(true);
+      carregarDados();
+    } else {
+      setPasswordError("Senha incorreta. Acesso negado.");
+      setPasswordInput("");
+    }
+    
+    setValidatingPassword(false);
+  };
 
   const carregarDados = async () => {
     try {
@@ -328,6 +397,73 @@ export default function HistoricoSimples() {
     if (method === "cartao_debito") return "Cartão de Débito";
     return method;
   };
+
+  // Show password protection screen if password is configured and not authenticated
+  if (hasPassword && !isAuthenticated) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 rounded-full bg-primary/10">
+                <Lock className="h-12 w-12 text-primary" />
+              </div>
+              <CardTitle className="text-2xl">Acesso Protegido</CardTitle>
+              <p className="text-muted-foreground mt-2">
+                O Histórico de Pagamentos está protegido por senha de administrador.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Digite a senha de administrador"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="text-center"
+                    autoFocus
+                  />
+                  {passwordError && (
+                    <div className="flex items-center gap-2 text-destructive text-sm justify-center">
+                      <ShieldAlert className="h-4 w-4" />
+                      <span>{passwordError}</span>
+                    </div>
+                  )}
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={validatingPassword}
+                >
+                  {validatingPassword ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Validando...
+                    </div>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Acessar Histórico
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate("/dashboard")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar ao Dashboard
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (loading) return (
     <DashboardLayout>
