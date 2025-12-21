@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link, useParams } from "react-router-dom";
-import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Heart, ArrowLeft } from "lucide-react";
+import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Heart, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,7 @@ const PerfilBarbearia = () => {
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
+  const [serviceIndex, setServiceIndex] = useState(0);
 
   useEffect(() => {
     fetchCompanyData();
@@ -230,7 +231,7 @@ const PerfilBarbearia = () => {
           </Card>
         )}
 
-        {/* Serviços e Preços */}
+        {/* Serviços e Preços - Carousel */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Serviços e Preços</CardTitle>
@@ -241,46 +242,81 @@ const PerfilBarbearia = () => {
                 Nenhum serviço cadastrado ainda.
               </p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {services.map((service) => (
-                  <div key={service.id} className="flex justify-between items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
-                    <div>
-                      <h3 className="font-medium flex items-center gap-2">
-                        {service.name}
-                        {service.is_promotion && (
-                          <Badge variant="destructive" className="text-xs">
-                            PROMOÇÃO
+              <div className="relative">
+                {services.length > 2 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-background/90 hover:bg-background shadow-lg"
+                      onClick={() => setServiceIndex(prev => prev === 0 ? Math.max(0, services.length - 2) : prev - 1)}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-background/90 hover:bg-background shadow-lg"
+                      onClick={() => setServiceIndex(prev => prev >= services.length - 2 ? 0 : prev + 1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2">
+                  {services.slice(serviceIndex, serviceIndex + 2).map((service) => (
+                    <div key={service.id} className="flex justify-between items-center p-4 border rounded-lg hover:shadow-md transition-shadow">
+                      <div>
+                        <h3 className="font-medium flex items-center gap-2">
+                          {service.name}
+                          {service.is_promotion && (
+                            <Badge variant="destructive" className="text-xs">
+                              PROMOÇÃO
+                            </Badge>
+                          )}
+                        </h3>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {service.duration} min
+                        </p>
+                        {service.description && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {service.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {service.is_promotion && service.promotional_price ? (
+                          <div>
+                            <Badge variant="destructive" className="text-base font-semibold">
+                              R$ {service.promotional_price.toFixed(2)}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground line-through">
+                              R$ {service.price.toFixed(2)}
+                            </p>
+                          </div>
+                        ) : (
+                          <Badge variant="secondary" className="text-base font-semibold">
+                            R$ {service.price.toFixed(2)}
                           </Badge>
                         )}
-                      </h3>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {service.duration} min
-                      </p>
-                      {service.description && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {service.description}
-                        </p>
-                      )}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      {service.is_promotion && service.promotional_price ? (
-                        <div>
-                          <Badge variant="destructive" className="text-base font-semibold">
-                            R$ {service.promotional_price.toFixed(2)}
-                          </Badge>
-                          <p className="text-xs text-muted-foreground line-through">
-                            R$ {service.price.toFixed(2)}
-                          </p>
-                        </div>
-                      ) : (
-                        <Badge variant="secondary" className="text-base font-semibold">
-                          R$ {service.price.toFixed(2)}
-                        </Badge>
-                      )}
-                    </div>
+                  ))}
+                </div>
+                {services.length > 2 && (
+                  <div className="flex justify-center gap-1 mt-4">
+                    {Array.from({ length: Math.ceil(services.length / 2) }).map((_, i) => (
+                      <button
+                        key={i}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          Math.floor(serviceIndex / 2) === i ? 'bg-primary' : 'bg-muted-foreground/30'
+                        }`}
+                        onClick={() => setServiceIndex(i * 2)}
+                      />
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
           </CardContent>
