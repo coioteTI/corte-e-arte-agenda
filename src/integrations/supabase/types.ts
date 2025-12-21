@@ -217,6 +217,7 @@ export type Database = {
       }
       company_settings: {
         Row: {
+          admin_password_hash: string | null
           advanced_reports_enabled: boolean | null
           company_id: string
           confirmations_enabled: boolean | null
@@ -237,6 +238,7 @@ export type Database = {
           whatsapp_notifications: boolean | null
         }
         Insert: {
+          admin_password_hash?: string | null
           advanced_reports_enabled?: boolean | null
           company_id: string
           confirmations_enabled?: boolean | null
@@ -257,6 +259,7 @@ export type Database = {
           whatsapp_notifications?: boolean | null
         }
         Update: {
+          admin_password_hash?: string | null
           advanced_reports_enabled?: boolean | null
           company_id?: string
           confirmations_enabled?: boolean | null

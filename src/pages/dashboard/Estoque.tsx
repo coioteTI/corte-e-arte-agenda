@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Edit, Trash2, MoveRight, Package, FolderOpen, ShoppingCart, History, Check, Clock } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AdminPasswordModal } from "@/components/AdminPasswordModal";
+import { useAdminPassword } from "@/hooks/useAdminPassword";
 
 interface Category {
   id: string;
@@ -136,6 +138,13 @@ const Estoque = () => {
   const [editSalePaymentMethod, setEditSalePaymentMethod] = useState("");
   const [editSaleNotes, setEditSaleNotes] = useState("");
 
+  // Admin password state
+  const [adminPasswordModalOpen, setAdminPasswordModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [pendingActionDescription, setPendingActionDescription] = useState("");
+  const [hasAdminPasswordConfigured, setHasAdminPasswordConfigured] = useState(false);
+  const { hasAdminPassword } = useAdminPassword();
+
   useEffect(() => {
     loadData();
   }, []);
@@ -154,6 +163,10 @@ const Estoque = () => {
       if (!company) return;
       setCompanyId(company.id);
 
+      // Check if admin password is configured
+      const hasPass = await hasAdminPassword(company.id);
+      setHasAdminPasswordConfigured(hasPass);
+
       const [categoriesRes, productsRes, clientsRes, salesRes] = await Promise.all([
         supabase.from("stock_categories").select("*").eq("company_id", company.id).order("name"),
         supabase.from("stock_products").select("*").eq("company_id", company.id).order("name"),
@@ -170,6 +183,25 @@ const Estoque = () => {
       toast.error("Erro ao carregar dados");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to require admin password before sensitive actions
+  const requireAdminPassword = useCallback((action: () => void, description: string) => {
+    if (hasAdminPasswordConfigured && companyId) {
+      setPendingAction(() => action);
+      setPendingActionDescription(description);
+      setAdminPasswordModalOpen(true);
+    } else {
+      action();
+    }
+  }, [hasAdminPasswordConfigured, companyId]);
+
+  const handleAdminPasswordSuccess = () => {
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+      setPendingActionDescription("");
     }
   };
 
@@ -709,7 +741,10 @@ const Estoque = () => {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={() => openEditProduct(product)}
+                                      onClick={() => requireAdminPassword(
+                                        () => openEditProduct(product),
+                                        "editar este produto"
+                                      )}
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
@@ -736,7 +771,10 @@ const Estoque = () => {
                                         <AlertDialogFooter>
                                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                           <AlertDialogAction
-                                            onClick={() => handleDeleteProduct(product.id)}
+                                            onClick={() => requireAdminPassword(
+                                              () => handleDeleteProduct(product.id),
+                                              "excluir este produto"
+                                            )}
                                             className="bg-destructive text-destructive-foreground"
                                           >
                                             Excluir
@@ -810,7 +848,10 @@ const Estoque = () => {
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => openEditSaleDialog(sale)}
+                                  onClick={() => requireAdminPassword(
+                                    () => openEditSaleDialog(sale),
+                                    "editar esta venda"
+                                  )}
                                   title="Editar venda"
                                 >
                                   <Edit className="h-4 w-4" />
@@ -831,7 +872,10 @@ const Estoque = () => {
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                       <AlertDialogAction
-                                        onClick={() => handleDeleteSale(sale.id)}
+                                        onClick={() => requireAdminPassword(
+                                          () => handleDeleteSale(sale.id),
+                                          "excluir esta venda"
+                                        )}
                                         className="bg-destructive text-destructive-foreground"
                                       >
                                         Excluir
@@ -1195,6 +1239,17 @@ const Estoque = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Admin Password Modal */}
+      {companyId && (
+        <AdminPasswordModal
+          open={adminPasswordModalOpen}
+          onOpenChange={setAdminPasswordModalOpen}
+          companyId={companyId}
+          onSuccess={handleAdminPasswordSuccess}
+          actionDescription={pendingActionDescription}
+        />
+      )}
     </DashboardLayout>
   );
 };
