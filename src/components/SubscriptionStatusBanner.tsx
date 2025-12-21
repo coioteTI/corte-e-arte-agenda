@@ -15,15 +15,15 @@ export const SubscriptionStatusBanner = () => {
     return null;
   }
 
-  const { plan, planLabel, status, endDate, daysUntilExpiry, hoursInGracePeriod } = subscription;
+  const { plan, planLabel, status, endDate, daysUntilExpiry, hoursInGracePeriod, isPremium } = subscription;
 
   // Don't show banner for active premium with more than 7 days
-  if (status === 'active' && daysUntilExpiry && daysUntilExpiry > 7) {
+  if (isPremium && status === 'active' && daysUntilExpiry && daysUntilExpiry > 7) {
     return null;
   }
 
-  // Don't show for trial/pro unless limit reached
-  if ((status === 'trial') && !subscription.isBlocked) {
+  // Don't show for trial unless limit reached (isBlocked)
+  if (status === 'trial' && !subscription.isBlocked) {
     return null;
   }
 

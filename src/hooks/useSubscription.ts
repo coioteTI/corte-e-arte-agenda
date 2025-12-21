@@ -14,7 +14,14 @@ export interface SubscriptionInfo {
   isBlocked: boolean;
   trialAppointmentsUsed: number;
   trialAppointmentsLimit: number;
+  isPremium: boolean;
 }
+
+// Planos que são considerados trial/gratuitos (com limite de agendamentos)
+const TRIAL_PLANS = ['trial', 'pro', 'plano_teste', 'free'];
+
+// Planos premium (sem limite de agendamentos)
+const PREMIUM_PLANS = ['premium_mensal', 'premium_anual'];
 
 export const useSubscription = () => {
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
@@ -33,14 +40,22 @@ export const useSubscription = () => {
       case 'premium_anual':
         return 'Premium Anual';
       case 'trial':
-        return 'Período de Teste';
       case 'pro':
-        return 'Pro (Padrão)';
+      case 'plano_teste':
+        return 'Período de Teste';
       case 'free':
         return 'Gratuito';
       default:
         return 'Nenhum';
     }
+  };
+
+  const isPremiumPlan = (plan: string): boolean => {
+    return PREMIUM_PLANS.includes(plan);
+  };
+
+  const isTrialPlan = (plan: string): boolean => {
+    return TRIAL_PLANS.includes(plan);
   };
 
   const checkSubscription = async () => {
@@ -69,22 +84,15 @@ export const useSubscription = () => {
       let hoursInGracePeriod: number | null = null;
       let isBlocked = false;
       let endDate = company.subscription_end_date ? new Date(company.subscription_end_date) : null;
+      const isPremium = isPremiumPlan(company.plan);
 
-      // Determine subscription status
-      if (company.plan === 'trial' || company.plan === 'pro') {
-        status = 'trial';
+      // Determine subscription status based on plan type
+      if (isPremium) {
+        // PLANOS PREMIUM - Verificar datas de validade
         
-        // Check if trial limit reached
-        const appointmentsUsed = company.trial_appointments_used || 0;
-        const appointmentsLimit = company.trial_appointments_limit || 50;
-        
-        if (appointmentsUsed >= appointmentsLimit) {
-          status = 'expired';
-          isBlocked = true;
-        }
-      } else if (company.plan === 'premium_mensal' || company.plan === 'premium_anual') {
-        // Calculate end date if not set but we have updated_at
-        if (!endDate && company.updated_at) {
+        // Se não há data de fim mas o status é 'active', significa que foi ativado pelo webhook
+        if (!endDate && company.subscription_status === 'active') {
+          // Calcular baseado na data de atualização
           const lastUpdate = new Date(company.updated_at);
           const maxDays = company.plan === 'premium_anual' ? 365 : 30;
           endDate = new Date(lastUpdate.getTime() + (maxDays * 24 * 60 * 60 * 1000));
@@ -105,13 +113,31 @@ export const useSubscription = () => {
             isBlocked = true;
           }
         } else {
-          // No end date, check subscription_status field
-          status = (company.subscription_status as SubscriptionInfo['status']) || 'active';
-          if (status === 'expired') {
+          // Se tem plano premium mas sem data, verificar subscription_status
+          if (company.subscription_status === 'active') {
+            status = 'active';
+          } else if (company.subscription_status === 'expired') {
+            status = 'expired';
             isBlocked = true;
+          } else {
+            // Plano premium sem datas configuradas - considerar ativo por segurança
+            // (pode ser uma configuração manual ou primeira ativação)
+            status = 'active';
           }
         }
-      } else if (company.plan === 'free') {
+      } else if (isTrialPlan(company.plan)) {
+        // PLANOS TRIAL/TESTE - Verificar limite de agendamentos
+        status = 'trial';
+        
+        const appointmentsUsed = company.trial_appointments_used || 0;
+        const appointmentsLimit = company.trial_appointments_limit || 50;
+        
+        if (appointmentsUsed >= appointmentsLimit) {
+          status = 'expired';
+          isBlocked = true;
+        }
+      } else {
+        // Plano desconhecido ou 'free' - bloqueado
         status = 'inactive';
         isBlocked = true;
       }
@@ -123,7 +149,7 @@ export const useSubscription = () => {
           description: `Você tem ${hoursInGracePeriod} horas para renovar. Após esse prazo, o sistema será bloqueado.`,
           variant: "destructive"
         });
-      } else if (daysUntilExpiry !== null && daysUntilExpiry > 0 && daysUntilExpiry <= 7) {
+      } else if (isPremium && daysUntilExpiry !== null && daysUntilExpiry > 0 && daysUntilExpiry <= 7) {
         toast({
           title: "⏰ Renovação próxima",
           description: `Sua assinatura vence em ${daysUntilExpiry} dia(s). Renove para continuar usando o sistema.`,
@@ -140,7 +166,8 @@ export const useSubscription = () => {
         hoursInGracePeriod,
         isBlocked,
         trialAppointmentsUsed: company.trial_appointments_used || 0,
-        trialAppointmentsLimit: company.trial_appointments_limit || 50
+        trialAppointmentsLimit: company.trial_appointments_limit || 50,
+        isPremium
       });
     } catch (error) {
       console.error('Error checking subscription:', error);
