@@ -4,14 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Edit, History, Zap } from "lucide-react";
+import { Calendar, Edit, History, Zap, XCircle, AlertTriangle } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPasswordModal } from "@/components/AdminPasswordModal";
+import { useAdminPassword } from "@/hooks/useAdminPassword";
 
 interface Service {
   id: string;
@@ -29,6 +31,7 @@ interface Professional {
 const Clientes = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { hasAdminPassword } = useAdminPassword();
   const [searchTerm, setSearchTerm] = useState("");
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,9 +61,33 @@ const Clientes = () => {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [avulsoCounter, setAvulsoCounter] = useState(0);
 
+  // Admin password protection state
+  const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'edit' | 'cancel_service';
+    data?: any;
+  } | null>(null);
+  const [hasAdminPasswordConfigured, setHasAdminPasswordConfigured] = useState(false);
+
+  // Cancel service state
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<any>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+
   useEffect(() => {
     loadClientes();
   }, []);
+
+  useEffect(() => {
+    // Check if admin password is configured
+    const checkAdminPassword = async () => {
+      if (companyId) {
+        const hasPassword = await hasAdminPassword(companyId);
+        setHasAdminPasswordConfigured(hasPassword);
+      }
+    };
+    checkAdminPassword();
+  }, [companyId, hasAdminPassword]);
 
   const loadClientes = async () => {
     try {
@@ -146,7 +173,7 @@ const Clientes = () => {
     }
 
     try {
-      console.log('Adding client'); // Debug log
+      console.log('Adding client');
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -164,7 +191,7 @@ const Clientes = () => {
           name: novoCliente.nome,
           phone: novoCliente.telefone,
           email: novoCliente.email,
-          user_id: user.id  // Add user_id to link client to current user
+          user_id: user.id
         });
 
       if (error) throw error;
@@ -172,7 +199,6 @@ const Clientes = () => {
       setNovoCliente({ nome: "", telefone: "", email: "" });
       setIsDialogOpen(false);
       
-      // Reload clients
       loadClientes();
       
       toast({
@@ -192,7 +218,6 @@ const Clientes = () => {
   const handleVerHistorico = async (cliente: any) => {
     setSelectedCliente(cliente);
     
-    // Load client's appointment history
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -224,7 +249,18 @@ const Clientes = () => {
     setIsHistoricoDialogOpen(true);
   };
 
+  // Protected edit action - requires admin password
   const handleEditarCliente = (cliente: any) => {
+    if (hasAdminPasswordConfigured) {
+      setPendingAction({ type: 'edit', data: cliente });
+      setShowAdminPasswordModal(true);
+    } else {
+      // No password configured, proceed directly
+      proceedWithEdit(cliente);
+    }
+  };
+
+  const proceedWithEdit = (cliente: any) => {
     setSelectedCliente(cliente);
     setEditingCliente({
       nome: cliente.name,
@@ -232,6 +268,73 @@ const Clientes = () => {
       email: cliente.email
     });
     setIsEditDialogOpen(true);
+  };
+
+  // Protected cancel service action - requires admin password
+  const handleCancelService = (appointment: any) => {
+    if (hasAdminPasswordConfigured) {
+      setPendingAction({ type: 'cancel_service', data: appointment });
+      setShowAdminPasswordModal(true);
+    } else {
+      // No password configured, proceed directly
+      proceedWithCancelService(appointment);
+    }
+  };
+
+  const proceedWithCancelService = (appointment: any) => {
+    setAppointmentToCancel(appointment);
+    setIsCancelDialogOpen(true);
+  };
+
+  const confirmCancelService = async () => {
+    if (!appointmentToCancel) return;
+
+    setCancelLoading(true);
+    try {
+      // Update appointment status to 'cancelled' and set financial values to 0
+      const { error } = await supabase
+        .from('appointments')
+        .update({
+          status: 'cancelled',
+          payment_status: 'cancelled',
+          total_price: 0 // Set to 0 so it doesn't count in financial reports
+        })
+        .eq('id', appointmentToCancel.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Serviço cancelado",
+        description: "O atendimento foi cancelado e não será contabilizado nos relatórios financeiros."
+      });
+
+      // Reload client history
+      if (selectedCliente) {
+        await handleVerHistorico(selectedCliente);
+      }
+
+      setIsCancelDialogOpen(false);
+      setAppointmentToCancel(null);
+    } catch (error) {
+      console.error('Error cancelling service:', error);
+      toast({
+        title: "Erro ao cancelar",
+        description: "Não foi possível cancelar o serviço.",
+        variant: "destructive"
+      });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  // Handle admin password success
+  const handleAdminPasswordSuccess = () => {
+    if (pendingAction?.type === 'edit' && pendingAction.data) {
+      proceedWithEdit(pendingAction.data);
+    } else if (pendingAction?.type === 'cancel_service' && pendingAction.data) {
+      proceedWithCancelService(pendingAction.data);
+    }
+    setPendingAction(null);
   };
 
   const handleSalvarEdicao = async () => {
@@ -259,7 +362,6 @@ const Clientes = () => {
       setIsEditDialogOpen(false);
       setSelectedCliente(null);
       
-      // Reload clients
       loadClientes();
       
       toast({
@@ -277,7 +379,6 @@ const Clientes = () => {
   };
 
   const handleAgendar = (cliente: any) => {
-    // Redirecionar para agenda com cliente pré-selecionado
     navigate('/dashboard/agenda', { 
       state: { 
         clientePreSelecionado: cliente 
@@ -306,7 +407,6 @@ const Clientes = () => {
 
     setQuickServiceLoading(true);
     try {
-      // Create a client for this quick service with sequential numbering
       const nextNumber = avulsoCounter + 1;
       const { data: newClient, error: clientError } = await supabase
         .from('clients')
@@ -319,17 +419,14 @@ const Clientes = () => {
 
       if (clientError) throw clientError;
 
-      // Create completed appointments for each service with offset times to avoid unique constraint
       const today = new Date();
       let cumulativeMinutes = 0;
       const appointments = selectedServiceIds.map((serviceId, index) => {
         const service = services.find(s => s.id === serviceId);
         
-        // Add offset to avoid duplicate professional+date+time constraint
         const appointmentTime = new Date(today.getTime() + cumulativeMinutes * 60000);
         const timeString = appointmentTime.toTimeString().slice(0, 5);
         
-        // Add this service's duration to cumulative for next iteration
         cumulativeMinutes += (service?.duration || 30);
         
         return {
@@ -387,6 +484,21 @@ const Clientes = () => {
     cliente.phone.includes(searchTerm) ||
     cliente.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="default">Concluído</Badge>;
+      case 'confirmed':
+        return <Badge variant="secondary">Confirmado</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelado</Badge>;
+      case 'scheduled':
+        return <Badge variant="outline">Agendado</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -683,7 +795,7 @@ const Clientes = () => {
           </Card>
         </div>
 
-        {/* Modal de Histórico */}
+        {/* Modal de Histórico with Cancel Service option */}
         <Dialog open={isHistoricoDialogOpen} onOpenChange={setIsHistoricoDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -714,21 +826,30 @@ const Clientes = () => {
                               Profissional: {appointment.professionals?.name}
                             </p>
                           </div>
-                          <Badge variant={
-                            appointment.status === 'completed' ? 'default' :
-                            appointment.status === 'confirmed' ? 'secondary' :
-                            appointment.status === 'cancelled' ? 'destructive' : 'outline'
-                          }>
-                            {appointment.status === 'completed' ? 'Concluído' :
-                             appointment.status === 'confirmed' ? 'Confirmado' :
-                             appointment.status === 'cancelled' ? 'Cancelado' : 'Agendado'}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(appointment.status)}
+                            {/* Show cancel button only for non-cancelled appointments */}
+                            {appointment.status !== 'cancelled' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleCancelService(appointment)}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div className="text-sm text-muted-foreground space-y-1">
                           <p>Data: {new Date(appointment.appointment_date).toLocaleDateString('pt-BR')}</p>
                           <p>Horário: {appointment.appointment_time?.slice(0, 5)}</p>
                           <p>Duração: {appointment.services?.duration || 30} minutos</p>
-                          <p>Valor: R$ {appointment.total_price?.toFixed(2) || appointment.services?.price?.toFixed(2) || '0,00'}</p>
+                          <p>Valor: {appointment.status === 'cancelled' ? (
+                            <span className="text-destructive line-through">R$ {appointment.services?.price?.toFixed(2) || '0,00'}</span>
+                          ) : (
+                            `R$ ${appointment.total_price?.toFixed(2) || appointment.services?.price?.toFixed(2) || '0,00'}`
+                          )}</p>
                           {appointment.notes && (
                             <p>Observações: {appointment.notes}</p>
                           )}
@@ -804,6 +925,83 @@ const Clientes = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Modal de Confirmação de Cancelamento */}
+        <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Cancelar Serviço
+              </DialogTitle>
+              <DialogDescription>
+                Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
+                <p className="text-sm font-medium mb-2">
+                  Você está prestes a cancelar o seguinte atendimento:
+                </p>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p><strong>Serviço:</strong> {appointmentToCancel?.services?.name}</p>
+                  <p><strong>Data:</strong> {appointmentToCancel?.appointment_date ? new Date(appointmentToCancel.appointment_date).toLocaleDateString('pt-BR') : ''}</p>
+                  <p><strong>Profissional:</strong> {appointmentToCancel?.professionals?.name}</p>
+                  <p><strong>Valor:</strong> R$ {appointmentToCancel?.total_price?.toFixed(2) || appointmentToCancel?.services?.price?.toFixed(2) || '0,00'}</p>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>⚠️ Ao cancelar este serviço:</p>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>O atendimento será marcado como "Cancelado"</li>
+                  <li>Não será contabilizado no faturamento</li>
+                  <li>Não afetará comissões de profissionais</li>
+                  <li>Ficará registrado apenas para controle interno</li>
+                </ul>
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsCancelDialogOpen(false);
+                  setAppointmentToCancel(null);
+                }}
+              >
+                Voltar
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={confirmCancelService}
+                disabled={cancelLoading}
+              >
+                {cancelLoading ? "Cancelando..." : "Confirmar Cancelamento"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Admin Password Modal */}
+        {companyId && (
+          <AdminPasswordModal
+            open={showAdminPasswordModal}
+            onOpenChange={(open) => {
+              setShowAdminPasswordModal(open);
+              if (!open) {
+                setPendingAction(null);
+              }
+            }}
+            companyId={companyId}
+            onSuccess={handleAdminPasswordSuccess}
+            actionDescription={
+              pendingAction?.type === 'edit' 
+                ? 'editar as informações do cliente' 
+                : pendingAction?.type === 'cancel_service'
+                ? 'cancelar este serviço'
+                : 'realizar esta ação'
+            }
+          />
+        )}
       </div>
     </DashboardLayout>
   );
