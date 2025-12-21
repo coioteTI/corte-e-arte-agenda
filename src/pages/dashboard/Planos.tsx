@@ -46,6 +46,16 @@ const Planos = () => {
     return false;
   };
 
+  const getTrialMessage = () => {
+    if (!subscription || !subscription.status) return null;
+    
+    if (subscription.status === 'trial') {
+      const remaining = subscription.trialAppointmentsLimit - subscription.trialAppointmentsUsed;
+      return `Você está no período de teste com ${remaining} agendamentos restantes de ${subscription.trialAppointmentsLimit}.`;
+    }
+    return null;
+  };
+
   return (
     <div className="p-3 md:p-6">
       <div className="max-w-4xl mx-auto">
@@ -63,10 +73,10 @@ const Planos = () => {
 
         {/* Current Plan Status */}
         {subscription && !subscriptionLoading && (
-          <Card className="mb-6 border-primary/50">
+          <Card className={`mb-6 ${subscription.isPremium ? 'border-green-500/50' : 'border-primary/50'}`}>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Crown className="h-5 w-5 text-primary" />
+                <Crown className={`h-5 w-5 ${subscription.isPremium ? 'text-green-500' : 'text-primary'}`} />
                 Seu Plano Atual
               </CardTitle>
             </CardHeader>
@@ -75,7 +85,7 @@ const Planos = () => {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-bold">{subscription.planLabel}</span>
-                    {subscription.status === 'active' && (
+                    {subscription.isPremium && subscription.status === 'active' && (
                       <Badge className="bg-green-500 text-white">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Ativo
@@ -97,9 +107,15 @@ const Planos = () => {
                         Vencido
                       </Badge>
                     )}
+                    {subscription.status === 'inactive' && (
+                      <Badge variant="secondary">
+                        Inativo
+                      </Badge>
+                    )}
                   </div>
                   
-                  {subscription.endDate && subscription.status === 'active' && (
+                  {/* Mostrar data de vencimento apenas para planos premium */}
+                  {subscription.isPremium && subscription.endDate && subscription.status === 'active' && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
                       <span>
@@ -113,10 +129,22 @@ const Planos = () => {
                     </div>
                   )}
 
+                  {/* Mostrar uso de agendamentos apenas para planos trial */}
                   {subscription.status === 'trial' && (
-                    <p className="text-sm text-muted-foreground">
-                      Agendamentos utilizados: {subscription.trialAppointmentsUsed} de {subscription.trialAppointmentsLimit}
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        Agendamentos utilizados: <strong>{subscription.trialAppointmentsUsed}</strong> de <strong>{subscription.trialAppointmentsLimit}</strong>
+                      </p>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all"
+                          style={{ width: `${Math.min((subscription.trialAppointmentsUsed / subscription.trialAppointmentsLimit) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {getTrialMessage()}
+                      </p>
+                    </div>
                   )}
 
                   {subscription.status === 'grace_period' && (
@@ -128,6 +156,12 @@ const Planos = () => {
                   {subscription.status === 'expired' && (
                     <p className="text-sm text-red-600 font-medium">
                       ❌ Sua assinatura expirou. Renove agora para continuar usando o sistema.
+                    </p>
+                  )}
+
+                  {subscription.status === 'inactive' && (
+                    <p className="text-sm text-muted-foreground">
+                      Assine um plano para desbloquear todos os recursos do sistema.
                     </p>
                   )}
                 </div>

@@ -33,9 +33,20 @@ function calculateSubscriptionEndDate(plan: string, startDate: Date): Date {
 function getPlanFromProduct(produto?: string): string {
   if (!produto) return 'free';
   
-  if (produto.toLowerCase().includes('anual')) {
+  const produtoLower = produto.toLowerCase();
+  
+  // Verificar se é plano anual
+  if (produtoLower.includes('anual') || produtoLower.includes('annual') || produtoLower.includes('yearly')) {
     return 'premium_anual';
-  } else if (produto.toLowerCase().includes('mensal')) {
+  }
+  
+  // Verificar se é plano mensal
+  if (produtoLower.includes('mensal') || produtoLower.includes('monthly') || produtoLower.includes('mes')) {
+    return 'premium_mensal';
+  }
+  
+  // Verificar se contém "premium" sem especificar período (assume mensal)
+  if (produtoLower.includes('premium') || produtoLower.includes('pro')) {
     return 'premium_mensal';
   }
   
