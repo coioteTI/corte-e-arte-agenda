@@ -17,6 +17,7 @@ import { ContaEmpresaSection } from "@/components/configuracoes/ContaEmpresaSect
 import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSection";
 import { GaleriaSection } from "@/components/configuracoes/GaleriaSection";
 import { PagamentoSection } from "@/components/configuracoes/PagamentoSection";
+import { SenhaAdminSection } from "@/components/configuracoes/SenhaAdminSection";
 
 import {
   ConfiguracoesState,
@@ -741,13 +742,14 @@ const Configuracoes = () => {
                       <p className="text-xs text-muted-foreground">Dados da sua empresa</p>
                     </div>
                   </div>
-                  <ContaEmpresaSection
+                <ContaEmpresaSection
                     contaEmpresa={contaEmpresa}
                     onInputChange={handleContaChange}
                     onSalvar={handleSalvarConta}
                     saving={saving}
                     companyId={companyId}
                   />
+                  <SenhaAdminSection companyId={companyId} />
                   <ExcluirContaSection companyId={companyId} />
                 </div>
               </TabsContent>
