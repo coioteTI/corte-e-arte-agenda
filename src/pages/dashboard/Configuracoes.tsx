@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/hooks/useNotifications";
-import { Bell, MessageSquare, User, Settings, Palette, Images, CreditCard } from "lucide-react";
+import { useAdminPassword } from "@/hooks/useAdminPassword";
+import { Bell, MessageSquare, User, Settings, Palette, Images, CreditCard, Lock, ShieldAlert, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { NotificacoesSection } from "@/components/configuracoes/NotificacoesSection";
@@ -29,10 +33,19 @@ import {
 } from "@/types/configuracoes";
 
 const Configuracoes = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [companyId, setCompanyId] = useState<string>("");
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
+
+  // Admin password protection states
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [validatingPassword, setValidatingPassword] = useState(false);
+  const { hasAdminPassword, validateAdminPassword } = useAdminPassword();
   
   const [configuracoes, setConfiguracoes] = useState<ConfiguracoesState>({
     notificacoes: {
@@ -90,9 +103,79 @@ const Configuracoes = () => {
   // Ativar notificações para esta empresa
   useNotifications(companyId);
 
+  // Check if admin password is configured and require authentication
   useEffect(() => {
-    loadCompanyData();
+    const checkAdminPassword = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: companies } = await supabase
+          .from("companies")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (companies) {
+          const passwordExists = await hasAdminPassword(companies.id);
+          setHasPassword(passwordExists);
+          
+          if (passwordExists) {
+            setLoading(false);
+          } else {
+            setIsAuthenticated(true);
+            loadCompanyData();
+          }
+        } else {
+          // No company yet, allow access to create one
+          setIsAuthenticated(true);
+          loadCompanyData();
+        }
+      } catch (error) {
+        console.error("Error checking admin password:", error);
+        setIsAuthenticated(true);
+        loadCompanyData();
+      }
+    };
+
+    checkAdminPassword();
   }, []);
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordInput.trim()) {
+      setPasswordError("Digite a senha de administrador");
+      return;
+    }
+
+    setValidatingPassword(true);
+    setPasswordError("");
+
+    // Get company ID first
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: companies } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!companies) return;
+
+    const isValid = await validateAdminPassword(companies.id, passwordInput);
+    
+    if (isValid) {
+      setIsAuthenticated(true);
+      setLoading(true);
+      loadCompanyData();
+    } else {
+      setPasswordError("Senha incorreta. Acesso negado.");
+      setPasswordInput("");
+    }
+    
+    setValidatingPassword(false);
+  };
 
   const loadCompanyData = async () => {
     try {
@@ -512,6 +595,73 @@ const Configuracoes = () => {
       icon: MessageSquare
     }
   ];
+
+  // Show password protection screen
+  if (hasPassword && !isAuthenticated) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 p-4 rounded-full bg-primary/10">
+                <Lock className="h-12 w-12 text-primary" />
+              </div>
+              <CardTitle className="text-2xl">Acesso Protegido</CardTitle>
+              <p className="text-muted-foreground mt-2">
+                As Configurações estão protegidas por senha de administrador.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    type="password"
+                    placeholder="Digite a senha de administrador"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="text-center"
+                    autoFocus
+                  />
+                  {passwordError && (
+                    <div className="flex items-center gap-2 text-destructive text-sm justify-center">
+                      <ShieldAlert className="h-4 w-4" />
+                      <span>{passwordError}</span>
+                    </div>
+                  )}
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={validatingPassword}
+                >
+                  {validatingPassword ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Validando...
+                    </div>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Acessar Configurações
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate("/dashboard")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar ao Dashboard
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (loading) {
     return (
