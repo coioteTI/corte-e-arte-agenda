@@ -24,8 +24,10 @@ import {
   Area,
   AreaChart
 } from "recharts";
-import { Users, ShoppingBag, TrendingUp, Package, Download, Loader2 } from "lucide-react";
+import { Users, ShoppingBag, TrendingUp, Package, Download, Loader2, Lock } from "lucide-react";
 import jsPDF from "jspdf";
+import { AdminPasswordModal } from "@/components/AdminPasswordModal";
+import { useAdminPassword } from "@/hooks/useAdminPassword";
 
 interface CompanyData {
   services: any[];
@@ -55,6 +57,14 @@ const Relatorios = () => {
   });
   const { toast } = useToast();
 
+  // Admin password protection state
+  const { hasAdminPassword } = useAdminPassword();
+  const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasAdminPasswordConfigured, setHasAdminPasswordConfigured] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   useEffect(() => {
     fetchCompanyData();
   }, []);
@@ -71,6 +81,21 @@ const Relatorios = () => {
         .single();
 
       if (!company) return;
+
+      setCompanyId(company.id);
+
+      // Check if admin password is configured
+      const hasPassword = await hasAdminPassword(company.id);
+      setHasAdminPasswordConfigured(hasPassword);
+      
+      // If no password configured, auto-authenticate
+      if (!hasPassword) {
+        setIsAuthenticated(true);
+      } else {
+        // Show password modal
+        setShowAdminPasswordModal(true);
+      }
+      setCheckingAuth(false);
 
       const [servicesRes, appointmentsRes, professionalsRes, stockSalesRes, stockProductsRes] = await Promise.all([
         supabase.from('services').select('*').eq('company_id', company.id),
@@ -581,7 +606,7 @@ const Relatorios = () => {
     }
   };
 
-  if (loading) {
+  if (loading || checkingAuth) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -592,6 +617,41 @@ const Relatorios = () => {
             </CardContent>
           </Card>
         </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show locked screen if password is configured but not authenticated
+  if (hasAdminPasswordConfigured && !isAuthenticated) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <h1 className="text-2xl font-semibold">Relatórios</h1>
+          <Card>
+            <CardContent className="p-12 text-center space-y-4">
+              <Lock className="h-16 w-16 mx-auto text-muted-foreground" />
+              <h2 className="text-xl font-semibold">Acesso Restrito</h2>
+              <p className="text-muted-foreground">
+                Os relatórios financeiros são protegidos por senha de administrador.
+              </p>
+              <Button onClick={() => setShowAdminPasswordModal(true)}>
+                <Lock className="h-4 w-4 mr-2" />
+                Desbloquear Relatórios
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Admin Password Modal */}
+        {companyId && (
+          <AdminPasswordModal
+            open={showAdminPasswordModal}
+            onOpenChange={setShowAdminPasswordModal}
+            companyId={companyId}
+            onSuccess={() => setIsAuthenticated(true)}
+            actionDescription="acessar os relatórios financeiros"
+          />
+        )}
       </DashboardLayout>
     );
   }
