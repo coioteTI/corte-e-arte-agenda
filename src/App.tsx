@@ -26,6 +26,7 @@ import KirvanoWebhooks from "./pages/dashboard/KirvanoWebhooks";
 import Planos from "./pages/dashboard/Planos";
 import HistoricoSimples from "./pages/dashboard/HistoricoSimples";
 import Estoque from "./pages/dashboard/Estoque";
+import Salarios from "./pages/dashboard/Salarios";
 import BuscarBarbearias from "./pages/BuscarBarbearias";
 import PerfilBarbearia from "./pages/PerfilBarbearia";
 import AgendarServico from "./pages/AgendarServico";
@@ -106,6 +107,7 @@ const App = () => (
           <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
           <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
           <Route path="/dashboard/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
+          <Route path="/dashboard/salarios" element={<ProtectedRoute><Salarios /></ProtectedRoute>} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>

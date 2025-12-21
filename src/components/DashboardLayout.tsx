@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar";
-import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, UserCheck, History, Package } from "lucide-react";
+import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, UserCheck, History, Package, Wallet } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,7 @@ const menuItems = [
   { title: "Profissionais", url: "/dashboard/profissionais", icon: UserCheck },
   { title: "Estoque", url: "/dashboard/estoque", icon: Package },
   { title: "Histórico", url: "/dashboard/historico", icon: History },
+  { title: "Salários", url: "/dashboard/salarios", icon: Wallet },
   { title: "Ranking", url: "/dashboard/ranking", icon: Trophy },
   { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart },
   { title: "Horários", url: "/dashboard/horarios", icon: Clock },

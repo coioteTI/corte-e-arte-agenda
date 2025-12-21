@@ -455,6 +455,67 @@ export type Database = {
           },
         ]
       }
+      professional_payments: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          payment_date: string
+          payment_reason: string
+          professional_id: string
+          proof_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          company_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_reason: string
+          professional_id: string
+          proof_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_reason?: string
+          professional_id?: string
+          proof_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_payments_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_payments_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "professionals_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professionals: {
         Row: {
           company_id: string | null
