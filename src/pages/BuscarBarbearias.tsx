@@ -594,6 +594,15 @@ const BuscarBarbearias = () => {
                           </div>
                         </div>
                         
+                        <div className="flex justify-center py-2">
+                          {barbearia.id && barbearia.id.length > 0 && (
+                            <LikeButton
+                              key={`like-${barbearia.id}`}
+                              targetType="company"
+                              targetId={barbearia.id}
+                            />
+                          )}
+                        </div>
                       </div>
                       
                       <Button asChild className="w-full group-hover:scale-105 transition-transform duration-200 text-xs sm:text-sm" size="sm">
