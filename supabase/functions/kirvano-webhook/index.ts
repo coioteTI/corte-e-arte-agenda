@@ -16,6 +16,18 @@ interface KirvanoWebhookPayload {
   email: string;
   evento: string;
   produto?: string;
+  data_assinatura?: string;
+  data_vencimento?: string;
+}
+
+function calculateSubscriptionEndDate(plan: string, startDate: Date): Date {
+  const endDate = new Date(startDate);
+  if (plan === 'premium_anual') {
+    endDate.setFullYear(endDate.getFullYear() + 1);
+  } else {
+    endDate.setMonth(endDate.getMonth() + 1);
+  }
+  return endDate;
 }
 
 function getPlanFromProduct(produto?: string): string {
@@ -233,13 +245,35 @@ serve(async (req) => {
       console.log(`ℹ️ Unknown event type, keeping current plan: ${company.plan}`);
     }
 
+    // Prepare update data with subscription dates
+    const now = new Date();
+    const updateData: Record<string, any> = {
+      plan: newPlan,
+      updated_at: now.toISOString()
+    };
+
+    // Set subscription dates when access is granted
+    if (isAccessGrantedEvent(evento)) {
+      const startDate = payload.data_assinatura ? new Date(payload.data_assinatura) : now;
+      const endDate = payload.data_vencimento 
+        ? new Date(payload.data_vencimento) 
+        : calculateSubscriptionEndDate(newPlan, startDate);
+      
+      updateData.subscription_start_date = startDate.toISOString();
+      updateData.subscription_end_date = endDate.toISOString();
+      updateData.subscription_status = 'active';
+      
+      console.log(`📅 Setting subscription dates - Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
+    } else if (isAccessLossEvent(evento)) {
+      // Mark subscription as expired
+      updateData.subscription_status = 'expired';
+      console.log('⚠️ Marking subscription as expired');
+    }
+
     // Atualizar plano na empresa
     const { error: updateError } = await supabase
       .from('companies')
-      .update({ 
-        plan: newPlan,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', company.id);
 
     if (updateError) {

@@ -16,7 +16,8 @@ import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, Us
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { PlanStatusChecker } from "./PlanStatusChecker";
+import { SubscriptionStatusBanner } from "./SubscriptionStatusBanner";
+import { SubscriptionBlocker } from "./SubscriptionBlocker";
 import { ThemeToggle } from "./ThemeToggle";
 
 const menuItems = [
@@ -133,24 +134,26 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }
   };
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar companyName={companyName} companyLogo={companyLogo} />
-        <main className="flex-1 p-3 md:p-6">
-          <div className="mb-4 md:mb-6 flex items-center justify-between">
-            <SidebarTrigger />
-            <div className="flex items-center space-x-2 md:space-x-4">
-              <div className="text-xs md:text-sm text-muted-foreground hidden sm:block">
-                Bem-vindo, {companyName || 'Administrador'}
+    <SubscriptionBlocker>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
+          <AppSidebar companyName={companyName} companyLogo={companyLogo} />
+          <main className="flex-1 p-3 md:p-6">
+            <div className="mb-4 md:mb-6 flex items-center justify-between">
+              <SidebarTrigger />
+              <div className="flex items-center space-x-2 md:space-x-4">
+                <div className="text-xs md:text-sm text-muted-foreground hidden sm:block">
+                  Bem-vindo, {companyName || 'Administrador'}
+                </div>
+                <ThemeToggle />
               </div>
-              <ThemeToggle />
             </div>
-          </div>
-          <PlanStatusChecker />
-          {children}
-        </main>
-      </div>
-    </SidebarProvider>
+            <SubscriptionStatusBanner />
+            {children}
+          </main>
+        </div>
+      </SidebarProvider>
+    </SubscriptionBlocker>
   );
 };
 
