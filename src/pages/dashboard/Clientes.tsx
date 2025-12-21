@@ -319,17 +319,26 @@ const Clientes = () => {
 
       if (clientError) throw clientError;
 
-      // Create completed appointments for each service
+      // Create completed appointments for each service with offset times to avoid unique constraint
       const today = new Date();
-      const appointments = selectedServiceIds.map(serviceId => {
+      let cumulativeMinutes = 0;
+      const appointments = selectedServiceIds.map((serviceId, index) => {
         const service = services.find(s => s.id === serviceId);
+        
+        // Add offset to avoid duplicate professional+date+time constraint
+        const appointmentTime = new Date(today.getTime() + cumulativeMinutes * 60000);
+        const timeString = appointmentTime.toTimeString().slice(0, 5);
+        
+        // Add this service's duration to cumulative for next iteration
+        cumulativeMinutes += (service?.duration || 30);
+        
         return {
           company_id: companyId,
           client_id: newClient.id,
           service_id: serviceId,
           professional_id: selectedProfessionalId,
           appointment_date: today.toISOString().split('T')[0],
-          appointment_time: today.toTimeString().slice(0, 5),
+          appointment_time: timeString,
           status: 'completed',
           payment_status: 'paid',
           payment_method: 'no_local',
