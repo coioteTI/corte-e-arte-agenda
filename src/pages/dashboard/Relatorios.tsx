@@ -103,25 +103,36 @@ const Relatorios = () => {
 
   // Filter by period (day, week, month)
   const filterByPeriod = (dateString: string) => {
-    const itemDate = new Date(dateString);
+    // Handle date strings like "2025-12-21" without timezone issues
+    const dateParts = dateString.split('T')[0].split('-');
+    const itemYear = parseInt(dateParts[0]);
+    const itemMonth = parseInt(dateParts[1]);
+    const itemDay = parseInt(dateParts[2]);
+    
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth() + 1;
+    const todayDay = today.getDate();
     
     if (selectedPeriod === "day") {
-      const itemDay = new Date(itemDate);
-      itemDay.setHours(0, 0, 0, 0);
-      return itemDay.getTime() === today.getTime();
+      return itemYear === todayYear && itemMonth === todayMonth && itemDay === todayDay;
     } else if (selectedPeriod === "week") {
+      // Calculate start and end of current week
+      const dayOfWeek = today.getDay();
       const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay());
+      startOfWeek.setDate(today.getDate() - dayOfWeek);
+      startOfWeek.setHours(0, 0, 0, 0);
+      
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
       endOfWeek.setHours(23, 59, 59, 999);
+      
+      const itemDate = new Date(itemYear, itemMonth - 1, itemDay);
       return itemDate >= startOfWeek && itemDate <= endOfWeek;
     } else {
       // month - uses the existing month filter
       const [year, month] = selectedMonth.split('-').map(Number);
-      return itemDate.getFullYear() === year && itemDate.getMonth() + 1 === month;
+      return itemYear === year && itemMonth === month;
     }
   };
 
@@ -152,16 +163,16 @@ const Relatorios = () => {
                    companyData.stockSales.length > 0 ||
                    (companyData.company?.likes_count || 0) > 0;
 
-  // Generate chart data - daily evolution within selected month
+  // Generate chart data - daily evolution within selected period
   const getDailyData = () => {
-    const dailyData: { [key: string]: { lucro: number; agendamentos: number; date: Date } } = {};
+    const dailyData: { [key: string]: { lucro: number; agendamentos: number; dateKey: string } } = {};
     
     filteredAppointments.forEach(apt => {
       if (apt.status === 'completed' || apt.status === 'confirmed') {
-        const date = new Date(apt.appointment_date);
-        const dayKey = date.toISOString().split('T')[0];
+        // Use the date string directly to avoid timezone issues
+        const dayKey = apt.appointment_date.split('T')[0];
         if (!dailyData[dayKey]) {
-          dailyData[dayKey] = { lucro: 0, agendamentos: 0, date };
+          dailyData[dayKey] = { lucro: 0, agendamentos: 0, dateKey: dayKey };
         }
         dailyData[dayKey].lucro += apt.total_price || 0;
         dailyData[dayKey].agendamentos += 1;
@@ -170,14 +181,18 @@ const Relatorios = () => {
 
     return Object.entries(dailyData)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, data]) => ({
-        dia: new Date(key).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
-        lucro: data.lucro,
-        agendamentos: data.agendamentos
-      }));
+      .map(([key, data]) => {
+        const parts = key.split('-');
+        const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        return {
+          dia: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+          lucro: data.lucro,
+          agendamentos: data.agendamentos
+        };
+      });
   };
 
-  const dadosLucro = filteredAppointments.length > 0 ? getDailyData() : [];
+  const dadosLucro = getDailyData();
 
   // Professional performance data
   const getProfessionalDetails = (professionalId: string) => {
@@ -789,24 +804,30 @@ const Relatorios = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={dadosLucro} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="colorLucro" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#F0D18A" stopOpacity={0.8}/>
-                            <stop offset="95%" stopColor="#F0D18A" stopOpacity={0.1}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                        <XAxis dataKey="dia" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} tickFormatter={(value) => `R$ ${value}`} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#000000' }}
-                          formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "Faturamento"]}
-                        />
-                        <Area type="monotone" dataKey="lucro" stroke="#F0D18A" strokeWidth={3} fillOpacity={1} fill="url(#colorLucro)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    {dadosLucro.length === 0 ? (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        Nenhum dado de faturamento para o período selecionado.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={dadosLucro} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorLucro" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#F0D18A" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#F0D18A" stopOpacity={0.1}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                          <XAxis dataKey="dia" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} tickFormatter={(value) => `R$ ${value}`} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#000000' }}
+                            formatter={(value: number) => [`R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, "Faturamento"]}
+                          />
+                          <Area type="monotone" dataKey="lucro" stroke="#F0D18A" strokeWidth={3} fillOpacity={1} fill="url(#colorLucro)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </CardContent>
               </Card>
