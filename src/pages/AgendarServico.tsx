@@ -96,7 +96,7 @@ export default function AgendarServico() {
   const [email, setEmail] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
-  const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
@@ -369,12 +369,14 @@ export default function AgendarServico() {
   // Filtrar profissionais com base no serviço usando useMemo
   const filteredProfessionals = useMemo(() => {
     // Se nenhum serviço selecionado, mostrar todos disponíveis
-    if (!selectedServiceId) return availableProfessionals;
+    if (selectedServiceIds.length === 0) return availableProfessionals;
 
     // Se não há profissionais disponíveis, retornar array vazio
     if (availableProfessionals.length === 0) return [];
 
-    const selectedService = services.find(s => s.id === selectedServiceId);
+    // Get the first selected service for filtering professionals
+    const firstServiceId = selectedServiceIds[0];
+    const selectedService = services.find(s => s.id === firstServiceId);
     
     // Se serviço não encontrado, mostrar todos disponíveis
     if (!selectedService) return availableProfessionals;
@@ -396,21 +398,27 @@ export default function AgendarServico() {
     // IMPORTANTE: Se não encontrar match, retornar TODOS os disponíveis
     // Isso evita a tela preta quando o filtro não encontra ninguém
     return matched.length > 0 ? matched : availableProfessionals;
-  }, [availableProfessionals, selectedServiceId, services]);
+  }, [availableProfessionals, selectedServiceIds, services]);
+
+  // Calculate total duration and price for selected services
+  const selectedServicesData = useMemo(() => {
+    const selectedServices = services.filter(s => selectedServiceIds.includes(s.id));
+    const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
+    const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+    return { selectedServices, totalDuration, totalPrice };
+  }, [services, selectedServiceIds]);
 
   // Calcular horários disponíveis usando useMemo
   const availableTimes = useMemo(() => {
-    if (!selectedProfessionalId || !selectedDate || !company || !selectedServiceId) {
+    if (!selectedProfessionalId || !selectedDate || !company || selectedServiceIds.length === 0) {
       return [];
     }
 
-    // Buscar o serviço selecionado para obter a duração
-    const selectedService = services.find(s => s.id === selectedServiceId);
-    if (!selectedService) {
+    // Use total duration from all selected services
+    const serviceDuration = selectedServicesData.totalDuration;
+    if (serviceDuration === 0) {
       return [];
     }
-
-    const serviceDuration = selectedService.duration; // em minutos
     
     const businessHours = company.business_hours;
     if (!businessHours) {
@@ -459,25 +467,24 @@ export default function AgendarServico() {
     }
     
     return availableSlots;
-  }, [selectedProfessionalId, selectedDate, company, selectedServiceId, services, appointments]);
+  }, [selectedProfessionalId, selectedDate, company, selectedServiceIds, selectedServicesData.totalDuration, appointments]);
 
   // Resetar horário quando serviço ou profissional muda - simplificado
   useEffect(() => {
     setSelectedTime(undefined);
-  }, [selectedServiceId, selectedProfessionalId]);
+  }, [selectedServiceIds, selectedProfessionalId]);
 
   // Verificar disponibilidade do horário selecionado - removido debounce desnecessário
   useEffect(() => {
-    if (selectedTime && selectedProfessionalId && selectedDate && selectedServiceId && appointments.length > 0) {
+    if (selectedTime && selectedProfessionalId && selectedDate && selectedServiceIds.length > 0 && appointments.length > 0) {
       const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
       
-      // Buscar o serviço selecionado para obter a duração
-      const selectedService = services.find(s => s.id === selectedServiceId);
-      if (!selectedService) {
+      // Use total duration from all selected services
+      const serviceDuration = selectedServicesData.totalDuration;
+      if (serviceDuration === 0) {
         return;
       }
 
-      const serviceDuration = selectedService.duration;
       const hasConflict = hasTimeConflict(selectedTime, serviceDuration, selectedProfessionalId, appointmentDateStr);
       
       if (hasConflict) {
@@ -485,7 +492,7 @@ export default function AgendarServico() {
         toast.error("⏰ Horário não disponível! Este horário conflita com outro agendamento. Por favor, escolha outro horário disponível.");
       }
     }
-  }, [selectedTime, selectedProfessionalId, selectedDate, selectedServiceId, appointments, services]);
+  }, [selectedTime, selectedProfessionalId, selectedDate, selectedServiceIds, selectedServicesData.totalDuration, appointments]);
 
   // Garantir que submitting seja resetado se o componente for desmontado
   useEffect(() => {
@@ -496,17 +503,17 @@ export default function AgendarServico() {
 
   // Resetar submitting se houver mudanças críticas nos dados
   useEffect(() => {
-    if (submitting && (!company || !selectedServiceId || !selectedProfessionalId)) {
+    if (submitting && (!company || selectedServiceIds.length === 0 || !selectedProfessionalId)) {
       console.log("🔄 Resetando submitting devido a dados faltando");
       setSubmitting(false);
     }
-  }, [company, selectedServiceId, selectedProfessionalId, submitting]);
+  }, [company, selectedServiceIds, selectedProfessionalId, submitting]);
 
   function validate() {
     const validation = validateAppointment({
       clientName: fullName,
       clientPhone: whatsapp,
-      serviceId: selectedServiceId,
+      serviceId: selectedServiceIds[0], // Use first service for validation
       professionalId: selectedProfessionalId,
       date: selectedDate,
       time: selectedTime
@@ -514,6 +521,11 @@ export default function AgendarServico() {
 
     if (!validation.isValid) {
       validation.errors.forEach(error => toast.error(error));
+      return false;
+    }
+
+    if (selectedServiceIds.length === 0) {
+      toast.error("Selecione pelo menos um serviço");
       return false;
     }
 
@@ -560,12 +572,11 @@ export default function AgendarServico() {
       console.log("🚀 Iniciando processo de agendamento...");
 
       // Verificar novamente a disponibilidade antes de agendar
-      if (selectedTime && selectedProfessionalId && selectedDate && selectedServiceId) {
+      if (selectedTime && selectedProfessionalId && selectedDate && selectedServiceIds.length > 0) {
         const appointmentDateStr = format(selectedDate, "yyyy-MM-dd");
-        const selectedService = services.find(s => s.id === selectedServiceId);
+        const serviceDuration = selectedServicesData.totalDuration;
         
-        if (selectedService) {
-          const serviceDuration = selectedService.duration;
+        if (serviceDuration > 0) {
           const hasConflict = hasTimeConflict(selectedTime, serviceDuration, selectedProfessionalId, appointmentDateStr);
           
           if (hasConflict) {
@@ -693,20 +704,24 @@ export default function AgendarServico() {
         return;
       }
 
-      // Criar agendamento
+      // Criar agendamento - use first service for single appointment, store all service IDs in notes
+      const serviceNames = selectedServicesData.selectedServices.map(s => s.name).join(', ');
+      const notesWithServices = selectedServicesData.selectedServices.length > 1 
+        ? `Serviços: ${serviceNames}${notes.trim() ? ` | ${notes.trim()}` : ''}`
+        : notes.trim() || null;
+
       const appointmentData: Appointment = {
         company_id: company.id,
         client_id: clientId,
-        service_id: selectedServiceId!,
+        service_id: selectedServiceIds[0]!, // Use first service
         professional_id: selectedProfessionalId!,
         appointment_date: format(selectedDate!, "yyyy-MM-dd"),
         appointment_time: selectedTime!,
-        status: 'scheduled', // Será atualizado pelo trigger conforme regras de negócio
-        notes: notes.trim() || null,
-        total_price: services.find(s => s.id === selectedServiceId)?.price || null,
+        status: 'scheduled',
+        notes: notesWithServices,
+        total_price: selectedServicesData.totalPrice,
         payment_method: selectedPaymentMethod,
         pix_payment_proof: pixProofPath
-        // payment_status será definido pelo trigger automaticamente
       };
 
       console.log("📝 Dados do agendamento:", appointmentData);
@@ -768,7 +783,7 @@ export default function AgendarServico() {
       setWhatsapp("");
       setEmail("");
       setNotes("");
-      setSelectedServiceId(undefined);
+      setSelectedServiceIds([]);
       setSelectedProfessionalId(undefined);
       setSelectedDate(undefined);
       setSelectedTime(undefined);
@@ -941,40 +956,52 @@ export default function AgendarServico() {
               </div>
             </div>
 
-            {/* Informação sobre o serviço selecionado */}
-            {selectedServiceId && (
+            {/* Informação sobre os serviços selecionados */}
+            {selectedServiceIds.length > 0 && (
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
                 <div className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Serviço selecionado:</strong> {services.find(s => s.id === selectedServiceId)?.name}
+                  <strong>Serviços selecionados:</strong> {selectedServicesData.selectedServices.map(s => s.name).join(', ')}
                 </div>
                 <div className="text-sm text-blue-600 dark:text-blue-300">
-                  ⏱️ <strong>Duração:</strong> {services.find(s => s.id === selectedServiceId)?.duration} minutos
+                  ⏱️ <strong>Duração total:</strong> {selectedServicesData.totalDuration} minutos
                 </div>
                 <div className="text-sm text-blue-600 dark:text-blue-300">
-                  💰 <strong>Preço:</strong> R$ {services.find(s => s.id === selectedServiceId)?.price}
+                  💰 <strong>Preço total:</strong> R$ {selectedServicesData.totalPrice.toFixed(2)}
                 </div>
               </div>
             )}
 
-            <Label className="text-foreground">Escolha o Serviço *</Label>
-            <Select value={selectedServiceId} onValueChange={(v) => setSelectedServiceId(v || undefined)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um serviço" />
-              </SelectTrigger>
-              <SelectContent>
-                {services.length === 0 ? (
-                  <SelectItem value="none" disabled>
-                    Nenhum serviço disponível
-                  </SelectItem>
-                ) : (
-                  services.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name} - R$ {s.price} ({s.duration}min)
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <Label className="text-foreground">Escolha os Serviços * (pode selecionar mais de um)</Label>
+            <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+              {services.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum serviço disponível</p>
+              ) : (
+                services.map((s) => (
+                  <div key={s.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md transition-colors">
+                    <Checkbox
+                      id={`service-${s.id}`}
+                      checked={selectedServiceIds.includes(s.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedServiceIds(prev => [...prev, s.id]);
+                        } else {
+                          setSelectedServiceIds(prev => prev.filter(id => id !== s.id));
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`service-${s.id}`}
+                      className="flex-1 text-sm cursor-pointer"
+                    >
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-muted-foreground ml-2">
+                        R$ {s.price.toFixed(2)} ({s.duration}min)
+                      </span>
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
 
             <Label className="text-foreground mt-4">Profissional *</Label>
             <Select 
@@ -983,11 +1010,11 @@ export default function AgendarServico() {
                 console.log("✅ Profissional selecionado:", value);
                 setSelectedProfessionalId(value || undefined);
               }}
-              disabled={!selectedServiceId || loading}
+              disabled={selectedServiceIds.length === 0 || loading}
             >
               <SelectTrigger>
                 <SelectValue placeholder={
-                  !selectedServiceId 
+                  selectedServiceIds.length === 0 
                     ? "Primeiro selecione um serviço" 
                     : loading 
                       ? "Carregando..." 
@@ -1111,13 +1138,13 @@ export default function AgendarServico() {
             </div>
 
             {/* Informação sobre duração dos serviços */}
-            {selectedServiceId && selectedProfessionalId && selectedDate && selectedTime && selectedPaymentMethod && (
+            {selectedServiceIds.length > 0 && selectedProfessionalId && selectedDate && selectedTime && selectedPaymentMethod && (
               <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mt-4">
                 <div className="text-sm text-green-800 dark:text-green-200">
                   <strong>📅 Resumo do agendamento:</strong>
                 </div>
                 <div className="text-sm text-green-600 dark:text-green-300 mt-1">
-                  • <strong>Serviço:</strong> {services.find(s => s.id === selectedServiceId)?.name} ({services.find(s => s.id === selectedServiceId)?.duration}min)
+                  • <strong>Serviços:</strong> {selectedServicesData.selectedServices.map(s => s.name).join(', ')} ({selectedServicesData.totalDuration}min)
                 </div>
                 <div className="text-sm text-green-600 dark:text-green-300">
                   • <strong>Profissional:</strong> {professionals.find(p => p.id === selectedProfessionalId)?.name}
@@ -1126,7 +1153,7 @@ export default function AgendarServico() {
                   • <strong>Data/Hora:</strong> {format(selectedDate, "PPP", { locale: ptBR })} às {selectedTime}
                 </div>
                 <div className="text-sm text-green-600 dark:text-green-300">
-                  • <strong>Valor:</strong> R$ {(services.find(s => s.id === selectedServiceId)?.price || 0).toFixed(2)}
+                  • <strong>Valor total:</strong> R$ {selectedServicesData.totalPrice.toFixed(2)}
                 </div>
                 <div className="text-sm text-green-600 dark:text-green-300">
                   • <strong>Pagamento:</strong> {selectedPaymentMethod === 'pix' ? '💳 PIX' : '💰 No Local'}
@@ -1134,7 +1161,7 @@ export default function AgendarServico() {
                 <div className="text-sm text-green-600 dark:text-green-300">
                   • <strong>Término previsto:</strong> {(() => {
                     const [hours, minutes] = selectedTime.split(":").map(Number);
-                    const totalMinutes = hours * 60 + minutes + (services.find(s => s.id === selectedServiceId)?.duration || 0);
+                    const totalMinutes = hours * 60 + minutes + selectedServicesData.totalDuration;
                     const endHours = Math.floor(totalMinutes / 60);
                     const endMins = totalMinutes % 60;
                     return `${endHours.toString().padStart(2, "0")}:${endMins.toString().padStart(2, "0")}`;
@@ -1148,7 +1175,7 @@ export default function AgendarServico() {
                 type="submit" 
                 disabled={
                   submitting || 
-                  !selectedServiceId || 
+                  selectedServiceIds.length === 0 || 
                   !selectedProfessionalId || 
                   !selectedDate || 
                   !selectedTime || 
