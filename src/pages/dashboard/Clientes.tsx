@@ -312,7 +312,7 @@ const Clientes = () => {
         .from('clients')
         .insert({
           name: `Cliente ${nextNumber}`,
-          phone: `0000000000`
+          phone: 'Avulso'
         })
         .select()
         .single();
@@ -618,7 +618,14 @@ const Clientes = () => {
                        <div className="flex-1 min-w-0">
                          <div className="font-medium text-sm sm:text-base">{cliente.name}</div>
                          <div className="text-xs sm:text-sm text-muted-foreground break-all">
-                           {cliente.phone} • {cliente.email}
+                           {cliente.phone && 
+                            cliente.phone !== '0000000000' && 
+                            cliente.phone !== 'Avulso' && 
+                            cliente.phone.trim() !== '' ? (
+                             <>{cliente.phone}{cliente.email && ` • ${cliente.email}`}</>
+                           ) : (
+                             cliente.email || 'Cliente avulso'
+                           )}
                          </div>
                          <div className="text-xs sm:text-sm text-muted-foreground">
                            Cadastrado em: {new Date(cliente.created_at).toLocaleDateString("pt-BR")}
