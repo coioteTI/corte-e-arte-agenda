@@ -451,14 +451,10 @@ const BuscarBarbearias = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-center mb-3">
                     <div className="flex items-center gap-1">
                       <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 fill-current" />
                       <span className="text-xs sm:text-sm font-medium">{getRandomRating().toFixed(1)}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Heart className="h-3 w-3 text-red-500" />
-                      <span className="text-xs">{barbearia.likes_count}</span>
                     </div>
                   </div>
                   <Button asChild size="sm" className="w-full text-xs sm:text-sm">
@@ -598,15 +594,6 @@ const BuscarBarbearias = () => {
                           </div>
                         </div>
                         
-                        <div className="flex justify-center py-2">
-                          {barbearia.id && barbearia.id.length > 0 && (
-                            <LikeButton
-                              key={`like-${barbearia.id}`}
-                              targetType="company"
-                              targetId={barbearia.id}
-                            />
-                          )}
-                        </div>
                       </div>
                       
                       <Button asChild className="w-full group-hover:scale-105 transition-transform duration-200 text-xs sm:text-sm" size="sm">
