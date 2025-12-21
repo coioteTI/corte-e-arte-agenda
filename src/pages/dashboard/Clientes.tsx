@@ -52,10 +52,11 @@ const Clientes = () => {
   const [isQuickServiceOpen, setIsQuickServiceOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState("");
   const [quickServiceLoading, setQuickServiceLoading] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [avulsoCounter, setAvulsoCounter] = useState(0);
 
   useEffect(() => {
     loadClientes();
@@ -77,7 +78,7 @@ const Clientes = () => {
       setCompanyId(company.id);
 
       // Load clients, services and professionals in parallel
-      const [appointmentsRes, servicesRes, professionalsRes] = await Promise.all([
+      const [appointmentsRes, servicesRes, professionalsRes, avulsoCountRes] = await Promise.all([
         supabase
           .from('appointments')
           .select('client_id')
@@ -92,8 +93,15 @@ const Clientes = () => {
           .select('id, name, specialty')
           .eq('company_id', company.id)
           .eq('is_available', true)
-          .order('name')
+          .order('name'),
+        supabase
+          .from('clients')
+          .select('id', { count: 'exact' })
+          .like('name', 'Cliente %')
       ]);
+
+      // Set avulso counter
+      setAvulsoCounter(avulsoCountRes.count || 0);
 
       // Set services and professionals
       if (servicesRes.data) setServices(servicesRes.data);
@@ -282,13 +290,15 @@ const Clientes = () => {
     });
   };
   
-  const selectedService = services.find(s => s.id === selectedServiceId);
+  const selectedServices = services.filter(s => selectedServiceIds.includes(s.id));
+  const totalServicesPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalServicesDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
 
   const handleQuickService = async () => {
-    if (!selectedServiceId || !selectedProfessionalId || !companyId) {
+    if (selectedServiceIds.length === 0 || !selectedProfessionalId || !companyId) {
       toast({
         title: "Erro",
-        description: "Selecione o serviço e o profissional",
+        description: "Selecione pelo menos um serviço e o profissional",
         variant: "destructive"
       });
       return;
@@ -296,47 +306,51 @@ const Clientes = () => {
 
     setQuickServiceLoading(true);
     try {
-      const service = services.find(s => s.id === selectedServiceId);
-      if (!service) throw new Error("Serviço não encontrado");
-
-      // Create a client for this quick service
+      // Create a client for this quick service with sequential numbering
+      const nextNumber = avulsoCounter + 1;
       const { data: newClient, error: clientError } = await supabase
         .from('clients')
         .insert({
-          name: "Cliente Avulso",
-          phone: "0000000000"
+          name: `Cliente ${nextNumber}`,
+          phone: `0000000000`
         })
         .select()
         .single();
 
       if (clientError) throw clientError;
 
-      // Create completed appointment
+      // Create completed appointments for each service
       const today = new Date();
-      const { error: appointmentError } = await supabase
-        .from('appointments')
-        .insert({
+      const appointments = selectedServiceIds.map(serviceId => {
+        const service = services.find(s => s.id === serviceId);
+        return {
           company_id: companyId,
           client_id: newClient.id,
-          service_id: selectedServiceId,
+          service_id: serviceId,
           professional_id: selectedProfessionalId,
           appointment_date: today.toISOString().split('T')[0],
           appointment_time: today.toTimeString().slice(0, 5),
           status: 'completed',
           payment_status: 'paid',
           payment_method: 'no_local',
-          total_price: service.price
-        });
+          total_price: service?.price || 0
+        };
+      });
+
+      const { error: appointmentError } = await supabase
+        .from('appointments')
+        .insert(appointments);
 
       if (appointmentError) throw appointmentError;
 
+      const serviceNames = selectedServices.map(s => s.name).join(', ');
       toast({
-        title: "Serviço finalizado!",
-        description: `${service.name} - R$ ${service.price.toFixed(2)}`
+        title: "Serviço(s) finalizado(s)!",
+        description: `${serviceNames} - R$ ${totalServicesPrice.toFixed(2)}`
       });
 
       setIsQuickServiceOpen(false);
-      setSelectedServiceId("");
+      setSelectedServiceIds([]);
       setSelectedProfessionalId("");
       loadClientes();
     } catch (error) {
@@ -349,6 +363,14 @@ const Clientes = () => {
     } finally {
       setQuickServiceLoading(false);
     }
+  };
+
+  const toggleServiceSelection = (serviceId: string) => {
+    setSelectedServiceIds(prev => 
+      prev.includes(serviceId) 
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId]
+    );
   };
 
   const filteredClientes = clientes.filter(cliente =>
@@ -366,7 +388,7 @@ const Clientes = () => {
             <Dialog open={isQuickServiceOpen} onOpenChange={(open) => {
               setIsQuickServiceOpen(open);
               if (!open) {
-                setSelectedServiceId("");
+                setSelectedServiceIds([]);
                 setSelectedProfessionalId("");
               }
             }}>
@@ -383,24 +405,40 @@ const Clientes = () => {
                     Serviço Rápido
                   </DialogTitle>
                   <DialogDescription>
-                    Registre um serviço finalizado rapidamente.
+                    Selecione um ou mais serviços para registrar.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Serviço*</Label>
-                    <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o serviço" />
-                      </SelectTrigger>
-                      <SelectContent className="z-[100] bg-background border">
-                        {services.map((service) => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.name} - R$ {service.price.toFixed(2)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Serviços* (selecione um ou mais)</Label>
+                    <div className="border rounded-lg max-h-48 overflow-y-auto">
+                      {services.map((service) => (
+                        <div 
+                          key={service.id}
+                          onClick={() => toggleServiceSelection(service.id)}
+                          className={`flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 ${
+                            selectedServiceIds.includes(service.id) ? 'bg-primary/10' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 border rounded flex items-center justify-center ${
+                              selectedServiceIds.includes(service.id) ? 'bg-primary border-primary' : 'border-muted-foreground'
+                            }`}>
+                              {selectedServiceIds.includes(service.id) && (
+                                <span className="text-primary-foreground text-xs">✓</span>
+                              )}
+                            </div>
+                            <span className="text-sm">{service.name}</span>
+                          </div>
+                          <span className="text-sm font-medium">R$ {service.price.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedServiceIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedServiceIds.length} serviço(s) selecionado(s)
+                      </p>
+                    )}
                   </div>
                   
                   <div className="space-y-2">
@@ -419,22 +457,29 @@ const Clientes = () => {
                     </Select>
                   </div>
 
-                  {selectedService && (
+                  {selectedServices.length > 0 && (
                     <div className="p-4 bg-primary/10 rounded-lg">
-                      <div className="text-sm text-muted-foreground mb-1">Valor do serviço:</div>
+                      <div className="text-sm text-muted-foreground mb-1">
+                        {selectedServices.length === 1 ? 'Valor do serviço:' : 'Valor total:'}
+                      </div>
                       <div className="text-2xl font-bold text-primary">
-                        R$ {selectedService.price.toFixed(2)}
+                        R$ {totalServicesPrice.toFixed(2)}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        Duração: {selectedService.duration} minutos
+                        Duração total: {totalServicesDuration} minutos
                       </div>
+                      {selectedServices.length > 1 && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {selectedServices.map(s => s.name).join(' + ')}
+                        </div>
+                      )}
                     </div>
                   )}
 
                   <Button 
                     onClick={handleQuickService} 
                     className="w-full"
-                    disabled={!selectedServiceId || !selectedProfessionalId || quickServiceLoading}
+                    disabled={selectedServiceIds.length === 0 || !selectedProfessionalId || quickServiceLoading}
                   >
                     {quickServiceLoading ? "Finalizando..." : "Finalizar Serviço"}
                   </Button>
