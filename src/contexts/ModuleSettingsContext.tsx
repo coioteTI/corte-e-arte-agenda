@@ -1,7 +1,4 @@
-// This hook is now a wrapper around the ModuleSettingsContext for backward compatibility
-// New code should use useModuleSettingsContext directly from '@/contexts/ModuleSettingsContext'
-
-import { useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ModuleSetting {
@@ -12,7 +9,6 @@ export interface ModuleSetting {
   disabled_at: string | null;
 }
 
-// Default modules configuration - re-exported for backward compatibility
 export const DEFAULT_MODULES = [
   { key: 'agenda', name: 'Agenda', url: '/dashboard/agenda' },
   { key: 'clientes', name: 'Clientes', url: '/dashboard/clientes' },
@@ -27,13 +23,36 @@ export const DEFAULT_MODULES = [
   { key: 'planos', name: 'Plano', url: '/dashboard/planos' },
 ];
 
-/**
- * @deprecated Use useModuleSettingsContext from '@/contexts/ModuleSettingsContext' instead.
- * This hook is kept for backward compatibility but creates a separate subscription per usage.
- */
-export const useModuleSettings = (companyId: string | null) => {
+interface ModuleSettingsContextType {
+  modules: ModuleSetting[];
+  loading: boolean;
+  companyId: string | null;
+  setCompanyId: (id: string | null) => void;
+  toggleModule: (moduleKey: string, enabled: boolean) => Promise<boolean>;
+  getEnabledModules: () => ModuleSetting[];
+  getDisabledModules: () => ModuleSetting[];
+  isModuleEnabled: (moduleKey: string) => boolean;
+  refreshModules: () => Promise<void>;
+}
+
+const ModuleSettingsContext = createContext<ModuleSettingsContextType | null>(null);
+
+export const useModuleSettingsContext = () => {
+  const context = useContext(ModuleSettingsContext);
+  if (!context) {
+    throw new Error('useModuleSettingsContext must be used within ModuleSettingsProvider');
+  }
+  return context;
+};
+
+interface ModuleSettingsProviderProps {
+  children: ReactNode;
+}
+
+export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps) => {
   const [modules, setModules] = useState<ModuleSetting[]>([]);
   const [loading, setLoading] = useState(true);
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   const loadModules = useCallback(async () => {
     if (!companyId) {
@@ -96,16 +115,19 @@ export const useModuleSettings = (companyId: string | null) => {
     }
   }, [companyId]);
 
+  // Load modules when companyId changes
   useEffect(() => {
     loadModules();
   }, [loadModules]);
 
-  // Subscribe to realtime updates
+  // Subscribe to realtime updates for module_settings
   useEffect(() => {
     if (!companyId) return;
 
+    console.log('Setting up realtime subscription for module_settings, companyId:', companyId);
+
     const channel = supabase
-      .channel(`module-settings-hook-${companyId}`)
+      .channel(`module-settings-${companyId}`)
       .on(
         'postgres_changes',
         {
@@ -115,7 +137,7 @@ export const useModuleSettings = (companyId: string | null) => {
           filter: `company_id=eq.${companyId}`
         },
         (payload) => {
-          console.log('Module settings hook realtime update:', payload);
+          console.log('Module settings realtime update:', payload);
           
           if (payload.eventType === 'UPDATE') {
             const updated = payload.new as ModuleSetting;
@@ -125,6 +147,7 @@ export const useModuleSettings = (companyId: string | null) => {
           } else if (payload.eventType === 'INSERT') {
             const inserted = payload.new as ModuleSetting;
             setModules(prev => {
+              // Check if module already exists (avoid duplicates)
               if (prev.find(m => m.id === inserted.id)) return prev;
               return [...prev, inserted];
             });
@@ -134,9 +157,12 @@ export const useModuleSettings = (companyId: string | null) => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Module settings subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up module settings subscription');
       supabase.removeChannel(channel);
     };
   }, [companyId]);
@@ -144,7 +170,7 @@ export const useModuleSettings = (companyId: string | null) => {
   const toggleModule = useCallback(async (moduleKey: string, enabled: boolean) => {
     if (!companyId) return false;
 
-    // Optimistic update
+    // Optimistic update for instant UI feedback
     setModules(prev =>
       prev.map(m =>
         m.module_key === moduleKey
@@ -164,7 +190,8 @@ export const useModuleSettings = (companyId: string | null) => {
         .eq('module_key', moduleKey);
 
       if (error) {
-        loadModules(); // Revert on error
+        // Revert on error
+        loadModules();
         throw error;
       }
 
@@ -188,13 +215,21 @@ export const useModuleSettings = (companyId: string | null) => {
     return module?.is_enabled ?? true;
   }, [modules]);
 
-  return {
-    modules,
-    loading,
-    toggleModule,
-    getEnabledModules,
-    getDisabledModules,
-    isModuleEnabled,
-    refreshModules: loadModules,
-  };
+  return (
+    <ModuleSettingsContext.Provider
+      value={{
+        modules,
+        loading,
+        companyId,
+        setCompanyId,
+        toggleModule,
+        getEnabledModules,
+        getDisabledModules,
+        isModuleEnabled,
+        refreshModules: loadModules,
+      }}
+    >
+      {children}
+    </ModuleSettingsContext.Provider>
+  );
 };

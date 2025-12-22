@@ -12,14 +12,14 @@ import {
   SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar";
-import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, UserCheck, History, Package, Wallet } from "lucide-react";
+import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, UserCheck, History, Package, Wallet, Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { SubscriptionStatusBanner } from "./SubscriptionStatusBanner";
 import { SubscriptionBlocker } from "./SubscriptionBlocker";
 import { ThemeToggle } from "./ThemeToggle";
-import { useModuleSettings, DEFAULT_MODULES } from "@/hooks/useModuleSettings";
+import { useModuleSettingsContext, DEFAULT_MODULES } from "@/contexts/ModuleSettingsContext";
 
 // Icon mapping for modules
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -44,14 +44,13 @@ const staticMenuItems = [
 interface AppSidebarProps {
   companyName: string;
   companyLogo?: string;
-  companyId: string | null;
 }
 
-const AppSidebar = ({ companyName, companyLogo, companyId }: AppSidebarProps) => {
+const AppSidebar = ({ companyName, companyLogo }: AppSidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { modules, loading, isModuleEnabled } = useModuleSettings(companyId);
+  const { modules, loading, isModuleEnabled } = useModuleSettingsContext();
 
   const handleLogout = () => {
     toast({
@@ -91,19 +90,25 @@ const AppSidebar = ({ companyName, companyLogo, companyId }: AppSidebarProps) =>
       
       <SidebarContent>
         <SidebarMenu>
-          {allMenuItems.map((item) => (
-            <SidebarMenuItem key={item.key}>
-              <SidebarMenuButton 
-                asChild
-                isActive={location.pathname === item.url}
-              >
-                <Link to={item.url}>
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            allMenuItems.map((item) => (
+              <SidebarMenuItem key={item.key}>
+                <SidebarMenuButton 
+                  asChild
+                  isActive={location.pathname === item.url}
+                >
+                  <Link to={item.url}>
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))
+          )}
         </SidebarMenu>
         
         <div className="mt-auto p-4">
@@ -127,7 +132,7 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [companyName, setCompanyName] = useState<string>("");
   const [companyLogo, setCompanyLogo] = useState<string>("");
-  const [companyId, setCompanyId] = useState<string | null>(null);
+  const { setCompanyId } = useModuleSettingsContext();
 
   useEffect(() => {
     loadCompanyInfo();
@@ -162,7 +167,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     <SubscriptionBlocker>
       <SidebarProvider>
         <div className="min-h-screen flex w-full">
-          <AppSidebar companyName={companyName} companyLogo={companyLogo} companyId={companyId} />
+          <AppSidebar companyName={companyName} companyLogo={companyLogo} />
           <main className="flex-1 p-3 md:p-6">
             <div className="mb-4 md:mb-6 flex items-center justify-between">
               <SidebarTrigger />
