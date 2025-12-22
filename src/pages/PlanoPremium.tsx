@@ -53,9 +53,7 @@ const PlanoPremium = () => {
             <div className="border-2 border-primary rounded-lg p-6 bg-primary/5">
               <div className="text-center mb-4">
                 <h3 className="text-2xl font-bold text-primary">Plano Premium</h3>
-                <div className="text-3xl font-bold mt-2">R$ 59,90<span className="text-lg font-normal">/mês</span></div>
-                <p className="text-sm text-muted-foreground line-through">R$ 79,90/mês</p>
-                <p className="text-muted-foreground">Primeiro mês com desconto especial</p>
+                <div className="text-3xl font-bold mt-2">R$ 79,90<span className="text-lg font-normal">/mês</span></div>
               </div>
               
               <div className="space-y-3 mb-6">
@@ -95,7 +93,7 @@ const PlanoPremium = () => {
                 size="lg"
                 disabled={isLoading}
               >
-                {isLoading ? "Processando..." : "Assinar Agora - R$ 59,90/mês"}
+                {isLoading ? "Processando..." : "Assinar Agora - R$ 79,90/mês"}
               </Button>
             </div>
 

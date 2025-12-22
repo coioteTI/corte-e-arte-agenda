@@ -252,12 +252,8 @@ const Planos = () => {
                 <CardTitle>Premium Mensal</CardTitle>
               </div>
               <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold text-primary">R$ 59,90</div>
-                <div className="text-sm text-muted-foreground line-through">R$ 79,90</div>
-              </div>
-              <p className="text-sm text-muted-foreground">primeiro mês com desconto</p>
-              <div className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full w-fit">
-                Depois R$ 79,90/mês
+                <div className="text-3xl font-bold text-primary">R$ 79,90</div>
+                <div className="text-sm text-muted-foreground">/mês</div>
               </div>
             </CardHeader>
             <CardContent>
