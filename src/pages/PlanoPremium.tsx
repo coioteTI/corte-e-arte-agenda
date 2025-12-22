@@ -12,21 +12,18 @@ const PlanoPremium = () => {
   const { toast } = useToast();
   const nomeBarbearia = localStorage.getItem('nomeBarbearia') || '';
 
-  const handleSubscribe = async (planType: 'mensal' | 'anual' = 'mensal') => {
+  const handleSubscribe = async () => {
     // Salvar dados no localStorage para o webhook usar
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       localStorage.setItem('user_email_for_kirvano', user.email || '');
-      localStorage.setItem('selected_plan', planType === 'mensal' ? 'premium_mensal' : 'premium_anual');
+      localStorage.setItem('selected_plan', 'premium_mensal');
     }
     
-    const kirvanoUrls = {
-      mensal: 'https://pay.kirvano.com/9c9bce9b-547d-435e-91c9-0192f1a067e0',
-      anual: 'https://pay.kirvano.com/854ff17c-c700-4c7b-a085-bc216cb822d1'
-    };
+    const kirvanoUrl = 'https://pay.kirvano.com/9c9bce9b-547d-435e-91c9-0192f1a067e0';
     
     // Abrir o checkout do Kirvano em nova aba
-    window.open(kirvanoUrls[planType], '_blank');
+    window.open(kirvanoUrl, '_blank');
     
     toast({
       title: "Redirecionamento para pagamento",
@@ -52,12 +49,13 @@ const PlanoPremium = () => {
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Plano Premium */}
+            {/* Plano Premium Mensal */}
             <div className="border-2 border-primary rounded-lg p-6 bg-primary/5">
               <div className="text-center mb-4">
                 <h3 className="text-2xl font-bold text-primary">Plano Premium</h3>
-                <div className="text-3xl font-bold mt-2">R$ 59<span className="text-lg font-normal">/mês</span></div>
-                <p className="text-muted-foreground">Tudo que você precisa para gerenciar sua empresa</p>
+                <div className="text-3xl font-bold mt-2">R$ 59,90<span className="text-lg font-normal">/mês</span></div>
+                <p className="text-sm text-muted-foreground line-through">R$ 79,90/mês</p>
+                <p className="text-muted-foreground">Primeiro mês com desconto especial</p>
               </div>
               
               <div className="space-y-3 mb-6">
@@ -92,22 +90,12 @@ const PlanoPremium = () => {
               </div>
 
               <Button 
-                onClick={() => handleSubscribe('mensal')}
+                onClick={() => handleSubscribe()}
                 className="w-full" 
                 size="lg"
                 disabled={isLoading}
               >
-                {isLoading ? "Processando..." : "Assinar Mensal - R$ 59,90"}
-              </Button>
-              
-              <Button 
-                onClick={() => handleSubscribe('anual')}
-                className="w-full mt-3" 
-                size="lg"
-                disabled={isLoading}
-                variant="outline"
-              >
-                {isLoading ? "Processando..." : "Assinar Anual - R$ 500,00"}
+                {isLoading ? "Processando..." : "Assinar Agora - R$ 59,90/mês"}
               </Button>
             </div>
 
