@@ -3,10 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Pencil, Eye, EyeOff, Check, AlertTriangle, Layers } from 'lucide-react';
+import { Pencil, Eye, EyeOff, Check, AlertTriangle, Layers, Loader2 } from 'lucide-react';
 import { AdminPasswordModal } from '@/components/AdminPasswordModal';
 import { useAdminPassword } from '@/hooks/useAdminPassword';
-import { useModuleSettings, DEFAULT_MODULES } from '@/hooks/useModuleSettings';
+import { useModuleSettingsContext, DEFAULT_MODULES } from '@/contexts/ModuleSettingsContext';
 import { toast } from 'sonner';
 
 interface ModulosSectionProps {
@@ -19,7 +19,7 @@ type PendingAction = {
 };
 
 export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
-  const { modules, loading, toggleModule, getDisabledModules } = useModuleSettings(companyId);
+  const { modules, loading, toggleModule, getDisabledModules } = useModuleSettingsContext();
   const { hasAdminPassword } = useAdminPassword();
   
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -27,6 +27,7 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
   const [showDisabledModal, setShowDisabledModal] = useState(false);
   const [confirmDisableDialog, setConfirmDisableDialog] = useState(false);
   const [moduleToDisable, setModuleToDisable] = useState<string | null>(null);
+  const [isToggling, setIsToggling] = useState<string | null>(null);
 
   const handleDisableClick = async (moduleKey: string) => {
     const hasPassword = await hasAdminPassword(companyId);
@@ -77,7 +78,10 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
   const proceedWithDisable = async () => {
     if (!moduleToDisable) return;
     
+    setIsToggling(moduleToDisable);
     const success = await toggleModule(moduleToDisable, false);
+    setIsToggling(null);
+    
     if (success) {
       const moduleName = DEFAULT_MODULES.find(m => m.key === moduleToDisable)?.name || moduleToDisable;
       toast.success(`Módulo "${moduleName}" desativado com sucesso`);
@@ -90,7 +94,10 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
   };
 
   const proceedWithEnable = async (moduleKey: string) => {
+    setIsToggling(moduleKey);
     const success = await toggleModule(moduleKey, true);
+    setIsToggling(null);
+    
     if (success) {
       const moduleName = DEFAULT_MODULES.find(m => m.key === moduleKey)?.name || moduleKey;
       toast.success(`Módulo "${moduleName}" reativado com sucesso`);
@@ -111,8 +118,8 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
             Módulos do Sistema
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Carregando módulos...</p>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
@@ -149,7 +156,7 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
             {enabledModules.map((module) => (
               <div
                 key={module.module_key}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                className="flex items-center justify-between p-3 rounded-lg border bg-card transition-all duration-200"
               >
                 <div className="flex items-center gap-3">
                   <Badge variant="default" className="bg-green-500/20 text-green-600 border-green-500/30">
@@ -162,8 +169,13 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
                   size="icon"
                   onClick={() => handleDisableClick(module.module_key)}
                   title="Desativar módulo"
+                  disabled={isToggling === module.module_key}
                 >
-                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                  {isToggling === module.module_key ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Pencil className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </Button>
               </div>
             ))}
@@ -213,7 +225,8 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
             <Button variant="outline" onClick={() => setConfirmDisableDialog(false)}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={proceedWithDisable}>
+            <Button variant="destructive" onClick={proceedWithDisable} disabled={isToggling !== null}>
+              {isToggling !== null ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Desativar
             </Button>
           </DialogFooter>
@@ -241,7 +254,7 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
               disabledModules.map((module) => (
                 <div
                   key={module.module_key}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                  className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 transition-all duration-200"
                 >
                   <div className="flex items-center gap-3">
                     <Badge variant="secondary" className="bg-red-500/20 text-red-600 border-red-500/30">
@@ -254,9 +267,14 @@ export const ModulosSection = ({ companyId }: ModulosSectionProps) => {
                     size="icon"
                     onClick={() => handleEnableClick(module.module_key)}
                     title="Reativar módulo"
+                    disabled={isToggling === module.module_key}
                     className="text-green-600 hover:text-green-700 hover:bg-green-500/10"
                   >
-                    <Check className="h-4 w-4" />
+                    {isToggling === module.module_key ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
               ))
