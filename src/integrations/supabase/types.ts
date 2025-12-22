@@ -426,6 +426,47 @@ export type Database = {
         }
         Relationships: []
       }
+      module_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          disabled_at: string | null
+          id: string
+          is_enabled: boolean
+          module_key: string
+          module_name: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          disabled_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          module_key: string
+          module_name: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          disabled_at?: string | null
+          id?: string
+          is_enabled?: boolean
+          module_key?: string
+          module_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_templates: {
         Row: {
           company_id: string | null

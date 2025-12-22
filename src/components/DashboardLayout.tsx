@@ -19,31 +19,39 @@ import { supabase } from "@/integrations/supabase/client";
 import { SubscriptionStatusBanner } from "./SubscriptionStatusBanner";
 import { SubscriptionBlocker } from "./SubscriptionBlocker";
 import { ThemeToggle } from "./ThemeToggle";
+import { useModuleSettings, DEFAULT_MODULES } from "@/hooks/useModuleSettings";
 
-const menuItems = [
-  { title: "Agenda", url: "/dashboard/agenda", icon: Calendar },
-  { title: "Clientes", url: "/dashboard/clientes", icon: Users },
-  { title: "Serviços", url: "/dashboard/servicos", icon: FileText },
-  { title: "Profissionais", url: "/dashboard/profissionais", icon: UserCheck },
-  { title: "Estoque", url: "/dashboard/estoque", icon: Package },
-  { title: "Histórico", url: "/dashboard/historico", icon: History },
-  { title: "Salários", url: "/dashboard/salarios", icon: Wallet },
-  { title: "Ranking", url: "/dashboard/ranking", icon: Trophy },
-  { title: "Relatórios", url: "/dashboard/relatorios", icon: BarChart },
-  { title: "Horários", url: "/dashboard/horarios", icon: Clock },
-  { title: "Plano", url: "/dashboard/planos", icon: Crown },
-  { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings },
+// Icon mapping for modules
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  agenda: Calendar,
+  clientes: Users,
+  servicos: FileText,
+  profissionais: UserCheck,
+  estoque: Package,
+  historico: History,
+  salarios: Wallet,
+  ranking: Trophy,
+  relatorios: BarChart,
+  horarios: Clock,
+  planos: Crown,
+};
+
+// Static menu items (always visible)
+const staticMenuItems = [
+  { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings, key: "configuracoes" },
 ];
 
 interface AppSidebarProps {
   companyName: string;
   companyLogo?: string;
+  companyId: string | null;
 }
 
-const AppSidebar = ({ companyName, companyLogo }: AppSidebarProps) => {
+const AppSidebar = ({ companyName, companyLogo, companyId }: AppSidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { modules, loading, isModuleEnabled } = useModuleSettings(companyId);
 
   const handleLogout = () => {
     toast({
@@ -52,6 +60,18 @@ const AppSidebar = ({ companyName, companyLogo }: AppSidebarProps) => {
     });
     navigate("/");
   };
+
+  // Build dynamic menu items based on enabled modules
+  const dynamicMenuItems = DEFAULT_MODULES
+    .filter(module => isModuleEnabled(module.key))
+    .map(module => ({
+      title: module.name,
+      url: module.url,
+      icon: iconMap[module.key] || FileText,
+      key: module.key,
+    }));
+
+  const allMenuItems = [...dynamicMenuItems, ...staticMenuItems];
 
   return (
     <Sidebar className="border-r">
@@ -71,8 +91,8 @@ const AppSidebar = ({ companyName, companyLogo }: AppSidebarProps) => {
       
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.title}>
+          {allMenuItems.map((item) => (
+            <SidebarMenuItem key={item.key}>
               <SidebarMenuButton 
                 asChild
                 isActive={location.pathname === item.url}
@@ -107,6 +127,7 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [companyName, setCompanyName] = useState<string>("");
   const [companyLogo, setCompanyLogo] = useState<string>("");
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
     loadCompanyInfo();
@@ -118,10 +139,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       if (user) {
         const { data: companies } = await supabase
           .from('companies')
-          .select('name, logo_url')
+          .select('id, name, logo_url')
           .eq('user_id', user.id)
           .single();
         
+        if (companies?.id) {
+          setCompanyId(companies.id);
+        }
         if (companies?.name) {
           setCompanyName(companies.name);
         }
@@ -133,11 +157,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       console.error('Error loading company info:', error);
     }
   };
+  
   return (
     <SubscriptionBlocker>
       <SidebarProvider>
         <div className="min-h-screen flex w-full">
-          <AppSidebar companyName={companyName} companyLogo={companyLogo} />
+          <AppSidebar companyName={companyName} companyLogo={companyLogo} companyId={companyId} />
           <main className="flex-1 p-3 md:p-6">
             <div className="mb-4 md:mb-6 flex items-center justify-between">
               <SidebarTrigger />
