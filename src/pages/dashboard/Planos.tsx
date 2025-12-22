@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Star, ArrowLeft, CheckCircle, Clock, Calendar } from "lucide-react";
+import { Check, Crown, ArrowLeft, CheckCircle, Clock, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,22 +16,18 @@ const Planos = () => {
   const navigate = useNavigate();
   const { subscription, isLoading: subscriptionLoading } = useSubscription();
 
-  const handleSubscribe = async (planType: 'mensal' | 'anual' | 'teste') => {
+  const handleSubscribe = async () => {
     // Salvar dados no localStorage para o webhook usar
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       localStorage.setItem('user_email_for_kirvano', user.email || '');
-      localStorage.setItem('selected_plan', planType === 'teste' ? 'plano_teste' : planType === 'mensal' ? 'premium_mensal' : 'premium_anual');
+      localStorage.setItem('selected_plan', 'premium_mensal');
     }
     
-    const kirvanoUrls = {
-      mensal: 'https://pay.kirvano.com/9c9bce9b-547d-435e-91c9-0192f1a067e0',
-      anual: 'https://pay.kirvano.com/854ff17c-c700-4c7b-a085-bc216cb822d1',
-      teste: 'https://pay.kiwify.com.br/9oNOaqB'
-    };
+    const kirvanoUrl = 'https://pay.kirvano.com/9c9bce9b-547d-435e-91c9-0192f1a067e0';
     
     // Abrir o checkout do Kirvano em nova aba
-    window.open(kirvanoUrls[planType], '_blank');
+    window.open(kirvanoUrl, '_blank');
     
     toast({
       title: "Redirecionamento para pagamento",
@@ -177,11 +173,64 @@ const Planos = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 gap-6 max-w-lg mx-auto">
+          {/* Mostrar card do plano anual apenas para quem já tem */}
+          {isCurrentPlan('anual') && (
+            <Card className="relative shadow-lg border-2 border-green-500">
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <Badge className="bg-green-600 text-white">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Seu Plano Atual
+                </Badge>
+              </div>
+              <CardHeader className="pt-8">
+                <div className="flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-green-600" />
+                  <CardTitle>Premium Anual</CardTitle>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-3xl font-bold text-green-600">R$ 500</div>
+                  <div className="text-sm text-muted-foreground">/ano</div>
+                </div>
+                <p className="text-sm text-muted-foreground">Plano anual vigente</p>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Seu plano anual está ativo. Após o vencimento, você poderá renovar com o plano mensal.
+                  </p>
+                </div>
+                <ul className="space-y-3">
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span className="text-sm">Sistema completo de agendamentos</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span className="text-sm">Gestão de clientes e serviços</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span className="text-sm">Relatórios e análises avançadas</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-500" />
+                    <span className="text-sm">Suporte prioritário VIP</span>
+                  </li>
+                </ul>
+                <Button 
+                  className="w-full mt-6 bg-green-600 hover:bg-green-700" 
+                  disabled={true}
+                >
+                  Plano Atual
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Plano Premium Mensal */}
+          {/* Plano Premium Mensal - Disponível para todos */}
           <Card className={`relative shadow-lg ${isCurrentPlan('mensal') ? 'border-2 border-green-500' : 'border-primary'}`}>
-            {isCurrentPlan('mensal') && (
+            {isCurrentPlan('mensal') && subscription?.status === 'active' && (
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                 <Badge className="bg-green-600 text-white">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -189,11 +238,11 @@ const Planos = () => {
                 </Badge>
               </div>
             )}
-            {!isCurrentPlan('mensal') && (
+            {!isCurrentPlan('mensal') && !isCurrentPlan('anual') && (
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                 <Badge className="bg-primary text-primary-foreground">
                   <Crown className="h-3 w-3 mr-1" />
-                  Popular
+                  Recomendado
                 </Badge>
               </div>
             )}
@@ -213,10 +262,6 @@ const Planos = () => {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Tudo do plano gratuito</span>
-                </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />
                   <span className="text-sm">Sistema completo de agendamentos</span>
@@ -240,83 +285,14 @@ const Planos = () => {
               </ul>
               <Button 
                 className="w-full mt-6" 
-                onClick={() => handleSubscribe('mensal')}
+                onClick={() => handleSubscribe()}
                 disabled={isCurrentPlan('mensal') && subscription?.status === 'active'}
               >
                 {isCurrentPlan('mensal') && subscription?.status === 'active' ? 'Plano Atual' : 
-                 isCurrentPlan('mensal') ? 'Renovar Plano' : 'Assinar Mensalmente'}
+                 isCurrentPlan('mensal') ? 'Renovar Plano' : 'Assinar Agora'}
               </Button>
               <p className="text-xs text-center text-muted-foreground mt-2">
-                Flexibilidade para cancelar
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Plano Premium Anual */}
-          <Card className={`relative shadow-lg ${isCurrentPlan('anual') ? 'border-2 border-green-500' : 'border-green-500'}`}>
-            {isCurrentPlan('anual') && (
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <Badge className="bg-green-600 text-white">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Seu Plano Atual
-                </Badge>
-              </div>
-            )}
-            {!isCurrentPlan('anual') && (
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                <Badge className="bg-green-600 text-white">
-                  <Star className="h-3 w-3 mr-1" />
-                  Melhor Valor
-                </Badge>
-              </div>
-            )}
-            <CardHeader className="pt-8">
-              <div className="flex items-center gap-2">
-                <Crown className="h-5 w-5 text-green-600" />
-                <CardTitle>Premium Anual</CardTitle>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-3xl font-bold text-green-600">R$ 500</div>
-                <div className="text-sm text-muted-foreground line-through">R$ 958,80</div>
-              </div>
-              <p className="text-sm text-muted-foreground">pagamento à vista</p>
-              <div className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs px-2 py-1 rounded-full w-fit">
-                Economize R$ 458,80 por ano
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Tudo do plano mensal</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">2 meses gratuitos</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Suporte prioritário VIP</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Recursos beta em primeiro</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">Consultoria personalizada</span>
-                </li>
-              </ul>
-              <Button 
-                className="w-full mt-6 bg-green-600 hover:bg-green-700" 
-                onClick={() => handleSubscribe('anual')}
-                disabled={isCurrentPlan('anual') && subscription?.status === 'active'}
-              >
-                {isCurrentPlan('anual') && subscription?.status === 'active' ? 'Plano Atual' : 
-                 isCurrentPlan('anual') ? 'Renovar Plano' : 'Assinar Anualmente'}
-              </Button>
-              <p className="text-xs text-center text-muted-foreground mt-2">
-                Melhor custo-benefício
+                Flexibilidade para cancelar a qualquer momento
               </p>
             </CardContent>
           </Card>
