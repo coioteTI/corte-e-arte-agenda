@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Edit, Trash2 } from "lucide-react";
+import { ProfessionalAvatarUpload } from "@/components/ProfessionalAvatarUpload";
 
 const Profissionais = () => {
   const [profissionais, setProfissionais] = useState<any[]>([]);
@@ -23,14 +25,16 @@ const Profissionais = () => {
     email: "",
     telefone: "",
     especialidade: "",
-    disponivel: true
+    disponivel: true,
+    avatar_url: null as string | null
   });
   const [novoProfissional, setNovoProfissional] = useState({
     nome: "",
     email: "",
     telefone: "",
     especialidade: "",
-    disponivel: true
+    disponivel: true,
+    avatar_url: null as string | null
   });
   const { toast } = useToast();
 
@@ -88,7 +92,7 @@ const Profissionais = () => {
     }
 
     try {
-      console.log('Adding professional with company_id:', companyId); // Debug log
+      console.log('Adding professional with company_id:', companyId);
       const { error } = await supabase
         .from('professionals')
         .insert({
@@ -97,7 +101,8 @@ const Profissionais = () => {
           phone: novoProfissional.telefone,
           specialty: novoProfissional.especialidade,
           company_id: companyId,
-          is_available: novoProfissional.disponivel
+          is_available: novoProfissional.disponivel,
+          avatar_url: novoProfissional.avatar_url
         });
 
       if (error) throw error;
@@ -107,7 +112,8 @@ const Profissionais = () => {
         email: "",
         telefone: "",
         especialidade: "",
-        disponivel: true
+        disponivel: true,
+        avatar_url: null
       });
       setIsDialogOpen(false);
       
@@ -135,7 +141,8 @@ const Profissionais = () => {
       email: profissional.email || "",
       telefone: profissional.phone || "",
       especialidade: profissional.specialty || "",
-      disponivel: profissional.is_available ?? true
+      disponivel: profissional.is_available ?? true,
+      avatar_url: profissional.avatar_url || null
     });
     setIsEditDialogOpen(true);
   };
@@ -158,7 +165,8 @@ const Profissionais = () => {
           email: editingProfissional.email,
           phone: editingProfissional.telefone,
           specialty: editingProfissional.especialidade,
-          is_available: editingProfissional.disponivel
+          is_available: editingProfissional.disponivel,
+          avatar_url: editingProfissional.avatar_url
         })
         .eq('id', selectedProfissional.id);
 
@@ -210,6 +218,15 @@ const Profissionais = () => {
     }
   };
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -219,11 +236,18 @@ const Profissionais = () => {
             <DialogTrigger asChild>
               <Button>Adicionar Profissional</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Novo Profissional</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
+                {/* Avatar Upload */}
+                <ProfessionalAvatarUpload
+                  currentAvatarUrl={novoProfissional.avatar_url}
+                  onAvatarChange={(url) => setNovoProfissional({...novoProfissional, avatar_url: url})}
+                  professionalName={novoProfissional.nome}
+                />
+
                 <div className="space-y-2">
                   <Label htmlFor="nome">Nome*</Label>
                   <Input
@@ -295,11 +319,18 @@ const Profissionais = () => {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Editar Profissional</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {/* Avatar Upload */}
+              <ProfessionalAvatarUpload
+                currentAvatarUrl={editingProfissional.avatar_url}
+                onAvatarChange={(url) => setEditingProfissional({...editingProfissional, avatar_url: url})}
+                professionalName={editingProfissional.nome}
+              />
+
               <div className="space-y-2">
                 <Label htmlFor="edit-nome">Nome*</Label>
                 <Input
@@ -391,10 +422,13 @@ const Profissionais = () => {
             {profissionais.map((profissional) => (
               <Card key={profissional.id}>
                 <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-                  <div className="flex items-center space-x-2 flex-1">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary" />
-                    </div>
+                  <div className="flex items-center space-x-3 flex-1">
+                    <Avatar className="w-12 h-12 border-2 border-border">
+                      <AvatarImage src={profissional.avatar_url || undefined} alt={profissional.name} />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {getInitials(profissional.name)}
+                      </AvatarFallback>
+                    </Avatar>
                     <div>
                       <CardTitle className="text-lg">{profissional.name}</CardTitle>
                       {profissional.specialty && (
