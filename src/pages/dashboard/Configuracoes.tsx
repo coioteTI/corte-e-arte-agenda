@@ -8,7 +8,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAdminPassword } from "@/hooks/useAdminPassword";
-import { Bell, MessageSquare, User, Settings, Palette, Images, CreditCard, Lock, ShieldAlert, ArrowLeft } from "lucide-react";
+import { Bell, MessageSquare, User, Settings, Palette, Images, CreditCard, Lock, ShieldAlert, ArrowLeft, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { NotificacoesSection } from "@/components/configuracoes/NotificacoesSection";
@@ -22,6 +22,7 @@ import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSect
 import { GaleriaSection } from "@/components/configuracoes/GaleriaSection";
 import { PagamentoSection } from "@/components/configuracoes/PagamentoSection";
 import { SenhaAdminSection } from "@/components/configuracoes/SenhaAdminSection";
+import { ModulosSection } from "@/components/configuracoes/ModulosSection";
 
 import {
   ConfiguracoesState,
@@ -721,7 +722,7 @@ const Configuracoes = () => {
           <Tabs defaultValue="notificacoes" className="w-full">
             <div className="border-b bg-muted/30 rounded-t-lg">
               <TabsList className="w-full h-auto p-1 bg-transparent">
-                <div className="grid w-full grid-cols-3 sm:grid-cols-6 gap-0.5 sm:gap-1">
+                <div className="grid w-full grid-cols-4 sm:grid-cols-7 gap-0.5 sm:gap-1">
                   <TabsTrigger 
                     value="notificacoes" 
                     className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
@@ -774,6 +775,17 @@ const Configuracoes = () => {
                     <div className="text-center">
                       <div className="text-xs font-medium">Galeria</div>
                       <div className="text-xs text-muted-foreground hidden lg:block">Fotos</div>
+                    </div>
+                  </TabsTrigger>
+                  
+                  <TabsTrigger 
+                    value="modulos" 
+                    className="flex flex-col items-center gap-1 p-2 sm:p-3 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all duration-200 hover:bg-background/50"
+                  >
+                    <Layers className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <div className="text-center">
+                      <div className="text-xs font-medium">Módulos</div>
+                      <div className="text-xs text-muted-foreground hidden lg:block">Menu</div>
                     </div>
                   </TabsTrigger>
                   
@@ -878,6 +890,21 @@ const Configuracoes = () => {
                     </div>
                   </div>
                   <GaleriaSection companyId={companyId} />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="modulos" className="mt-0">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="p-1.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-md">
+                      <Layers className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold">Módulos do Sistema</h3>
+                      <p className="text-xs text-muted-foreground">Ative ou desative funcionalidades</p>
+                    </div>
+                  </div>
+                  {companyId && <ModulosSection companyId={companyId} />}
                 </div>
               </TabsContent>
 
