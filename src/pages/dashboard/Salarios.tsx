@@ -20,9 +20,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAdminPassword } from "@/hooks/useAdminPassword";
+import { useTimezone, formatDateInTimezone, getTodayInTimezone } from "@/hooks/useTimezone";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, parseISO, startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, isWithinInterval } from "date-fns";
+import { format, parseISO, startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, isWithinInterval, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { 
@@ -110,6 +111,9 @@ export default function Salarios() {
   const [passwordError, setPasswordError] = useState("");
   const [validatingPassword, setValidatingPassword] = useState(false);
   const { hasAdminPassword, validateAdminPassword } = useAdminPassword();
+  
+  // Timezone hook - use company's configured timezone
+  const { timezone, loading: timezoneLoading } = useTimezone(companyId || null);
 
   // Check if admin password is configured and require authentication
   useEffect(() => {
@@ -353,28 +357,38 @@ export default function Salarios() {
   }, [companyId, isAuthenticated, loadData]);
 
   const getFilteredEarnings = (earning: ProfessionalEarning) => {
-    const now = selectedDate;
+    // Use the selected date and compare appointment dates based on the configured timezone
+    const selectedDateStr = formatDateInTimezone(selectedDate, timezone);
+    
+    // Parse selected date for comparison
+    const [year, month, day] = selectedDateStr.split('-').map(Number);
+    const selectedDateLocal = new Date(year, month - 1, day);
+    
     let start: Date;
     let end: Date;
 
     switch (selectedPeriod) {
       case "day":
-        start = startOfDay(now);
-        end = endOfDay(now);
+        // For day: compare the appointment_date (YYYY-MM-DD) directly with selected date
+        start = startOfDay(selectedDateLocal);
+        end = endOfDay(selectedDateLocal);
         break;
       case "week":
-        start = startOfWeek(now, { locale: ptBR });
-        end = endOfWeek(now, { locale: ptBR });
+        start = startOfWeek(selectedDateLocal, { locale: ptBR });
+        end = endOfWeek(selectedDateLocal, { locale: ptBR });
         break;
       case "month":
       default:
-        start = startOfMonth(now);
-        end = endOfMonth(now);
+        start = startOfMonth(selectedDateLocal);
+        end = endOfMonth(selectedDateLocal);
         break;
     }
 
     const filteredAppointments = earning.appointments.filter(apt => {
-      const aptDate = parseISO(apt.date);
+      // apt.date is already in YYYY-MM-DD format from the database
+      // Parse it as a local date (no timezone conversion needed)
+      const [aptYear, aptMonth, aptDay] = apt.date.split('-').map(Number);
+      const aptDate = new Date(aptYear, aptMonth - 1, aptDay);
       return isWithinInterval(aptDate, { start, end });
     });
 
@@ -678,7 +692,10 @@ export default function Salarios() {
                               <TableBody>
                                 {appointments.slice(0, 5).map(apt => (
                                   <TableRow key={apt.id}>
-                                    <TableCell>{format(parseISO(apt.date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                                    <TableCell>{(() => {
+                                      const [y, m, d] = apt.date.split('-').map(Number);
+                                      return format(new Date(y, m - 1, d), "dd/MM/yyyy", { locale: ptBR });
+                                    })()}</TableCell>
                                     <TableCell>{apt.time}</TableCell>
                                     <TableCell>{apt.client_name}</TableCell>
                                     <TableCell>{apt.service_name}</TableCell>
@@ -736,7 +753,10 @@ export default function Salarios() {
                         {payments.map(payment => (
                           <TableRow key={payment.id}>
                             <TableCell className="whitespace-nowrap">
-                              {format(parseISO(payment.payment_date), "dd/MM/yyyy", { locale: ptBR })}
+                              {(() => {
+                                const [y, m, d] = payment.payment_date.split('-').map(Number);
+                                return format(new Date(y, m - 1, d), "dd/MM/yyyy", { locale: ptBR });
+                              })()}
                             </TableCell>
                             <TableCell>{payment.professional_name}</TableCell>
                             <TableCell>{payment.payment_reason}</TableCell>
