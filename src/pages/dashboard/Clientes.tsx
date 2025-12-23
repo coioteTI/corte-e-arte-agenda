@@ -534,17 +534,22 @@ const Clientes = () => {
         
         cumulativeMinutes += (service?.duration || 30);
         
+        // Use local date format to avoid timezone issues (YYYY-MM-DD)
+        const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        
         return {
           company_id: companyId,
           client_id: newClient.id,
           service_id: serviceId,
           professional_id: selectedProfessionalId,
-          appointment_date: today.toISOString().split('T')[0],
+          appointment_date: localDate,
           appointment_time: timeString,
           status: 'completed',
           payment_status: finishAsPaid ? 'paid' : 'pending',
           payment_method: 'no_local',
-          total_price: service?.price || 0
+          total_price: service?.price || 0,
+          // When marked as paid, set confirmation date for payment history
+          ...(finishAsPaid && { payment_confirmation_date: new Date().toISOString() })
         };
       });
 
