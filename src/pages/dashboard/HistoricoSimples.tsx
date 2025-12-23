@@ -388,7 +388,9 @@ export default function HistoricoSimples() {
   };
 
   const getStatusBadge = (status: string, paymentStatus: string) => {
-    if (status === "completed") return paymentStatus === "paid" ? <Badge className="bg-green-500">Pago</Badge> : <Badge variant="destructive">Pendente</Badge>;
+    // If payment is paid, always show "Pago" regardless of appointment status
+    if (paymentStatus === "paid") return <Badge className="bg-green-500">Pago</Badge>;
+    if (status === "completed") return <Badge variant="destructive">Pendente</Badge>;
     if (status === "scheduled" || status === "confirmed") return <Badge variant="secondary">Agendado</Badge>;
     return <Badge variant="outline">{status}</Badge>;
   };
