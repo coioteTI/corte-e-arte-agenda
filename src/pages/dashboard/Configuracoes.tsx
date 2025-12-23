@@ -8,7 +8,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAdminPassword } from "@/hooks/useAdminPassword";
-import { Bell, MessageSquare, User, Settings, Palette, Images, CreditCard, Lock, ShieldAlert, ArrowLeft, Layers } from "lucide-react";
+import { Bell, MessageSquare, User, Settings, Palette, Images, CreditCard, Lock, ShieldAlert, ArrowLeft, Layers, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { NotificacoesSection } from "@/components/configuracoes/NotificacoesSection";
@@ -23,6 +23,7 @@ import { GaleriaSection } from "@/components/configuracoes/GaleriaSection";
 import { PagamentoSection } from "@/components/configuracoes/PagamentoSection";
 import { SenhaAdminSection } from "@/components/configuracoes/SenhaAdminSection";
 import { ModulosSection } from "@/components/configuracoes/ModulosSection";
+import { FusoHorarioSection } from "@/components/configuracoes/FusoHorarioSection";
 
 import {
   ConfiguracoesState,
@@ -837,6 +838,7 @@ const Configuracoes = () => {
                     configuracoes={configuracoes.sistema}
                     onSwitchChange={(campo, valor) => handleSwitchChange("sistema", campo, valor)}
                   />
+                  {companyId && <FusoHorarioSection companyId={companyId} />}
                 </div>
               </TabsContent>
 

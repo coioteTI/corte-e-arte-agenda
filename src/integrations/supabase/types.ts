@@ -242,6 +242,7 @@ export type Database = {
           reminders_enabled: boolean | null
           requires_payment_confirmation: boolean | null
           secondary_color: string | null
+          timezone: string | null
           updated_at: string
           whatsapp_integration_enabled: boolean | null
           whatsapp_notifications: boolean | null
@@ -263,6 +264,7 @@ export type Database = {
           reminders_enabled?: boolean | null
           requires_payment_confirmation?: boolean | null
           secondary_color?: string | null
+          timezone?: string | null
           updated_at?: string
           whatsapp_integration_enabled?: boolean | null
           whatsapp_notifications?: boolean | null
@@ -284,6 +286,7 @@ export type Database = {
           reminders_enabled?: boolean | null
           requires_payment_confirmation?: boolean | null
           secondary_color?: string | null
+          timezone?: string | null
           updated_at?: string
           whatsapp_integration_enabled?: boolean | null
           whatsapp_notifications?: boolean | null
