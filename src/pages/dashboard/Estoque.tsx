@@ -145,6 +145,9 @@ const Estoque = () => {
   const [hasAdminPasswordConfigured, setHasAdminPasswordConfigured] = useState(false);
   const { hasAdminPassword } = useAdminPassword();
 
+  // Processing states to prevent duplicate submissions
+  const [isSaving, setIsSaving] = useState(false);
+
   const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -280,7 +283,9 @@ const Estoque = () => {
   // Category CRUD
   const handleSaveCategory = async () => {
     if (!categoryName.trim() || !companyId) return;
+    if (isSaving) return; // Prevent duplicate submissions
 
+    setIsSaving(true);
     try {
       if (editingCategory) {
         const { error } = await supabase
@@ -301,10 +306,11 @@ const Estoque = () => {
 
       setCategoryDialogOpen(false);
       resetCategoryForm();
-      loadData();
     } catch (error) {
       console.error("Error saving category:", error);
       toast.error("Erro ao salvar categoria");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -370,6 +376,7 @@ const Estoque = () => {
       toast.error("Preencha nome e categoria");
       return;
     }
+    if (isSaving) return; // Prevent duplicate submissions
 
     const price = parseFloat(productPrice) || 0;
     const quantity = parseInt(productQuantity) || 0;
@@ -384,6 +391,7 @@ const Estoque = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
       const productData = {
         name: productName.trim(),
@@ -417,6 +425,8 @@ const Estoque = () => {
     } catch (error) {
       console.error("Error saving product:", error);
       toast.error("Erro ao salvar produto");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -505,6 +515,7 @@ const Estoque = () => {
       toast.error("Erro ao registrar venda");
       return;
     }
+    if (isSaving) return; // Prevent duplicate submissions
 
     const quantity = parseInt(saleQuantity) || 1;
     
@@ -521,6 +532,7 @@ const Estoque = () => {
     
     const totalPrice = sellingProduct.price * quantity;
 
+    setIsSaving(true);
     try {
       const { error } = await supabase.from("stock_sales").insert({
         company_id: companyId,
@@ -544,6 +556,8 @@ const Estoque = () => {
     } catch (error) {
       console.error("Error saving sale:", error);
       toast.error("Erro ao registrar venda");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -559,6 +573,7 @@ const Estoque = () => {
 
   const handleUpdateSale = async () => {
     if (!editingSale || !companyId) return;
+    if (isSaving) return; // Prevent duplicate submissions
 
     const quantity = parseInt(editSaleQuantity) || 1;
     
@@ -580,6 +595,7 @@ const Estoque = () => {
     const unitPrice = editingSale.unit_price;
     const totalPrice = unitPrice * quantity;
 
+    setIsSaving(true);
     try {
       const { error } = await supabase
         .from("stock_sales")
@@ -602,6 +618,8 @@ const Estoque = () => {
     } catch (error) {
       console.error("Error updating sale:", error);
       toast.error("Erro ao atualizar venda");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -793,8 +811,8 @@ const Estoque = () => {
                         placeholder="Ex: Roupas, Eletrônicos..."
                       />
                     </div>
-                    <Button onClick={handleSaveCategory} className="w-full">
-                      {editingCategory ? "Salvar Alterações" : "Criar Categoria"}
+                    <Button onClick={handleSaveCategory} className="w-full" disabled={isSaving}>
+                      {isSaving ? "Salvando..." : (editingCategory ? "Salvar Alterações" : "Criar Categoria")}
                     </Button>
                   </div>
                 </DialogContent>
@@ -1177,8 +1195,8 @@ const Estoque = () => {
               )}
             </div>
 
-            <Button onClick={handleSaveProduct} className="w-full" disabled={uploadingImage}>
-              {editingProduct ? "Salvar Alterações" : "Criar Produto"}
+            <Button onClick={handleSaveProduct} className="w-full" disabled={uploadingImage || isSaving}>
+              {isSaving ? "Salvando..." : (editingProduct ? "Salvar Alterações" : "Criar Produto")}
             </Button>
           </div>
         </DialogContent>
@@ -1330,9 +1348,9 @@ const Estoque = () => {
             <Button 
               onClick={handleSaveSale} 
               className="w-full"
-              disabled={!sellingProduct || sellingProduct.quantity === 0 || parseInt(saleQuantity) > sellingProduct.quantity}
+              disabled={!sellingProduct || sellingProduct.quantity === 0 || parseInt(saleQuantity) > sellingProduct.quantity || isSaving}
             >
-              Confirmar Venda
+              {isSaving ? "Processando..." : "Confirmar Venda"}
             </Button>
           </div>
         </DialogContent>
@@ -1420,8 +1438,8 @@ const Estoque = () => {
               </div>
             )}
 
-            <Button onClick={handleUpdateSale} className="w-full">
-              Salvar Alterações
+            <Button onClick={handleUpdateSale} className="w-full" disabled={isSaving}>
+              {isSaving ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </div>
         </DialogContent>
