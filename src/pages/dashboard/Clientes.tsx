@@ -612,6 +612,24 @@ const Clientes = () => {
     }
   };
 
+  const getPaymentStatusBadge = (paymentStatus: string | null, status: string) => {
+    // If cancelled, don't show payment status
+    if (status === 'cancelled') return null;
+    
+    switch (paymentStatus) {
+      case 'paid':
+        return <Badge className="bg-green-500 hover:bg-green-600 text-white">Pago</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">Pendente</Badge>;
+      case 'awaiting_payment':
+        return <Badge className="bg-orange-500 hover:bg-orange-600 text-white">Aguardando</Badge>;
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelado</Badge>;
+      default:
+        return <Badge variant="outline">{paymentStatus || 'N/A'}</Badge>;
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-4 sm:space-y-6">
@@ -953,11 +971,12 @@ const Clientes = () => {
                           <div>
                             <h4 className="font-medium">{appointment.services?.name}</h4>
                             <p className="text-sm text-muted-foreground">
-                              Profissional: {appointment.professionals?.name}
+                              Profissional: {appointment.professionals?.name || 'Não informado'}
                             </p>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap justify-end">
                             {getStatusBadge(appointment.status)}
+                            {getPaymentStatusBadge(appointment.payment_status, appointment.status)}
                             {/* Show add service button for non-cancelled appointments */}
                             {appointment.status !== 'cancelled' && (
                               <Button
