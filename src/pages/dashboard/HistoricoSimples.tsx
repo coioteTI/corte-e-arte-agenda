@@ -258,11 +258,16 @@ export default function HistoricoSimples() {
     let servicosFiltrados = [...servicos];
 
     if (filtroStatus === "pago") {
-      servicosFiltrados = servicosFiltrados.filter(s => s.status === "completed" && s.payment_status === "paid");
+      // Show all services marked as paid, regardless of appointment status
+      servicosFiltrados = servicosFiltrados.filter(s => s.payment_status === "paid");
     } else if (filtroStatus === "pendente") {
+      // Show completed services with pending payment
       servicosFiltrados = servicosFiltrados.filter(s => s.status === "completed" && s.payment_status !== "paid");
     } else if (filtroStatus === "agendado") {
-      servicosFiltrados = servicosFiltrados.filter(s => s.status === "scheduled" || s.status === "confirmed");
+      // Show scheduled/confirmed services that are NOT paid yet
+      servicosFiltrados = servicosFiltrados.filter(s => 
+        (s.status === "scheduled" || s.status === "confirmed") && s.payment_status !== "paid"
+      );
     }
 
     if (filtroData) {
