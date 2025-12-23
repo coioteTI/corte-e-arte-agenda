@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Plus, Edit, Trash2, MoveRight, Package, FolderOpen, ShoppingCart, History, Check, Clock } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Plus, Edit, Trash2, MoveRight, Package, FolderOpen, ShoppingCart, History, Check, Clock, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -145,11 +145,7 @@ const Estoque = () => {
   const [hasAdminPasswordConfigured, setHasAdminPasswordConfigured] = useState(false);
   const { hasAdminPassword } = useAdminPassword();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -184,7 +180,83 @@ const Estoque = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [hasAdminPassword]);
+
+  // Initial load
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Realtime subscriptions for automatic updates
+  useEffect(() => {
+    if (!companyId) return;
+
+    const channel = supabase
+      .channel('stock-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stock_products',
+          filter: `company_id=eq.${companyId}`
+        },
+        () => {
+          // Reload products on any change
+          supabase.from("stock_products")
+            .select("*")
+            .eq("company_id", companyId)
+            .order("name")
+            .then(({ data }) => {
+              if (data) setProducts(data);
+            });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stock_sales',
+          filter: `company_id=eq.${companyId}`
+        },
+        () => {
+          // Reload sales on any change
+          supabase.from("stock_sales")
+            .select("*")
+            .eq("company_id", companyId)
+            .order("sold_at", { ascending: false })
+            .limit(100)
+            .then(({ data }) => {
+              if (data) setSales(data);
+            });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stock_categories',
+          filter: `company_id=eq.${companyId}`
+        },
+        () => {
+          // Reload categories on any change
+          supabase.from("stock_categories")
+            .select("*")
+            .eq("company_id", companyId)
+            .order("name")
+            .then(({ data }) => {
+              if (data) setCategories(data);
+            });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId]);
 
   // Helper function to require admin password before sensitive actions
   const requireAdminPassword = useCallback((action: () => void, description: string) => {
@@ -299,11 +371,24 @@ const Estoque = () => {
       return;
     }
 
+    const price = parseFloat(productPrice) || 0;
+    const quantity = parseInt(productQuantity) || 0;
+
+    if (price < 0) {
+      toast.error("O preço não pode ser negativo");
+      return;
+    }
+
+    if (quantity < 0) {
+      toast.error("A quantidade não pode ser negativa");
+      return;
+    }
+
     try {
       const productData = {
         name: productName.trim(),
-        price: parseFloat(productPrice) || 0,
-        quantity: parseInt(productQuantity) || 0,
+        price,
+        quantity,
         description: productDescription.trim() || null,
         image_url: productImageUrl || null,
         category_id: productCategoryId,
@@ -317,19 +402,18 @@ const Estoque = () => {
           .eq("id", editingProduct.id);
 
         if (error) throw error;
-        toast.success("Produto atualizado");
+        toast.success("Produto atualizado com sucesso!");
       } else {
         const { error } = await supabase
           .from("stock_products")
           .insert(productData);
 
         if (error) throw error;
-        toast.success("Produto criado");
+        toast.success("Produto criado com sucesso!");
       }
 
       setProductDialogOpen(false);
       resetProductForm();
-      loadData();
     } catch (error) {
       console.error("Error saving product:", error);
       toast.error("Erro ao salvar produto");
@@ -424,6 +508,11 @@ const Estoque = () => {
 
     const quantity = parseInt(saleQuantity) || 1;
     
+    if (quantity <= 0) {
+      toast.error("A quantidade deve ser maior que zero");
+      return;
+    }
+    
     // Verificar se há estoque suficiente
     if (quantity > sellingProduct.quantity) {
       toast.error(`Estoque insuficiente! Disponível: ${sellingProduct.quantity} unidades`);
@@ -447,9 +536,11 @@ const Estoque = () => {
       });
 
       if (error) throw error;
-      toast.success("Venda registrada com sucesso!");
+      
+      toast.success(`Venda de ${quantity}x ${sellingProduct.name} registrada!`, {
+        description: `Total: R$ ${totalPrice.toFixed(2)} - ${salePaymentStatus === 'paid' ? 'Pago' : 'Pendente'}`
+      });
       setSaleDialogOpen(false);
-      loadData();
     } catch (error) {
       console.error("Error saving sale:", error);
       toast.error("Erro ao registrar venda");
@@ -470,11 +561,18 @@ const Estoque = () => {
     if (!editingSale || !companyId) return;
 
     const quantity = parseInt(editSaleQuantity) || 1;
+    
+    if (quantity <= 0) {
+      toast.error("A quantidade deve ser maior que zero");
+      return;
+    }
+    
     const product = products.find(p => p.id === editingSale.product_id);
     
     // Calcular diferença de quantidade para verificar estoque
+    // O trigger vai restaurar a quantidade antiga e descontar a nova
     const quantityDiff = quantity - editingSale.quantity;
-    if (product && quantityDiff > product.quantity) {
+    if (product && quantityDiff > 0 && quantityDiff > product.quantity) {
       toast.error(`Estoque insuficiente! Disponível: ${product.quantity} unidades adicionais`);
       return;
     }
@@ -495,10 +593,12 @@ const Estoque = () => {
         .eq("id", editingSale.id);
 
       if (error) throw error;
-      toast.success("Venda atualizada com sucesso!");
+      
+      toast.success("Venda atualizada!", {
+        description: `Nova quantidade: ${quantity} - Total: R$ ${totalPrice.toFixed(2)}`
+      });
       setEditSaleDialogOpen(false);
       setEditingSale(null);
-      loadData();
     } catch (error) {
       console.error("Error updating sale:", error);
       toast.error("Erro ao atualizar venda");
@@ -506,6 +606,8 @@ const Estoque = () => {
   };
 
   const handleDeleteSale = async (saleId: string) => {
+    const sale = sales.find(s => s.id === saleId);
+    
     try {
       const { error } = await supabase
         .from("stock_sales")
@@ -513,8 +615,10 @@ const Estoque = () => {
         .eq("id", saleId);
 
       if (error) throw error;
-      toast.success("Venda excluída com sucesso!");
-      loadData();
+      
+      toast.success("Venda excluída!", {
+        description: sale ? `${sale.quantity}x ${getProductName(sale.product_id)} devolvido ao estoque` : "Estoque restaurado"
+      });
     } catch (error) {
       console.error("Error deleting sale:", error);
       toast.error("Erro ao excluir venda");
@@ -537,14 +641,39 @@ const Estoque = () => {
     }
   };
 
-  const getProductsByCategory = (categoryId: string) => {
+  const getProductsByCategory = useCallback((categoryId: string) => {
     return products.filter((p) => p.category_id === categoryId);
-  };
+  }, [products]);
 
-  const getProductName = (productId: string) => {
+  const getProductName = useCallback((productId: string) => {
     const product = products.find(p => p.id === productId);
     return product?.name || "Produto removido";
-  };
+  }, [products]);
+
+  // Stock summary statistics
+  const stockStats = useMemo(() => {
+    const totalProducts = products.length;
+    const totalValue = products.reduce((acc, p) => acc + (p.price * p.quantity), 0);
+    const lowStockProducts = products.filter(p => p.quantity > 0 && p.quantity <= 5).length;
+    const outOfStockProducts = products.filter(p => p.quantity === 0).length;
+    const todaySales = sales.filter(s => {
+      const saleDate = new Date(s.sold_at).toDateString();
+      return saleDate === new Date().toDateString();
+    });
+    const todaySalesTotal = todaySales.reduce((acc, s) => acc + s.total_price, 0);
+    const todayPaidSales = todaySales.filter(s => s.payment_status === 'paid');
+    const todayPaidTotal = todayPaidSales.reduce((acc, s) => acc + s.total_price, 0);
+    
+    return {
+      totalProducts,
+      totalValue,
+      lowStockProducts,
+      outOfStockProducts,
+      todaySalesCount: todaySales.length,
+      todaySalesTotal,
+      todayPaidTotal
+    };
+  }, [products, sales]);
 
   if (loading) {
     return (
@@ -564,6 +693,64 @@ const Estoque = () => {
             <h1 className="text-2xl font-bold">Estoque</h1>
             <p className="text-muted-foreground">Gerencie seus produtos e vendas</p>
           </div>
+        </div>
+
+        {/* Stock Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total de Produtos</p>
+                  <p className="text-2xl font-bold">{stockStats.totalProducts}</p>
+                </div>
+                <Package className="h-8 w-8 text-primary opacity-70" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Valor em Estoque</p>
+                  <p className="text-2xl font-bold text-primary">R$ {stockStats.totalValue.toFixed(2)}</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-green-500 opacity-70" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Vendas Hoje (Pago)</p>
+                  <p className="text-2xl font-bold text-green-600">R$ {stockStats.todayPaidTotal.toFixed(2)}</p>
+                </div>
+                <ShoppingCart className="h-8 w-8 text-green-500 opacity-70" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Alertas</p>
+                  <div className="flex items-center gap-2">
+                    {stockStats.outOfStockProducts > 0 && (
+                      <Badge variant="destructive">{stockStats.outOfStockProducts} sem estoque</Badge>
+                    )}
+                    {stockStats.lowStockProducts > 0 && (
+                      <Badge variant="secondary">{stockStats.lowStockProducts} baixo</Badge>
+                    )}
+                    {stockStats.outOfStockProducts === 0 && stockStats.lowStockProducts === 0 && (
+                      <Badge variant="default">Tudo OK</Badge>
+                    )}
+                  </div>
+                </div>
+                <AlertCircle className="h-8 w-8 text-yellow-500 opacity-70" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
