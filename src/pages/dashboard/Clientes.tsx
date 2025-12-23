@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar, Edit, History, Zap, XCircle, AlertTriangle, Plus } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
@@ -60,6 +61,7 @@ const Clientes = () => {
   const [quickServiceLoading, setQuickServiceLoading] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [avulsoCounter, setAvulsoCounter] = useState(0);
+  const [finishAsPaid, setFinishAsPaid] = useState(true);
 
   // Admin password protection state
   const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
@@ -540,7 +542,7 @@ const Clientes = () => {
           appointment_date: today.toISOString().split('T')[0],
           appointment_time: timeString,
           status: 'completed',
-          payment_status: 'paid',
+          payment_status: finishAsPaid ? 'paid' : 'pending',
           payment_method: 'no_local',
           total_price: service?.price || 0
         };
@@ -553,14 +555,16 @@ const Clientes = () => {
       if (appointmentError) throw appointmentError;
 
       const serviceNames = selectedServices.map(s => s.name).join(', ');
+      const paymentStatus = finishAsPaid ? 'Pago' : 'Pendente';
       toast({
         title: "Serviço(s) finalizado(s)!",
-        description: `${serviceNames} - R$ ${totalServicesPrice.toFixed(2)}`
+        description: `${serviceNames} - R$ ${totalServicesPrice.toFixed(2)} (${paymentStatus})`
       });
 
       setIsQuickServiceOpen(false);
       setSelectedServiceIds([]);
       setSelectedProfessionalId("");
+      setFinishAsPaid(true);
       loadClientes();
     } catch (error) {
       console.error('Error creating quick service:', error);
@@ -614,6 +618,7 @@ const Clientes = () => {
               if (!open) {
                 setSelectedServiceIds([]);
                 setSelectedProfessionalId("");
+                setFinishAsPaid(true);
               }
             }}>
               <DialogTrigger asChild>
@@ -700,12 +705,29 @@ const Clientes = () => {
                     </div>
                   )}
 
+                  <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-lg border">
+                    <Checkbox
+                      id="finishAsPaid"
+                      checked={finishAsPaid}
+                      onCheckedChange={(checked) => setFinishAsPaid(checked === true)}
+                    />
+                    <label
+                      htmlFor="finishAsPaid"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                    >
+                      Finalizar serviço como pago
+                    </label>
+                    <span className={`text-xs font-medium px-2 py-1 rounded ${finishAsPaid ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>
+                      {finishAsPaid ? 'Pago' : 'Pendente'}
+                    </span>
+                  </div>
+
                   <Button 
                     onClick={handleQuickService} 
                     className="w-full"
                     disabled={selectedServiceIds.length === 0 || !selectedProfessionalId || quickServiceLoading}
                   >
-                    {quickServiceLoading ? "Finalizando..." : "Finalizar Serviço"}
+                    {quickServiceLoading ? "Finalizando..." : `Finalizar ${finishAsPaid ? 'como Pago' : 'como Pendente'}`}
                   </Button>
                 </div>
               </DialogContent>
