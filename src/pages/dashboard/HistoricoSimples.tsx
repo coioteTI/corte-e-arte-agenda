@@ -571,7 +571,7 @@ export default function HistoricoSimples() {
                         {getStatusBadge(s.status,s.payment_status)}
 
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {(s.status === "scheduled" || s.status === "confirmed") && (
+                          {(s.status === "scheduled" || s.status === "confirmed") && s.payment_status !== "paid" && (
                             <Button size="sm" onClick={()=>concluirAgendamento(s.id)} className="bg-blue-500 hover:bg-blue-600">
                               <CheckCircle className="h-3 w-3 mr-1"/>Concluir
                             </Button>
