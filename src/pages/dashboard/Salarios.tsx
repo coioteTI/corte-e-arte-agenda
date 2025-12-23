@@ -193,7 +193,7 @@ export default function Salarios() {
 
       setProfessionals(professionalsData || []);
 
-      // Load completed appointments with earnings
+      // Load paid appointments with earnings (regardless of status - completed or confirmed)
       const { data: appointmentsData } = await supabase
         .from("appointments")
         .select(`
@@ -207,7 +207,6 @@ export default function Salarios() {
           clients(name)
         `)
         .eq("company_id", companies.id)
-        .eq("status", "completed")
         .eq("payment_status", "paid")
         .order("appointment_date", { ascending: false });
 
