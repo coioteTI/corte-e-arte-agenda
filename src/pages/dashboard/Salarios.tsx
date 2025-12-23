@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,8 @@ import {
   Wallet,
   TrendingUp,
   History,
-  FileText
+  FileText,
+  RefreshCw
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -169,7 +170,7 @@ export default function Salarios() {
     setValidatingPassword(false);
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -193,7 +194,8 @@ export default function Salarios() {
 
       setProfessionals(professionalsData || []);
 
-      // Load paid appointments with earnings (regardless of status - completed or confirmed)
+      // Load paid appointments with earnings
+      // IMPORTANT: Only payment_status = 'paid' AND status != 'cancelled' are counted
       const { data: appointmentsData } = await supabase
         .from("appointments")
         .select(`
@@ -201,6 +203,8 @@ export default function Salarios() {
           appointment_date,
           appointment_time,
           total_price,
+          status,
+          payment_status,
           professional_id,
           professionals(id, name, specialty),
           services(name),
@@ -208,6 +212,7 @@ export default function Salarios() {
         `)
         .eq("company_id", companies.id)
         .eq("payment_status", "paid")
+        .neq("status", "cancelled")
         .order("appointment_date", { ascending: false });
 
       // Load payments
@@ -254,18 +259,29 @@ export default function Salarios() {
         };
       });
 
+      // Only count appointments that are:
+      // 1. payment_status = 'paid'
+      // 2. status != 'cancelled'
+      // 3. total_price > 0
       (appointmentsData || []).forEach(apt => {
         const profId = apt.professional_id;
-        if (profId && earningsByProfessional[profId]) {
+        const amount = apt.total_price || 0;
+        
+        // Double check: only count valid paid appointments
+        if (profId && 
+            earningsByProfessional[profId] && 
+            apt.payment_status === 'paid' && 
+            apt.status !== 'cancelled' &&
+            amount > 0) {
           earningsByProfessional[profId].appointments.push({
             id: apt.id,
             date: apt.appointment_date,
             time: apt.appointment_time,
             service_name: (apt.services as any)?.name || "Serviço",
             client_name: (apt.clients as any)?.name || "Cliente",
-            amount: apt.total_price || 0,
+            amount: amount,
           });
-          earningsByProfessional[profId].totalEarnings += apt.total_price || 0;
+          earningsByProfessional[profId].totalEarnings += amount;
         }
       });
 
@@ -288,7 +304,53 @@ export default function Salarios() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Setup realtime subscription for automatic updates
+  useEffect(() => {
+    if (!companyId || !isAuthenticated) return;
+
+    // Subscribe to appointments changes
+    const appointmentsChannel = supabase
+      .channel('salarios-appointments-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `company_id=eq.${companyId}`
+        },
+        () => {
+          // Reload data when any appointment changes
+          loadData();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to professional payments changes
+    const paymentsChannel = supabase
+      .channel('salarios-payments-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'professional_payments',
+          filter: `company_id=eq.${companyId}`
+        },
+        () => {
+          // Reload data when any payment changes
+          loadData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(appointmentsChannel);
+      supabase.removeChannel(paymentsChannel);
+    };
+  }, [companyId, isAuthenticated, loadData]);
 
   const getFilteredEarnings = (earning: ProfessionalEarning) => {
     const now = selectedDate;
