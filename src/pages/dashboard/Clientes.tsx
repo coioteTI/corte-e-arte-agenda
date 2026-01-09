@@ -510,9 +510,29 @@ const Clientes = () => {
       return;
     }
 
+    // Prevent double-click
+    if (quickServiceLoading) return;
+    
     setQuickServiceLoading(true);
+    
+    // Capture values before resetting state for immediate UI feedback
+    const serviceIdsToProcess = [...selectedServiceIds];
+    const professionalIdToProcess = selectedProfessionalId;
+    const shouldMarkAsPaid = finishAsPaid;
+    const servicesToProcess = serviceIdsToProcess.map(id => services.find(s => s.id === id)).filter(Boolean) as Service[];
+    const totalPrice = servicesToProcess.reduce((sum, s) => sum + (s?.price || 0), 0);
+    const serviceNames = servicesToProcess.map(s => s.name).join(', ');
+    
+    // Reset form immediately for instant next use
+    setSelectedServiceIds([]);
+    setSelectedProfessionalId("");
+    setFinishAsPaid(true);
+    setIsQuickServiceOpen(false);
+    
     try {
       const nextNumber = avulsoCounter + 1;
+      setAvulsoCounter(nextNumber); // Update counter immediately
+      
       const { data: newClient, error: clientError } = await supabase
         .from('clients')
         .insert({
@@ -524,10 +544,13 @@ const Clientes = () => {
 
       if (clientError) throw clientError;
 
+      // Add new client to local state immediately (no full reload needed)
+      setClientes(prev => [newClient, ...prev]);
+
       const today = new Date();
       let cumulativeMinutes = 0;
-      const appointments = selectedServiceIds.map((serviceId, index) => {
-        const service = services.find(s => s.id === serviceId);
+      const appointments = serviceIdsToProcess.map((serviceId) => {
+        const service = servicesToProcess.find(s => s.id === serviceId);
         
         const appointmentTime = new Date(today.getTime() + cumulativeMinutes * 60000);
         const timeString = appointmentTime.toTimeString().slice(0, 5);
@@ -541,15 +564,15 @@ const Clientes = () => {
           company_id: companyId,
           client_id: newClient.id,
           service_id: serviceId,
-          professional_id: selectedProfessionalId,
+          professional_id: professionalIdToProcess,
           appointment_date: localDate,
           appointment_time: timeString,
           status: 'completed',
-          payment_status: finishAsPaid ? 'paid' : 'pending',
+          payment_status: shouldMarkAsPaid ? 'paid' : 'pending',
           payment_method: 'no_local',
           total_price: service?.price || 0,
           // When marked as paid, set confirmation date for payment history
-          ...(finishAsPaid && { payment_confirmation_date: new Date().toISOString() })
+          ...(shouldMarkAsPaid && { payment_confirmation_date: new Date().toISOString() })
         };
       });
 
@@ -559,25 +582,19 @@ const Clientes = () => {
 
       if (appointmentError) throw appointmentError;
 
-      const serviceNames = selectedServices.map(s => s.name).join(', ');
-      const paymentStatus = finishAsPaid ? 'Pago' : 'Pendente';
+      const paymentStatus = shouldMarkAsPaid ? 'Pago' : 'Pendente';
       toast({
         title: "Serviço(s) finalizado(s)!",
-        description: `${serviceNames} - R$ ${totalServicesPrice.toFixed(2)} (${paymentStatus})`
+        description: `${serviceNames} - R$ ${totalPrice.toFixed(2)} (${paymentStatus})`
       });
-
-      setIsQuickServiceOpen(false);
-      setSelectedServiceIds([]);
-      setSelectedProfessionalId("");
-      setFinishAsPaid(true);
-      loadClientes();
     } catch (error) {
       console.error('Error creating quick service:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível finalizar o serviço",
+        description: "Não foi possível finalizar o serviço. Tente novamente.",
         variant: "destructive"
       });
+      // On error, the modal is already closed but user can open again immediately
     } finally {
       setQuickServiceLoading(false);
     }
