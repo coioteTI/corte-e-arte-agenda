@@ -296,6 +296,7 @@ export type Database = {
           created_at: string
           email_notifications: boolean | null
           id: string
+          notification_sound_enabled: boolean | null
           online_booking_enabled: boolean | null
           online_payment_enabled: boolean | null
           payment_methods: string[] | null
@@ -318,6 +319,7 @@ export type Database = {
           created_at?: string
           email_notifications?: boolean | null
           id?: string
+          notification_sound_enabled?: boolean | null
           online_booking_enabled?: boolean | null
           online_payment_enabled?: boolean | null
           payment_methods?: string[] | null
@@ -340,6 +342,7 @@ export type Database = {
           created_at?: string
           email_notifications?: boolean | null
           id?: string
+          notification_sound_enabled?: boolean | null
           online_booking_enabled?: boolean | null
           online_payment_enabled?: boolean | null
           payment_methods?: string[] | null
@@ -636,6 +639,80 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notification_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          appointment_id: string | null
+          branch_id: string | null
+          company_id: string | null
+          created_at: string
+          data: Json | null
+          id: string
+          is_read: boolean
+          message: string
+          read_at: string | null
+          read_by: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          branch_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean
+          message: string
+          read_at?: string | null
+          read_by?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          branch_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          read_at?: string | null
+          read_by?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_payments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
