@@ -68,10 +68,10 @@ if ('serviceWorker' in navigator) {
 
 const App = () => (
   <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <ModuleSettingsProvider>
-        <BranchProvider>
-          <BrowserRouter>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <ModuleSettingsProvider>
+          <BranchProvider>
             <Toaster />
             <Sonner />
             <CookieConsent />
@@ -121,10 +121,10 @@ const App = () => (
               
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
-        </BranchProvider>
-      </ModuleSettingsProvider>
-    </QueryClientProvider>
+          </BranchProvider>
+        </ModuleSettingsProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   </ErrorBoundary>
 );
 
