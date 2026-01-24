@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Loader2, KeyRound } from "lucide-react";
+import { Eye, EyeOff, Loader2, KeyRound, Mail } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +17,7 @@ const Login = () => {
   const [lembrarSenha, setLembrarSenha] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [isFirstAccessMode, setIsFirstAccessMode] = useState(false);
-  const [checkingFirstAccess, setCheckingFirstAccess] = useState(false);
+  const [sendingResetEmail, setSendingResetEmail] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -35,21 +35,6 @@ const Login = () => {
       }
     }
   }, []);
-
-  // Check if user exists and is first access when email changes
-  const checkFirstAccess = async () => {
-    if (!email || !email.includes('@')) return;
-    
-    setCheckingFirstAccess(true);
-    try {
-      // We need to check if this user has is_first_access = true
-      // Since we can't query profiles without auth, we'll handle this after login attempt
-      setCheckingFirstAccess(false);
-    } catch (error) {
-      console.error('Error checking first access:', error);
-      setCheckingFirstAccess(false);
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,9 +117,114 @@ const Login = () => {
     }
   };
 
+  const handleFirstAccessRequest = async () => {
+    if (!email || !email.includes('@')) {
+      toast({
+        title: "E-mail inválido",
+        description: "Informe um e-mail válido para continuar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSendingResetEmail(true);
+    try {
+      // Send password reset email - this will allow user to set their password
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        toast({
+          title: "Erro",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "E-mail enviado!",
+        description: "Verifique sua caixa de entrada para criar sua senha.",
+      });
+      setIsFirstAccessMode(false);
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar o e-mail. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setSendingResetEmail(false);
+    }
+  };
+
   const handleEsqueciSenha = () => {
     navigate("/forgot-password");
   };
+
+  // First access mode - just email input
+  if (isFirstAccessMode) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md animate-fade-in">
+          <CardHeader className="text-center">
+            <img 
+              src={logo} 
+              alt="Corte & Arte" 
+              className="h-12 w-auto mx-auto mb-4"
+            />
+            <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
+              <KeyRound className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle className="text-xl">Primeiro Acesso</CardTitle>
+            <CardDescription>
+              Informe seu e-mail para receber o link de criação de senha.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstAccessEmail">E-mail</Label>
+              <Input
+                id="firstAccessEmail"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <Button 
+              onClick={handleFirstAccessRequest}
+              className="w-full" 
+              disabled={sendingResetEmail}
+            >
+              {sendingResetEmail ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Enviar Link para Criar Senha
+                </>
+              )}
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => setIsFirstAccessMode(false)}
+            >
+              ← Voltar ao login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -188,9 +278,6 @@ const Login = () => {
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Se é seu primeiro acesso, use a senha temporária fornecida pelo administrador.
-              </p>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -220,29 +307,27 @@ const Login = () => {
               )}
             </Button>
 
-            {/* Esqueci senha */}
-            <div className="text-center">
+            {/* Links de ações */}
+            <div className="flex flex-col items-center gap-2 text-sm">
               <Button
                 type="button"
                 variant="link"
                 onClick={handleEsqueciSenha}
-                className="text-sm hover:underline p-0"
+                className="hover:underline p-0 h-auto"
               >
                 Esqueci minha senha
               </Button>
+              <Button
+                type="button"
+                variant="link"
+                onClick={() => setIsFirstAccessMode(true)}
+                className="hover:underline p-0 h-auto text-primary"
+              >
+                <KeyRound className="h-3 w-3 mr-1" />
+                Primeiro acesso? Clique aqui
+              </Button>
             </div>
           </form>
-
-          {/* Info box for first access users */}
-          <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
-            <div className="flex items-start gap-2">
-              <KeyRound className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                <strong>Primeiro acesso?</strong> Use a senha temporária que o administrador enviou. 
-                Após o login, você poderá criar sua própria senha.
-              </p>
-            </div>
-          </div>
           
           <div className="mt-6 text-center space-y-3">
             <div className="text-sm text-muted-foreground">
