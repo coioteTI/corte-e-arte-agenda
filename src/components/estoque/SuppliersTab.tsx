@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useBranch } from "@/contexts/BranchContext";
 
 interface Supplier {
   id: string;
@@ -48,6 +49,7 @@ interface Supplier {
   address: string | null;
   notes: string | null;
   company_id: string;
+  branch_id?: string | null;
 }
 
 interface SupplierProduct {
@@ -60,6 +62,7 @@ interface SupplierProduct {
   quantity: number;
   notes: string | null;
   company_id: string;
+  branch_id?: string | null;
 }
 
 interface StockProduct {
@@ -89,11 +92,13 @@ const getMarginBadge = (margin: number): { variant: "default" | "secondary" | "d
 };
 
 const SuppliersTab = ({ companyId }: SuppliersTabProps) => {
+  const { currentBranchId, userRole } = useBranch();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [stockProducts, setStockProducts] = useState<StockProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [lastBranchId, setLastBranchId] = useState<string | null>(null);
 
   // Supplier form state
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
@@ -115,30 +120,63 @@ const SuppliersTab = ({ companyId }: SuppliersTabProps) => {
   const [productNotes, setProductNotes] = useState("");
   const [linkedStockProductId, setLinkedStockProductId] = useState("");
 
+  // Check if should filter by branch (non-CEO users)
+  const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
+
   const loadData = useCallback(async () => {
     if (!companyId) return;
     
+    // Clear data when switching branches
+    if (lastBranchId !== null && lastBranchId !== currentBranchId) {
+      setSuppliers([]);
+      setSupplierProducts([]);
+      setStockProducts([]);
+    }
+    
+    setLoading(true);
     try {
+      // Build queries with branch filtering
+      let suppliersQuery = supabase.from("suppliers").select("*").eq("company_id", companyId);
+      let productsQuery = supabase.from("supplier_products").select("*").eq("company_id", companyId);
+      let stockQuery = supabase.from("stock_products").select("id, name").eq("company_id", companyId);
+
+      // Apply branch filter for non-CEO users
+      if (shouldFilterByBranch) {
+        suppliersQuery = suppliersQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        productsQuery = productsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        stockQuery = stockQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
       const [suppliersRes, productsRes, stockRes] = await Promise.all([
-        supabase.from("suppliers").select("*").eq("company_id", companyId).order("name"),
-        supabase.from("supplier_products").select("*").eq("company_id", companyId).order("name"),
-        supabase.from("stock_products").select("id, name").eq("company_id", companyId).order("name"),
+        suppliersQuery.order("name"),
+        productsQuery.order("name"),
+        stockQuery.order("name"),
       ]);
 
       if (suppliersRes.data) setSuppliers(suppliersRes.data);
       if (productsRes.data) setSupplierProducts(productsRes.data);
       if (stockRes.data) setStockProducts(stockRes.data);
+      setLastBranchId(currentBranchId);
     } catch (error) {
       console.error("Error loading suppliers:", error);
       toast.error("Erro ao carregar fornecedores");
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, currentBranchId, shouldFilterByBranch, lastBranchId]);
 
+  // Initial load
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Reload when branch changes
+  useEffect(() => {
+    if (lastBranchId !== null && lastBranchId !== currentBranchId) {
+      console.log('[SuppliersTab] Branch changed, reloading data...');
+      loadData();
+    }
+  }, [currentBranchId, lastBranchId, loadData]);
 
   // Realtime subscriptions
   useEffect(() => {
@@ -195,6 +233,7 @@ const SuppliersTab = ({ companyId }: SuppliersTabProps) => {
         address: supplierAddress.trim() || null,
         notes: supplierNotes.trim() || null,
         company_id: companyId,
+        branch_id: currentBranchId || null,
       };
 
       if (editingSupplier) {

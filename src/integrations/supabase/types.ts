@@ -370,6 +370,7 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
+          branch_id: string | null
           company_id: string
           created_at: string
           description: string
@@ -382,6 +383,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          branch_id?: string | null
           company_id: string
           created_at?: string
           description: string
@@ -394,6 +396,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          branch_id?: string | null
           company_id?: string
           created_at?: string
           description?: string
@@ -405,6 +408,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "expenses_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "expenses_company_id_fkey"
             columns: ["company_id"]
@@ -1287,6 +1297,7 @@ export type Database = {
       }
       supplier_products: {
         Row: {
+          branch_id: string | null
           company_id: string
           created_at: string
           id: string
@@ -1300,6 +1311,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          branch_id?: string | null
           company_id: string
           created_at?: string
           id?: string
@@ -1313,6 +1325,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          branch_id?: string | null
           company_id?: string
           created_at?: string
           id?: string
@@ -1326,6 +1339,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "supplier_products_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "supplier_products_company_id_fkey"
             columns: ["company_id"]
@@ -1352,6 +1372,7 @@ export type Database = {
       suppliers: {
         Row: {
           address: string | null
+          branch_id: string | null
           company_id: string
           created_at: string
           email: string | null
@@ -1363,6 +1384,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          branch_id?: string | null
           company_id: string
           created_at?: string
           email?: string | null
@@ -1374,6 +1396,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          branch_id?: string | null
           company_id?: string
           created_at?: string
           email?: string | null
@@ -1384,6 +1407,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "suppliers_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "suppliers_company_id_fkey"
             columns: ["company_id"]
