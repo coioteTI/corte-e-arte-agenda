@@ -1,0 +1,624 @@
+import { useState, useEffect } from "react";
+import DashboardLayout from "@/components/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { 
+  Users, 
+  Plus, 
+  Trash2, 
+  Edit, 
+  Shield, 
+  User, 
+  Crown, 
+  Loader2,
+  Building2,
+  Eye,
+  EyeOff
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useBranch } from "@/contexts/BranchContext";
+import { AppRole } from "@/hooks/useUserRole";
+
+interface UserData {
+  id: string;
+  email: string;
+  full_name: string;
+  role: AppRole;
+  branches: { id: string; name: string }[];
+  created_at: string;
+}
+
+const roleLabels: Record<AppRole, { label: string; icon: React.ComponentType<any>; color: string }> = {
+  employee: { label: "Funcionário", icon: User, color: "bg-blue-500" },
+  admin: { label: "Administrador", icon: Shield, color: "bg-orange-500" },
+  ceo: { label: "CEO", icon: Crown, color: "bg-purple-500" },
+};
+
+const Usuarios = () => {
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  
+  // Form state
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState<AppRole>("employee");
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const { toast } = useToast();
+  const { userRole, branches } = useBranch();
+
+  const canManageUsers = userRole === 'ceo' || userRole === 'admin';
+  const canCreateAdmins = userRole === 'ceo';
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      
+      // Get all user roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      if (rolesError) throw rolesError;
+
+      // Get profiles for these users
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, full_name');
+
+      if (profilesError) throw profilesError;
+
+      // Get user branches
+      const { data: userBranchesData, error: branchesError } = await supabase
+        .from('user_branches')
+        .select('user_id, branches(id, name)');
+
+      if (branchesError) throw branchesError;
+
+      // Combine data
+      const usersMap = new Map<string, UserData>();
+      
+      rolesData?.forEach(role => {
+        const profile = profilesData?.find(p => p.user_id === role.user_id);
+        const userBranches = userBranchesData
+          ?.filter(ub => ub.user_id === role.user_id)
+          .map(ub => ub.branches as unknown as { id: string; name: string })
+          .filter(Boolean) || [];
+
+        usersMap.set(role.user_id, {
+          id: role.user_id,
+          email: '',
+          full_name: profile?.full_name || 'Sem nome',
+          role: role.role as AppRole,
+          branches: userBranches,
+          created_at: new Date().toISOString(),
+        });
+      });
+
+      setUsers(Array.from(usersMap.values()));
+    } catch (error) {
+      console.error('Error loading users:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os usuários",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName || !newUserEmail || !newUserPassword) return;
+
+    // Admin can only create employees
+    if (userRole === 'admin' && newUserRole !== 'employee') {
+      toast({
+        title: "Sem permissão",
+        description: "Administradores só podem criar funcionários",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Note: Creating users requires admin API or edge function
+      // For now, we'll show a message about the process
+      toast({
+        title: "Funcionalidade em desenvolvimento",
+        description: "A criação de usuários requer configuração adicional do servidor. Por enquanto, os usuários devem se cadastrar manualmente.",
+      });
+      
+      setIsAddDialogOpen(false);
+      resetForm();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível criar o usuário",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    setIsSaving(true);
+    try {
+      // Update user role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .upsert({
+          user_id: selectedUser.id,
+          role: newUserRole,
+        }, { onConflict: 'user_id,role' });
+
+      if (roleError) throw roleError;
+
+      // Update user branches - remove old ones and add new ones
+      await supabase
+        .from('user_branches')
+        .delete()
+        .eq('user_id', selectedUser.id);
+
+      if (selectedBranches.length > 0) {
+        const branchInserts = selectedBranches.map((branchId, index) => ({
+          user_id: selectedUser.id,
+          branch_id: branchId,
+          is_primary: index === 0,
+        }));
+
+        const { error: branchInsertError } = await supabase
+          .from('user_branches')
+          .insert(branchInserts);
+
+        if (branchInsertError) throw branchInsertError;
+      }
+
+      // Update profile name
+      await supabase
+        .from('profiles')
+        .upsert({
+          user_id: selectedUser.id,
+          full_name: newUserName,
+        }, { onConflict: 'user_id' });
+
+      toast({
+        title: "Usuário atualizado",
+        description: "As alterações foram salvas com sucesso",
+      });
+
+      setIsEditDialogOpen(false);
+      resetForm();
+      loadUsers();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível atualizar o usuário",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Tem certeza que deseja remover este usuário?")) return;
+
+    try {
+      // Remove user role and branch assignments
+      await Promise.all([
+        supabase.from('user_roles').delete().eq('user_id', userId),
+        supabase.from('user_branches').delete().eq('user_id', userId),
+        supabase.from('user_sessions').delete().eq('user_id', userId),
+      ]);
+
+      toast({
+        title: "Usuário removido",
+        description: "O acesso do usuário foi revogado",
+      });
+
+      loadUsers();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível remover o usuário",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (user: UserData) => {
+    setSelectedUser(user);
+    setNewUserName(user.full_name);
+    setNewUserRole(user.role);
+    setSelectedBranches(user.branches.map(b => b.id));
+    setIsEditDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setNewUserName("");
+    setNewUserEmail("");
+    setNewUserPassword("");
+    setNewUserRole("employee");
+    setSelectedBranches([]);
+    setSelectedUser(null);
+  };
+
+  const toggleBranch = (branchId: string) => {
+    setSelectedBranches(prev => 
+      prev.includes(branchId)
+        ? prev.filter(id => id !== branchId)
+        : [...prev, branchId]
+    );
+  };
+
+  if (!canManageUsers) {
+    return (
+      <DashboardLayout>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Acesso Restrito</h2>
+            <p className="text-muted-foreground">
+              Você não tem permissão para gerenciar usuários
+            </p>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Users className="h-6 w-6" />
+              Gestão de Usuários
+            </h1>
+            <p className="text-muted-foreground">
+              Gerencie os usuários e suas permissões no sistema
+            </p>
+          </div>
+          <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Usuário
+          </Button>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Usuários Cadastrados</CardTitle>
+            <CardDescription>
+              Lista de todos os usuários com acesso ao sistema
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : users.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum usuário cadastrado ainda</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Perfil</TableHead>
+                    <TableHead>Filiais</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => {
+                    const RoleIcon = roleLabels[user.role].icon;
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.full_name}</TableCell>
+                        <TableCell>
+                          <Badge className={`${roleLabels[user.role].color} text-white`}>
+                            <RoleIcon className="h-3 w-3 mr-1" />
+                            {roleLabels[user.role].label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {user.branches.length === 0 ? (
+                              <span className="text-muted-foreground text-sm">Todas</span>
+                            ) : (
+                              user.branches.map(branch => (
+                                <Badge key={branch.id} variant="outline" className="text-xs">
+                                  {branch.name}
+                                </Badge>
+                              ))
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDialog(user)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {userRole === 'ceo' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Add User Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Novo Usuário</DialogTitle>
+            <DialogDescription>
+              Cadastre um novo usuário no sistema
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddUser} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="userName">Nome completo *</Label>
+              <Input
+                id="userName"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                placeholder="Nome do usuário"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="userEmail">E-mail *</Label>
+              <Input
+                id="userEmail"
+                type="email"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+                placeholder="email@exemplo.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="userPassword">Senha *</Label>
+              <div className="relative">
+                <Input
+                  id="userPassword"
+                  type={showPassword ? "text" : "password"}
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Perfil de acesso *</Label>
+              <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Funcionário
+                    </div>
+                  </SelectItem>
+                  {canCreateAdmins && (
+                    <>
+                      <SelectItem value="admin">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          Administrador
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ceo">
+                        <div className="flex items-center gap-2">
+                          <Crown className="h-4 w-4" />
+                          CEO
+                        </div>
+                      </SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Filiais de acesso</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {branches.map(branch => (
+                  <Button
+                    key={branch.id}
+                    type="button"
+                    variant={selectedBranches.includes(branch.id) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleBranch(branch.id)}
+                    className="justify-start"
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    {branch.name}
+                  </Button>
+                ))}
+              </div>
+              {selectedBranches.length === 0 && newUserRole !== 'ceo' && (
+                <p className="text-xs text-muted-foreground">
+                  Selecione pelo menos uma filial
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "Criando..." : "Criar Usuário"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+            <DialogDescription>
+              Altere as permissões e filiais do usuário
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditUser} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editUserName">Nome completo</Label>
+              <Input
+                id="editUserName"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                placeholder="Nome do usuário"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Perfil de acesso</Label>
+              <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Funcionário
+                    </div>
+                  </SelectItem>
+                  {canCreateAdmins && (
+                    <>
+                      <SelectItem value="admin">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          Administrador
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="ceo">
+                        <div className="flex items-center gap-2">
+                          <Crown className="h-4 w-4" />
+                          CEO
+                        </div>
+                      </SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Filiais de acesso</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {branches.map(branch => (
+                  <Button
+                    key={branch.id}
+                    type="button"
+                    variant={selectedBranches.includes(branch.id) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleBranch(branch.id)}
+                    className="justify-start"
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    {branch.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout>
+  );
+};
+
+export default Usuarios;

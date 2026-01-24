@@ -72,12 +72,22 @@ const Login = () => {
 
       const hasActivePlan = companies?.plan && companies.plan !== 'nenhum';
       
+      if (!hasActivePlan) {
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Escolha seu plano para continuar!",
+        });
+        navigate("/planos");
+        return;
+      }
+
       toast({
         title: "Login realizado com sucesso!",
-        description: hasActivePlan ? "Redirecionando para o dashboard..." : "Escolha seu plano para continuar!",
+        description: "Confirme seus dados para acessar o sistema...",
       });
       
-      navigate(hasActivePlan ? "/dashboard" : "/planos");
+      // Redirect to branch selection screen
+      navigate("/selecionar-filial");
     } catch (error: any) {
       toast({
         title: "Erro no login",

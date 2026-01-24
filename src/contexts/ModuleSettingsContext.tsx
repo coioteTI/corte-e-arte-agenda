@@ -21,6 +21,7 @@ export const DEFAULT_MODULES = [
   { key: 'relatorios', name: 'Relatórios', url: '/dashboard/relatorios' },
   { key: 'horarios', name: 'Horários', url: '/dashboard/horarios' },
   { key: 'planos', name: 'Plano', url: '/dashboard/planos' },
+  { key: 'usuarios', name: 'Usuários', url: '/dashboard/usuarios' },
 ];
 
 interface ModuleSettingsContextType {
