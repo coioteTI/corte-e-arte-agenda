@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, KeyRound } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,8 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lembrarSenha, setLembrarSenha] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [isFirstAccessMode, setIsFirstAccessMode] = useState(false);
+  const [checkingFirstAccess, setCheckingFirstAccess] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -33,6 +35,21 @@ const Login = () => {
       }
     }
   }, []);
+
+  // Check if user exists and is first access when email changes
+  const checkFirstAccess = async () => {
+    if (!email || !email.includes('@')) return;
+    
+    setCheckingFirstAccess(true);
+    try {
+      // We need to check if this user has is_first_access = true
+      // Since we can't query profiles without auth, we'll handle this after login attempt
+      setCheckingFirstAccess(false);
+    } catch (error) {
+      console.error('Error checking first access:', error);
+      setCheckingFirstAccess(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,6 +188,9 @@ const Login = () => {
                   )}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Se é seu primeiro acesso, use a senha temporária fornecida pelo administrador.
+              </p>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -212,6 +232,17 @@ const Login = () => {
               </Button>
             </div>
           </form>
+
+          {/* Info box for first access users */}
+          <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
+            <div className="flex items-start gap-2">
+              <KeyRound className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                <strong>Primeiro acesso?</strong> Use a senha temporária que o administrador enviou. 
+                Após o login, você poderá criar sua própria senha.
+              </p>
+            </div>
+          </div>
           
           <div className="mt-6 text-center space-y-3">
             <div className="text-sm text-muted-foreground">

@@ -156,9 +156,9 @@ const CriarSenha = () => {
           <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
             <KeyRound className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl">Primeiro Acesso</CardTitle>
+          <CardTitle className="text-xl">Criar Sua Senha</CardTitle>
           <CardDescription>
-            Este é seu primeiro acesso. Crie sua senha para continuar.
+            Este é seu primeiro acesso. Defina uma senha segura para continuar usando o sistema.
           </CardDescription>
         </CardHeader>
 
