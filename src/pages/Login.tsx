@@ -62,6 +62,22 @@ const Login = () => {
         localStorage.removeItem('email_salvo');
         localStorage.removeItem('senha_salva');
       }
+
+      // Check if this is first access (user needs to create password)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_first_access')
+        .eq('user_id', data.user?.id)
+        .single();
+
+      if (profile?.is_first_access) {
+        toast({
+          title: "Primeiro acesso detectado",
+          description: "Crie sua senha para continuar.",
+        });
+        navigate("/criar-senha");
+        return;
+      }
       
       // Verificar se o usuário tem um plano ativo
       const { data: companies } = await supabase
