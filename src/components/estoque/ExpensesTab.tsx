@@ -45,6 +45,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useBranch } from "@/contexts/BranchContext";
 
 interface Expense {
   id: string;
@@ -55,6 +56,7 @@ interface Expense {
   supplier_product_id: string | null;
   receipt_url: string | null;
   company_id: string;
+  branch_id?: string | null;
   created_at: string;
 }
 
@@ -82,12 +84,14 @@ interface ExpensesTabProps {
 }
 
 const ExpensesTab = ({ companyId, sales = [] }: ExpensesTabProps) => {
+  const { currentBranchId, userRole } = useBranch();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [lastBranchId, setLastBranchId] = useState<string | null>(null);
 
   // Filter state
   const [filterPeriod, setFilterPeriod] = useState<"day" | "week" | "month" | "all">("month");
@@ -106,30 +110,63 @@ const ExpensesTab = ({ companyId, sales = [] }: ExpensesTabProps) => {
   // View receipt dialog
   const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
 
+  // Check if should filter by branch (non-CEO users)
+  const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
+
   const loadData = useCallback(async () => {
     if (!companyId) return;
     
+    // Clear data when switching branches
+    if (lastBranchId !== null && lastBranchId !== currentBranchId) {
+      setExpenses([]);
+      setSuppliers([]);
+      setSupplierProducts([]);
+    }
+    
+    setLoading(true);
     try {
+      // Build queries with branch filtering
+      let expensesQuery = supabase.from("expenses").select("*").eq("company_id", companyId);
+      let suppliersQuery = supabase.from("suppliers").select("id, name").eq("company_id", companyId);
+      let productsQuery = supabase.from("supplier_products").select("id, name, supplier_id").eq("company_id", companyId);
+
+      // Apply branch filter for non-CEO users
+      if (shouldFilterByBranch) {
+        expensesQuery = expensesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        suppliersQuery = suppliersQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        productsQuery = productsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
       const [expensesRes, suppliersRes, productsRes] = await Promise.all([
-        supabase.from("expenses").select("*").eq("company_id", companyId).order("expense_date", { ascending: false }),
-        supabase.from("suppliers").select("id, name").eq("company_id", companyId).order("name"),
-        supabase.from("supplier_products").select("id, name, supplier_id").eq("company_id", companyId).order("name"),
+        expensesQuery.order("expense_date", { ascending: false }),
+        suppliersQuery.order("name"),
+        productsQuery.order("name"),
       ]);
 
       if (expensesRes.data) setExpenses(expensesRes.data);
       if (suppliersRes.data) setSuppliers(suppliersRes.data);
       if (productsRes.data) setSupplierProducts(productsRes.data);
+      setLastBranchId(currentBranchId);
     } catch (error) {
       console.error("Error loading expenses:", error);
       toast.error("Erro ao carregar gastos");
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, currentBranchId, shouldFilterByBranch, lastBranchId]);
 
+  // Initial load
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Reload when branch changes
+  useEffect(() => {
+    if (lastBranchId !== null && lastBranchId !== currentBranchId) {
+      console.log('[ExpensesTab] Branch changed, reloading data...');
+      loadData();
+    }
+  }, [currentBranchId, lastBranchId, loadData]);
 
   // Realtime subscriptions
   useEffect(() => {
@@ -200,6 +237,7 @@ const ExpensesTab = ({ companyId, sales = [] }: ExpensesTabProps) => {
         supplier_product_id: selectedProductId || null,
         receipt_url: receiptUrl || null,
         company_id: companyId,
+        branch_id: currentBranchId || null,
       };
 
       if (editingExpense) {

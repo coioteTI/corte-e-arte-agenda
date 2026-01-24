@@ -64,6 +64,7 @@ const Clientes = () => {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [avulsoCounter, setAvulsoCounter] = useState(0);
   const [finishAsPaid, setFinishAsPaid] = useState(true);
+  const [lastBranchId, setLastBranchId] = useState<string | null>(null);
 
   // Admin password protection state
   const [showAdminPasswordModal, setShowAdminPasswordModal] = useState(false);
@@ -103,9 +104,21 @@ const Clientes = () => {
   }, [companyId, hasAdminPassword]);
 
   const loadClientes = async () => {
+    // Clear data when switching branches
+    if (lastBranchId !== null && lastBranchId !== currentBranchId) {
+      setClientes([]);
+      setServices([]);
+      setProfessionals([]);
+      setClientHistory([]);
+    }
+    
+    setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       // Get company ID first
       const { data: company } = await supabase
@@ -114,7 +127,10 @@ const Clientes = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (!company) return;
+      if (!company) {
+        setLoading(false);
+        return;
+      }
       setCompanyId(company.id);
 
       // Build base queries with branch filtering
@@ -181,6 +197,8 @@ const Clientes = () => {
       } else {
         setClientes([]);
       }
+      
+      setLastBranchId(currentBranchId);
     } catch (error) {
       console.error('Error loading clients:', error);
       setClientes([]);
