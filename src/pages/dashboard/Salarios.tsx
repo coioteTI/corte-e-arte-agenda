@@ -23,7 +23,7 @@ import { useAdminPassword } from "@/hooks/useAdminPassword";
 import { useTimezone, formatDateInTimezone, getTodayInTimezone } from "@/hooks/useTimezone";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, parseISO, startOfDay, startOfWeek, startOfMonth, endOfDay, endOfWeek, endOfMonth, isWithinInterval, addDays } from "date-fns";
+import { format, parseISO, startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay, endOfWeek, endOfMonth, endOfYear, isWithinInterval, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { 
@@ -86,7 +86,7 @@ export default function Salarios() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [earnings, setEarnings] = useState<ProfessionalEarning[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState<"day" | "week" | "month">("month");
+  const [selectedPeriod, setSelectedPeriod] = useState<"day" | "week" | "month" | "year">("month");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState("earnings");
 
@@ -377,6 +377,10 @@ export default function Salarios() {
         start = startOfWeek(selectedDateLocal, { locale: ptBR });
         end = endOfWeek(selectedDateLocal, { locale: ptBR });
         break;
+      case "year":
+        start = startOfYear(selectedDateLocal);
+        end = endOfYear(selectedDateLocal);
+        break;
       case "month":
       default:
         start = startOfMonth(selectedDateLocal);
@@ -564,7 +568,7 @@ export default function Salarios() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button 
                   variant={selectedPeriod === "day" ? "default" : "outline"} 
                   size="sm"
@@ -585,6 +589,13 @@ export default function Salarios() {
                   onClick={() => setSelectedPeriod("month")}
                 >
                   Mês
+                </Button>
+                <Button 
+                  variant={selectedPeriod === "year" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => setSelectedPeriod("year")}
+                >
+                  Anual
                 </Button>
               </div>
               <Popover>

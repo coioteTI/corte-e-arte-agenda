@@ -731,80 +731,84 @@ const Estoque = () => {
         </div>
 
         {/* Stock Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total de Produtos</p>
-                  <p className="text-2xl font-bold">{stockStats.totalProducts}</p>
+            <CardContent className="p-3 md:pt-4 md:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Total de Produtos</p>
+                  <p className="text-xl md:text-2xl font-bold">{stockStats.totalProducts}</p>
                 </div>
-                <Package className="h-8 w-8 text-primary opacity-70" />
+                <Package className="h-6 w-6 md:h-8 md:w-8 text-primary opacity-70 shrink-0" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Valor em Estoque</p>
-                  <p className="text-2xl font-bold text-primary">R$ {stockStats.totalValue.toFixed(2)}</p>
+            <CardContent className="p-3 md:pt-4 md:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Valor em Estoque</p>
+                  <p className="text-xl md:text-2xl font-bold text-primary truncate">R$ {stockStats.totalValue.toFixed(2)}</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-green-500 opacity-70" />
+                <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-green-500 opacity-70 shrink-0" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Vendas Hoje (Pago)</p>
-                  <p className="text-2xl font-bold text-green-600">R$ {stockStats.todayPaidTotal.toFixed(2)}</p>
+            <CardContent className="p-3 md:pt-4 md:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Vendas Hoje (Pago)</p>
+                  <p className="text-xl md:text-2xl font-bold text-green-600 truncate">R$ {stockStats.todayPaidTotal.toFixed(2)}</p>
                 </div>
-                <ShoppingCart className="h-8 w-8 text-green-500 opacity-70" />
+                <ShoppingCart className="h-6 w-6 md:h-8 md:w-8 text-green-500 opacity-70 shrink-0" />
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Alertas</p>
-                  <div className="flex items-center gap-2">
+            <CardContent className="p-3 md:pt-4 md:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">Alertas</p>
+                  <div className="flex flex-wrap items-center gap-1">
                     {stockStats.outOfStockProducts > 0 && (
-                      <Badge variant="destructive">{stockStats.outOfStockProducts} sem estoque</Badge>
+                      <Badge variant="destructive" className="text-xs">{stockStats.outOfStockProducts} sem</Badge>
                     )}
                     {stockStats.lowStockProducts > 0 && (
-                      <Badge variant="secondary">{stockStats.lowStockProducts} baixo</Badge>
+                      <Badge variant="secondary" className="text-xs">{stockStats.lowStockProducts} baixo</Badge>
                     )}
                     {stockStats.outOfStockProducts === 0 && stockStats.lowStockProducts === 0 && (
-                      <Badge variant="default">Tudo OK</Badge>
+                      <Badge variant="default" className="text-xs">Tudo OK</Badge>
                     )}
                   </div>
                 </div>
-                <AlertCircle className="h-8 w-8 text-yellow-500 opacity-70" />
+                <AlertCircle className="h-6 w-6 md:h-8 md:w-8 text-yellow-500 opacity-70 shrink-0" />
               </div>
             </CardContent>
           </Card>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="products" className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Produtos
+          <TabsList className="flex flex-wrap h-auto gap-1">
+            <TabsTrigger value="products" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
+              <Package className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Produtos</span>
+              <span className="sm:hidden">Prod.</span>
             </TabsTrigger>
-            <TabsTrigger value="sales" className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              Vendas
+            <TabsTrigger value="sales" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
+              <History className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Vendas</span>
+              <span className="sm:hidden">Vend.</span>
             </TabsTrigger>
-            <TabsTrigger value="suppliers" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Fornecedores
+            <TabsTrigger value="suppliers" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
+              <Building2 className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Fornecedores</span>
+              <span className="sm:hidden">Forn.</span>
             </TabsTrigger>
-            <TabsTrigger value="expenses" className="flex items-center gap-2">
-              <Receipt className="h-4 w-4" />
-              Gastos
+            <TabsTrigger value="expenses" className="flex items-center gap-1 text-xs md:text-sm px-2 md:px-3">
+              <Receipt className="h-3 w-3 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Gastos</span>
+              <span className="sm:hidden">Gast.</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1132,7 +1136,7 @@ const Estoque = () => {
 
           {/* Expenses Tab */}
           <TabsContent value="expenses">
-            <ExpensesTab companyId={companyId} />
+            <ExpensesTab companyId={companyId} sales={sales} />
           </TabsContent>
         </Tabs>
       </div>
