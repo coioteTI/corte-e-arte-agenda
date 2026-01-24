@@ -36,6 +36,8 @@ interface CompanyData {
   company: any;
   stockSales: any[];
   stockProducts: any[];
+  expenses: any[];
+  supplierProducts: any[];
 }
 
 const Relatorios = () => {
@@ -53,7 +55,9 @@ const Relatorios = () => {
     professionals: [],
     company: null,
     stockSales: [],
-    stockProducts: []
+    stockProducts: [],
+    expenses: [],
+    supplierProducts: []
   });
   const { toast } = useToast();
 
@@ -97,12 +101,14 @@ const Relatorios = () => {
       }
       setCheckingAuth(false);
 
-      const [servicesRes, appointmentsRes, professionalsRes, stockSalesRes, stockProductsRes] = await Promise.all([
+      const [servicesRes, appointmentsRes, professionalsRes, stockSalesRes, stockProductsRes, expensesRes, supplierProductsRes] = await Promise.all([
         supabase.from('services').select('*').eq('company_id', company.id),
         supabase.from('appointments').select(`*, services(*), professionals(*), clients(*)`).eq('company_id', company.id),
         supabase.from('professionals').select('*').eq('company_id', company.id),
         supabase.from('stock_sales').select(`*, stock_products(*)`).eq('company_id', company.id),
-        supabase.from('stock_products').select('*').eq('company_id', company.id)
+        supabase.from('stock_products').select('*').eq('company_id', company.id),
+        supabase.from('expenses').select(`*, suppliers(*)`).eq('company_id', company.id),
+        supabase.from('supplier_products').select('*').eq('company_id', company.id)
       ]);
 
       setCompanyData({
@@ -111,7 +117,9 @@ const Relatorios = () => {
         professionals: professionalsRes.data || [],
         company,
         stockSales: stockSalesRes.data || [],
-        stockProducts: stockProductsRes.data || []
+        stockProducts: stockProductsRes.data || [],
+        expenses: expensesRes.data || [],
+        supplierProducts: supplierProductsRes.data || []
       });
 
     } catch (error) {
@@ -168,6 +176,10 @@ const Relatorios = () => {
 
   // Filter stock sales by period
   const filteredStockSales = companyData.stockSales.filter(sale => filterByPeriod(sale.sold_at));
+
+  // Filter expenses by period
+  const filteredExpenses = companyData.expenses.filter(expense => filterByPeriod(expense.expense_date));
+  const totalGastos = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
   // Calculate metrics based on filtered data
   const totalFaturado = filteredAppointments
