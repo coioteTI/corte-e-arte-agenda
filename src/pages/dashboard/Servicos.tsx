@@ -10,8 +10,10 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Tag } from "lucide-react";
+import { useBranch } from "@/contexts/BranchContext";
 
 const Servicos = () => {
+  const { currentBranchId, userRole } = useBranch();
   const [servicos, setServicos] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -40,9 +42,12 @@ const Servicos = () => {
   });
   const { toast } = useToast();
 
+  // Should filter by branch - CEO sees all, others see only their branch
+  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+
   useEffect(() => {
     loadCompanyData();
-  }, []);
+  }, [currentBranchId, userRole]);
 
   const loadCompanyData = async () => {
     try {
@@ -60,11 +65,17 @@ const Servicos = () => {
       
       setCompanyId(company.id);
 
-      // Load services
-      const { data: servicesData } = await supabase
+      // Build query with branch filtering
+      let servicesQuery = supabase
         .from('services')
         .select('*')
         .eq('company_id', company.id);
+
+      if (shouldFilterByBranch) {
+        servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
+      const { data: servicesData } = await servicesQuery;
 
       setServicos(servicesData || []);
     } catch (error) {
@@ -94,7 +105,7 @@ const Servicos = () => {
     }
 
     try {
-      console.log('Adding service with company_id:', companyId); // Debug log
+      console.log('Adding service with company_id:', companyId, 'branch_id:', currentBranchId);
       const { error } = await supabase
         .from('services')
         .insert({
@@ -103,6 +114,7 @@ const Servicos = () => {
           duration: parseInt(novoServico.duracao),
           price: parseFloat(novoServico.valor),
           company_id: companyId,
+          branch_id: currentBranchId,
           professional_responsible: novoServico.profissional,
           is_promotion: novoServico.isPromocao,
           promotional_price: novoServico.valorPromocional ? parseFloat(novoServico.valorPromocional) : null,
