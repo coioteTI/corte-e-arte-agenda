@@ -55,6 +55,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AdminPasswordModal } from "@/components/AdminPasswordModal";
 import { useAdminPassword } from "@/hooks/useAdminPassword";
+import { useBranch } from "@/contexts/BranchContext";
 
 interface Category {
   id: string;
@@ -95,6 +96,7 @@ interface Sale {
 }
 
 const Estoque = () => {
+  const { currentBranchId, userRole } = useBranch();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -103,6 +105,8 @@ const Estoque = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("products");
 
+  // Should filter by branch - CEO sees all, others see only their branch
+  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
   // Category form state
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -168,11 +172,22 @@ const Estoque = () => {
       const hasPass = await hasAdminPassword(company.id);
       setHasAdminPasswordConfigured(hasPass);
 
+      // Build queries with branch filtering
+      let categoriesQuery = supabase.from("stock_categories").select("*").eq("company_id", company.id).order("name");
+      let productsQuery = supabase.from("stock_products").select("*").eq("company_id", company.id).order("name");
+      let salesQuery = supabase.from("stock_sales").select("*").eq("company_id", company.id).order("sold_at", { ascending: false }).limit(100);
+
+      if (shouldFilterByBranch) {
+        categoriesQuery = categoriesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        productsQuery = productsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        salesQuery = salesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
       const [categoriesRes, productsRes, clientsRes, salesRes] = await Promise.all([
-        supabase.from("stock_categories").select("*").eq("company_id", company.id).order("name"),
-        supabase.from("stock_products").select("*").eq("company_id", company.id).order("name"),
+        categoriesQuery,
+        productsQuery,
         supabase.from("clients").select("id, name, phone").order("name"),
-        supabase.from("stock_sales").select("*").eq("company_id", company.id).order("sold_at", { ascending: false }).limit(100),
+        salesQuery,
       ]);
 
       if (categoriesRes.data) setCategories(categoriesRes.data);
@@ -185,12 +200,12 @@ const Estoque = () => {
     } finally {
       setLoading(false);
     }
-  }, [hasAdminPassword]);
+  }, [hasAdminPassword, shouldFilterByBranch, currentBranchId]);
 
-  // Initial load
+  // Initial load - reload when branch changes
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, currentBranchId]);
 
   // Realtime subscriptions for automatic updates
   useEffect(() => {

@@ -28,6 +28,7 @@ import { Users, ShoppingBag, TrendingUp, Package, Download, Loader2, Lock } from
 import jsPDF from "jspdf";
 import { AdminPasswordModal } from "@/components/AdminPasswordModal";
 import { useAdminPassword } from "@/hooks/useAdminPassword";
+import { useBranch } from "@/contexts/BranchContext";
 
 interface CompanyData {
   services: any[];
@@ -41,6 +42,7 @@ interface CompanyData {
 }
 
 const Relatorios = () => {
+  const { currentBranchId, userRole } = useBranch();
   const [loading, setLoading] = useState(true);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
@@ -69,9 +71,12 @@ const Relatorios = () => {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
+  // Should filter by branch - CEO sees all (consolidated), others see only their branch
+  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+
   useEffect(() => {
     fetchCompanyData();
-  }, []);
+  }, [currentBranchId, userRole]);
 
   const fetchCompanyData = async () => {
     try {
@@ -101,12 +106,27 @@ const Relatorios = () => {
       }
       setCheckingAuth(false);
 
+      // Build queries with optional branch filtering
+      let servicesQuery = supabase.from('services').select('*').eq('company_id', company.id);
+      let appointmentsQuery = supabase.from('appointments').select(`*, services(*), professionals(*), clients(*)`).eq('company_id', company.id);
+      let professionalsQuery = supabase.from('professionals').select('*').eq('company_id', company.id);
+      let stockSalesQuery = supabase.from('stock_sales').select(`*, stock_products(*)`).eq('company_id', company.id);
+      let stockProductsQuery = supabase.from('stock_products').select('*').eq('company_id', company.id);
+
+      if (shouldFilterByBranch) {
+        servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        stockSalesQuery = stockSalesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        stockProductsQuery = stockProductsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
       const [servicesRes, appointmentsRes, professionalsRes, stockSalesRes, stockProductsRes, expensesRes, supplierProductsRes] = await Promise.all([
-        supabase.from('services').select('*').eq('company_id', company.id),
-        supabase.from('appointments').select(`*, services(*), professionals(*), clients(*)`).eq('company_id', company.id),
-        supabase.from('professionals').select('*').eq('company_id', company.id),
-        supabase.from('stock_sales').select(`*, stock_products(*)`).eq('company_id', company.id),
-        supabase.from('stock_products').select('*').eq('company_id', company.id),
+        servicesQuery,
+        appointmentsQuery,
+        professionalsQuery,
+        stockSalesQuery,
+        stockProductsQuery,
         supabase.from('expenses').select(`*, suppliers(*)`).eq('company_id', company.id),
         supabase.from('supplier_products').select('*').eq('company_id', company.id)
       ]);

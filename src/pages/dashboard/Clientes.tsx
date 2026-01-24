@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminPasswordModal } from "@/components/AdminPasswordModal";
 import { useAdminPassword } from "@/hooks/useAdminPassword";
+import { useBranch } from "@/contexts/BranchContext";
 
 interface Service {
   id: string;
@@ -33,6 +34,7 @@ const Clientes = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { hasAdminPassword } = useAdminPassword();
+  const { currentBranchId, userRole } = useBranch();
   const [searchTerm, setSearchTerm] = useState("");
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,9 +84,12 @@ const Clientes = () => {
   const [addServiceIds, setAddServiceIds] = useState<string[]>([]);
   const [addServiceLoading, setAddServiceLoading] = useState(false);
 
+  // Should filter by branch - CEO sees all, others see only their branch
+  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+
   useEffect(() => {
     loadClientes();
-  }, []);
+  }, [currentBranchId, userRole]);
 
   useEffect(() => {
     // Check if admin password is configured
@@ -112,23 +117,37 @@ const Clientes = () => {
       if (!company) return;
       setCompanyId(company.id);
 
-      // Load clients, services and professionals in parallel
+      // Build base queries with branch filtering
+      let appointmentsQuery = supabase
+        .from('appointments')
+        .select('client_id')
+        .eq('company_id', company.id);
+      
+      let servicesQuery = supabase
+        .from('services')
+        .select('id, name, price, duration')
+        .eq('company_id', company.id)
+        .order('name');
+      
+      let professionalsQuery = supabase
+        .from('professionals')
+        .select('id, name, specialty')
+        .eq('company_id', company.id)
+        .eq('is_available', true)
+        .order('name');
+
+      // Apply branch filter if not CEO
+      if (shouldFilterByBranch) {
+        appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
+      // Load data in parallel
       const [appointmentsRes, servicesRes, professionalsRes, avulsoCountRes] = await Promise.all([
-        supabase
-          .from('appointments')
-          .select('client_id')
-          .eq('company_id', company.id),
-        supabase
-          .from('services')
-          .select('id, name, price, duration')
-          .eq('company_id', company.id)
-          .order('name'),
-        supabase
-          .from('professionals')
-          .select('id, name, specialty')
-          .eq('company_id', company.id)
-          .eq('is_available', true)
-          .order('name'),
+        appointmentsQuery,
+        servicesQuery,
+        professionalsQuery,
         supabase
           .from('clients')
           .select('id', { count: 'exact' })

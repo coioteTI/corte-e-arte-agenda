@@ -12,8 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Edit, Trash2 } from "lucide-react";
 import { ProfessionalAvatarUpload } from "@/components/ProfessionalAvatarUpload";
+import { useBranch } from "@/contexts/BranchContext";
 
 const Profissionais = () => {
+  const { currentBranchId, userRole } = useBranch();
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -38,9 +40,12 @@ const Profissionais = () => {
   });
   const { toast } = useToast();
 
+  // Should filter by branch - CEO sees all, others see only their branch
+  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+
   useEffect(() => {
     loadCompanyData();
-  }, []);
+  }, [currentBranchId, userRole]);
 
   const loadCompanyData = async () => {
     try {
@@ -58,11 +63,17 @@ const Profissionais = () => {
       
       setCompanyId(company.id);
 
-      // Load professionals
-      const { data: professionalsData } = await supabase
+      // Build query with branch filtering
+      let professionalsQuery = supabase
         .from('professionals')
         .select('*')
         .eq('company_id', company.id);
+
+      if (shouldFilterByBranch) {
+        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
+      const { data: professionalsData } = await professionalsQuery;
 
       setProfissionais(professionalsData || []);
     } catch (error) {
@@ -92,7 +103,7 @@ const Profissionais = () => {
     }
 
     try {
-      console.log('Adding professional with company_id:', companyId);
+      console.log('Adding professional with company_id:', companyId, 'branch_id:', currentBranchId);
       const { error } = await supabase
         .from('professionals')
         .insert({
@@ -101,6 +112,7 @@ const Profissionais = () => {
           phone: novoProfissional.telefone,
           specialty: novoProfissional.especialidade,
           company_id: companyId,
+          branch_id: currentBranchId,
           is_available: novoProfissional.disponivel,
           avatar_url: novoProfissional.avatar_url
         });
