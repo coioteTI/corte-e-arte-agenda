@@ -114,6 +114,9 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
+      // If changing branches, this will trigger data reload in components
+      const previousBranchId = currentBranch?.id;
+
       const { error } = await supabase
         .from('user_sessions')
         .upsert({
@@ -131,6 +134,11 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const branch = branches.find(b => b.id === branchId);
       if (branch) {
         setCurrentBranchState(branch);
+        
+        // Log branch switch for debugging
+        if (previousBranchId && previousBranchId !== branchId) {
+          console.log(`[BranchContext] Switched from branch ${previousBranchId} to ${branchId}`);
+        }
       }
 
       return true;

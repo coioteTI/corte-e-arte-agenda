@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DashboardLayout from "@/components/DashboardLayout";
+import { LoadingSkeleton, ErrorState } from "@/components/LoadingState";
 import { useAdminPassword } from "@/hooks/useAdminPassword";
 import { useTimezone, formatDateInTimezone, getTodayInTimezone } from "@/hooks/useTimezone";
+import { useBranch } from "@/contexts/BranchContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, parseISO, startOfDay, startOfWeek, startOfMonth, startOfYear, endOfDay, endOfWeek, endOfMonth, endOfYear, isWithinInterval, addDays } from "date-fns";
@@ -81,8 +83,13 @@ interface Payment {
 
 export default function Salarios() {
   const navigate = useNavigate();
+  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
+  const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
+  
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string>("");
+  const [lastBranchId, setLastBranchId] = useState<string | null>(null);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [earnings, setEarnings] = useState<ProfessionalEarning[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -176,6 +183,9 @@ export default function Salarios() {
 
   const loadData = useCallback(async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -185,22 +195,21 @@ export default function Salarios() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!companies) return;
+      if (!companies) {
+        setError('Empresa não encontrada');
+        return;
+      }
 
       setCompanyId(companies.id);
 
-      // Load professionals
-      const { data: professionalsData } = await supabase
+      // Build queries with branch filtering
+      let professionalsQuery = supabase
         .from("professionals")
         .select("id, name, specialty")
         .eq("company_id", companies.id)
         .eq("is_available", true);
 
-      setProfessionals(professionalsData || []);
-
-      // Load paid appointments with earnings
-      // IMPORTANT: Only payment_status = 'paid' AND status != 'cancelled' are counted
-      const { data: appointmentsData } = await supabase
+      let appointmentsQuery = supabase
         .from("appointments")
         .select(`
           id,
@@ -219,8 +228,7 @@ export default function Salarios() {
         .neq("status", "cancelled")
         .order("appointment_date", { ascending: false });
 
-      // Load payments
-      const { data: paymentsData } = await supabase
+      let paymentsQuery = supabase
         .from("professional_payments")
         .select(`
           id,
@@ -236,7 +244,26 @@ export default function Salarios() {
         .eq("company_id", companies.id)
         .order("payment_date", { ascending: false });
 
-      const formattedPayments: Payment[] = (paymentsData || []).map(p => ({
+      // Apply branch filter if not CEO
+      if (shouldFilterByBranch && currentBranchId) {
+        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        paymentsQuery = paymentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
+      // Execute queries with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Tempo limite excedido. Tente novamente.')), 15000)
+      );
+
+      const [professionalsData, appointmentsData, paymentsData] = await Promise.race([
+        Promise.all([professionalsQuery, appointmentsQuery, paymentsQuery]),
+        timeoutPromise
+      ]) as any[];
+
+      setProfessionals(professionalsData.data || []);
+
+      const formattedPayments: Payment[] = (paymentsData.data || []).map((p: any) => ({
         id: p.id,
         professional_id: p.professional_id,
         professional_name: (p.professionals as any)?.name || "Profissional removido",
@@ -253,7 +280,7 @@ export default function Salarios() {
       // Calculate earnings by professional
       const earningsByProfessional: Record<string, ProfessionalEarning> = {};
 
-      (professionalsData || []).forEach(prof => {
+      (professionalsData.data || []).forEach((prof: Professional) => {
         earningsByProfessional[prof.id] = {
           professional: prof,
           totalEarnings: 0,
@@ -263,15 +290,10 @@ export default function Salarios() {
         };
       });
 
-      // Only count appointments that are:
-      // 1. payment_status = 'paid'
-      // 2. status != 'cancelled'
-      // 3. total_price > 0
-      (appointmentsData || []).forEach(apt => {
+      (appointmentsData.data || []).forEach((apt: any) => {
         const profId = apt.professional_id;
         const amount = apt.total_price || 0;
         
-        // Double check: only count valid paid appointments
         if (profId && 
             earningsByProfessional[profId] && 
             apt.payment_status === 'paid' && 
@@ -289,26 +311,38 @@ export default function Salarios() {
         }
       });
 
-      // Calculate total paid per professional
       formattedPayments.forEach(payment => {
         if (earningsByProfessional[payment.professional_id]) {
           earningsByProfessional[payment.professional_id].totalPaid += payment.amount;
         }
       });
 
-      // Calculate balance
       Object.values(earningsByProfessional).forEach(earning => {
         earning.balance = earning.totalEarnings - earning.totalPaid;
       });
 
       setEarnings(Object.values(earningsByProfessional));
-    } catch (error) {
-      console.error("Error loading data:", error);
+      setLastBranchId(currentBranchId);
+    } catch (err) {
+      console.error("Error loading data:", err);
+      setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       toast.error("Erro ao carregar dados");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentBranchId, shouldFilterByBranch]);
+
+  // Reload when branch changes
+  useEffect(() => {
+    if (branchLoading || !isAuthenticated) return;
+    
+    if (lastBranchId !== currentBranchId) {
+      setProfessionals([]);
+      setEarnings([]);
+      setPayments([]);
+      loadData();
+    }
+  }, [currentBranchId, branchLoading, isAuthenticated, lastBranchId, loadData]);
 
   // Setup realtime subscription for automatic updates
   useEffect(() => {

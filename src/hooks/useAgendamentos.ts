@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBranch } from '@/contexts/BranchContext';
+import { toast } from 'sonner';
 
 interface Appointment {
   id: string;
@@ -50,6 +51,9 @@ interface Professional {
   branch_id?: string;
 }
 
+// Timeout padrão de 15 segundos
+const REQUEST_TIMEOUT = 15000;
+
 export const useAgendamentos = () => {
   const [agendamentos, setAgendamentos] = useState<Appointment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -58,10 +62,18 @@ export const useAgendamentos = () => {
   const [companyId, setCompanyId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastBranchId, setLastBranchId] = useState<string | null>(null);
 
-  const { currentBranchId, userRole } = useBranch();
+  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadData = useCallback(async () => {
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     try {
       setLoading(true);
       setError(null);
@@ -120,13 +132,21 @@ export const useAgendamentos = () => {
         appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
       }
 
-      // Load all data in parallel
-      const [servicesData, professionalsData, clientsData, appointmentsData] = await Promise.all([
-        servicesQuery,
-        professionalsQuery,
-        clientsQuery,
-        appointmentsQuery,
-      ]);
+      // Timeout promise
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Tempo limite excedido. Verifique sua conexão e tente novamente.')), REQUEST_TIMEOUT)
+      );
+
+      // Load all data in parallel with timeout
+      const [servicesData, professionalsData, clientsData, appointmentsData] = await Promise.race([
+        Promise.all([
+          servicesQuery,
+          professionalsQuery,
+          clientsQuery,
+          appointmentsQuery,
+        ]),
+        timeoutPromise
+      ]) as any[];
 
       // Check for errors
       if (servicesData.error) throw servicesData.error;
@@ -140,10 +160,10 @@ export const useAgendamentos = () => {
       setClients(clientsData.data || []);
 
       // Enrich appointments with related data
-      const enrichedAppointments = appointmentsData.data?.map(apt => {
-        const client = clientsData.data?.find(c => c.id === apt.client_id);
-        const service = servicesData.data?.find(s => s.id === apt.service_id);
-        const professional = professionalsData.data?.find(p => p.id === apt.professional_id);
+      const enrichedAppointments = appointmentsData.data?.map((apt: any) => {
+        const client = clientsData.data?.find((c: Client) => c.id === apt.client_id);
+        const service = servicesData.data?.find((s: Service) => s.id === apt.service_id);
+        const professional = professionalsData.data?.find((p: Professional) => p.id === apt.professional_id);
 
         return {
           ...apt,
@@ -154,17 +174,52 @@ export const useAgendamentos = () => {
       }) || [];
 
       setAgendamentos(enrichedAppointments);
+      setLastBranchId(currentBranchId);
     } catch (err) {
+      // Don't show error for aborted requests
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar dados';
       console.error('Error loading data:', err);
-      setError('Erro ao carregar dados');
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   }, [currentBranchId, userRole]);
 
+  // Clear and reload when branch changes
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (branchLoading) return;
+
+    // Detect branch change and clear data before reloading
+    if (lastBranchId !== currentBranchId) {
+      // Clear all data to prevent data leakage
+      setAgendamentos([]);
+      setClients([]);
+      setServices([]);
+      setProfessionals([]);
+      loadData();
+    }
+  }, [currentBranchId, branchLoading, lastBranchId, loadData]);
+
+  // Initial load
+  useEffect(() => {
+    if (!branchLoading && lastBranchId === null) {
+      loadData();
+    }
+  }, [branchLoading, lastBranchId, loadData]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   return {
     agendamentos,

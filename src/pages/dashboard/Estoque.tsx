@@ -96,13 +96,15 @@ interface Sale {
 }
 
 const Estoque = () => {
-  const { currentBranchId, userRole } = useBranch();
+  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastBranchId, setLastBranchId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("products");
 
   // Should filter by branch - CEO sees all, others see only their branch
@@ -156,6 +158,9 @@ const Estoque = () => {
 
   const loadData = useCallback(async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -165,7 +170,10 @@ const Estoque = () => {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!company) return;
+      if (!company) {
+        setError('Empresa não encontrada');
+        return;
+      }
       setCompanyId(company.id);
 
       // Check if admin password is configured
@@ -183,29 +191,53 @@ const Estoque = () => {
         salesQuery = salesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
       }
 
-      const [categoriesRes, productsRes, clientsRes, salesRes] = await Promise.all([
-        categoriesQuery,
-        productsQuery,
-        supabase.from("clients").select("id, name, phone").order("name"),
-        salesQuery,
-      ]);
+      // Timeout promise
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Tempo limite excedido')), 15000)
+      );
+
+      const [categoriesRes, productsRes, clientsRes, salesRes] = await Promise.race([
+        Promise.all([
+          categoriesQuery,
+          productsQuery,
+          supabase.from("clients").select("id, name, phone").order("name"),
+          salesQuery,
+        ]),
+        timeoutPromise
+      ]) as any[];
 
       if (categoriesRes.data) setCategories(categoriesRes.data);
       if (productsRes.data) setProducts(productsRes.data);
       if (clientsRes.data) setClients(clientsRes.data);
       if (salesRes.data) setSales(salesRes.data);
-    } catch (error) {
-      console.error("Error loading data:", error);
+      setLastBranchId(currentBranchId);
+    } catch (err) {
+      console.error("Error loading data:", err);
+      setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       toast.error("Erro ao carregar dados");
     } finally {
       setLoading(false);
     }
   }, [hasAdminPassword, shouldFilterByBranch, currentBranchId]);
 
-  // Initial load - reload when branch changes
+  // Clear and reload when branch changes
   useEffect(() => {
-    loadData();
-  }, [loadData, currentBranchId]);
+    if (branchLoading) return;
+    
+    if (lastBranchId !== currentBranchId) {
+      setCategories([]);
+      setProducts([]);
+      setSales([]);
+      loadData();
+    }
+  }, [currentBranchId, branchLoading, lastBranchId, loadData]);
+
+  // Initial load
+  useEffect(() => {
+    if (!branchLoading && lastBranchId === null) {
+      loadData();
+    }
+  }, [branchLoading, lastBranchId, loadData]);
 
   // Realtime subscriptions for automatic updates
   useEffect(() => {
