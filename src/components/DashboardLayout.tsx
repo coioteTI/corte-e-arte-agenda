@@ -20,6 +20,7 @@ import { SubscriptionStatusBanner } from "./SubscriptionStatusBanner";
 import { SubscriptionBlocker } from "./SubscriptionBlocker";
 import { ThemeToggle } from "./ThemeToggle";
 import { BranchSelector } from "./BranchSelector";
+import { NotificationBell } from "./NotificationBell";
 import { useModuleSettingsContext, DEFAULT_MODULES } from "@/contexts/ModuleSettingsContext";
 import { useBranch } from "@/contexts/BranchContext";
 import { AppRole } from "@/hooks/useUserRole";
@@ -226,6 +227,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <SidebarTrigger />
               <div className="flex items-center space-x-2 md:space-x-4">
                 <BranchSelector />
+                <NotificationBell />
                 <div className="text-xs md:text-sm text-muted-foreground hidden sm:block">
                   Bem-vindo, {companyName || 'Administrador'}
                 </div>

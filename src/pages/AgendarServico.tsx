@@ -81,6 +81,7 @@ type Professional = {
 type Appointment = {
   id?: string;
   company_id: string;
+  branch_id?: string | null;
   service_id: string;
   professional_id: string;
   client_id?: string | null;
@@ -766,6 +767,7 @@ export default function AgendarServico() {
 
       const appointmentData: Appointment = {
         company_id: company.id,
+        branch_id: selectedBranchId, // Include branch_id for notifications
         client_id: clientId,
         service_id: selectedServiceIds[0]!, // Use first service
         professional_id: selectedProfessionalId!,
