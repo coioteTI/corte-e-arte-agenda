@@ -186,7 +186,45 @@ const Login = () => {
     }
   };
 
-  // Handle first access - send password creation link
+  // Handle first access login with temporary password
+  const handleTempPasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      });
+
+      if (error) {
+        toast({
+          title: "Erro no login",
+          description: "Senha temporária inválida. Verifique com o administrador.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Login successful - redirect to create permanent password
+      toast({
+        title: "Login realizado!",
+        description: "Agora crie sua senha definitiva.",
+      });
+      
+      navigate("/criar-senha");
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: "Erro ao fazer login. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle first access - send password creation link (backup option)
   const handleFirstAccessRequest = async () => {
     setSendingResetEmail(true);
     try {
@@ -260,7 +298,7 @@ const Login = () => {
     );
   }
 
-  // First Access - needs to create password
+  // First Access - needs to create password with temp password
   if (step === 'first-access') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -276,7 +314,7 @@ const Login = () => {
             </div>
             <CardTitle className="text-xl">Primeiro Acesso</CardTitle>
             <CardDescription>
-              {userMessage}
+              {userMessage || "Use a senha temporária fornecida pelo administrador para fazer login."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -286,8 +324,71 @@ const Login = () => {
               </p>
             </div>
 
+            {/* Direct login with temp password */}
+            <form onSubmit={handleTempPasswordLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="tempSenha">Senha Temporária</Label>
+                <div className="relative">
+                  <Input
+                    id="tempSenha"
+                    type={mostrarSenha ? "text" : "password"}
+                    placeholder="Cole a senha temporária aqui"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    required
+                    autoFocus
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setMostrarSenha(!mostrarSenha)}
+                  >
+                    {mostrarSenha ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Peça ao administrador a senha temporária gerada no cadastro.
+                </p>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading || !senha}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Entrando...
+                  </>
+                ) : (
+                  <>
+                    Entrar com Senha Temporária
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">ou</span>
+              </div>
+            </div>
+
             <Button 
               onClick={handleFirstAccessRequest}
+              variant="outline"
               className="w-full" 
               disabled={sendingResetEmail}
             >
@@ -299,7 +400,7 @@ const Login = () => {
               ) : (
                 <>
                   <Mail className="h-4 w-4 mr-2" />
-                  Enviar Link para Criar Senha
+                  Receber Link por E-mail
                 </>
               )}
             </Button>
