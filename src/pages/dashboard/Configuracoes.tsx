@@ -108,40 +108,82 @@ const Configuracoes = () => {
 
   // Check if admin password is configured and require authentication
   useEffect(() => {
+    let isMounted = true;
+
     const checkAdminPassword = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+          console.log('No user found or auth error, loading as guest');
+          if (isMounted) {
+            setHasPassword(false);
+            setIsAuthenticated(true);
+            setLoading(false);
+          }
+          return;
+        }
 
-        const { data: companies } = await supabase
+        const { data: companies, error: companyError } = await supabase
           .from("companies")
           .select("id")
           .eq("user_id", user.id)
           .maybeSingle();
 
-        if (companies) {
-          const passwordExists = await hasAdminPassword(companies.id);
-          setHasPassword(passwordExists);
-          
-          if (passwordExists) {
-            setLoading(false);
-          } else {
+        if (companyError) {
+          console.error("Error fetching company:", companyError);
+          if (isMounted) {
+            setHasPassword(false);
             setIsAuthenticated(true);
             loadCompanyData();
           }
+          return;
+        }
+
+        if (companies) {
+          try {
+            const passwordExists = await hasAdminPassword(companies.id);
+            if (isMounted) {
+              setHasPassword(passwordExists);
+              
+              if (passwordExists) {
+                setLoading(false);
+              } else {
+                setIsAuthenticated(true);
+                loadCompanyData();
+              }
+            }
+          } catch (pwError) {
+            console.error("Error checking password:", pwError);
+            if (isMounted) {
+              setHasPassword(false);
+              setIsAuthenticated(true);
+              loadCompanyData();
+            }
+          }
         } else {
           // No company yet, allow access to create one
-          setIsAuthenticated(true);
-          loadCompanyData();
+          if (isMounted) {
+            setHasPassword(false);
+            setIsAuthenticated(true);
+            loadCompanyData();
+          }
         }
       } catch (error) {
         console.error("Error checking admin password:", error);
-        setIsAuthenticated(true);
-        loadCompanyData();
+        if (isMounted) {
+          setHasPassword(false);
+          setIsAuthenticated(true);
+          setLoading(false);
+        }
       }
     };
 
     checkAdminPassword();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -599,6 +641,23 @@ const Configuracoes = () => {
     }
   ];
 
+  // Show loading state while checking password
+  if (hasPassword === null) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <h1 className="text-2xl font-semibold">Configurações</h1>
+          <div className="flex items-center justify-center p-12">
+            <div className="flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="text-muted-foreground">Verificando acesso...</p>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   // Show password protection screen
   if (hasPassword && !isAuthenticated) {
     return (
@@ -671,8 +730,11 @@ const Configuracoes = () => {
       <DashboardLayout>
         <div className="space-y-6">
           <h1 className="text-2xl font-semibold">Configurações</h1>
-          <div className="text-center p-12">
-            <p className="text-muted-foreground">Carregando configurações...</p>
+          <div className="flex items-center justify-center p-12">
+            <div className="flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p className="text-muted-foreground">Carregando configurações...</p>
+            </div>
           </div>
         </div>
       </DashboardLayout>
