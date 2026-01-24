@@ -115,7 +115,23 @@ const BranchSelection = () => {
         return;
       }
 
-      // Create first branch from company data
+      // FIRST: Assign CEO role to user (BEFORE creating branch, so RLS policy allows it)
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .upsert({
+          user_id: user.id,
+          role: 'ceo',
+        }, { onConflict: 'user_id' });
+
+      if (roleError) {
+        console.error('Error assigning CEO role:', roleError);
+        throw roleError;
+      }
+
+      // Wait a moment for RLS to recognize the new role
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Now create first branch from company data (user now has CEO role)
       const { data: newBranch, error: branchError } = await supabase
         .from('branches')
         .insert({
@@ -130,24 +146,23 @@ const BranchSelection = () => {
         .select()
         .single();
 
-      if (branchError) throw branchError;
-
-      // Assign CEO role to user
-      await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: user.id,
-          role: 'ceo',
-        }, { onConflict: 'user_id,role' });
+      if (branchError) {
+        console.error('Error creating branch:', branchError);
+        throw branchError;
+      }
 
       // Assign user to this branch
-      await supabase
+      const { error: branchAssignError } = await supabase
         .from('user_branches')
         .insert({
           user_id: user.id,
           branch_id: newBranch.id,
           is_primary: true,
         });
+
+      if (branchAssignError) {
+        console.error('Error assigning branch:', branchAssignError);
+      }
 
       // Update existing data with branch_id
       await Promise.all([
@@ -167,7 +182,7 @@ const BranchSelection = () => {
       console.error('Error converting to branch:', error);
       toast({
         title: "Erro",
-        description: "Erro ao criar filial",
+        description: "Erro ao criar filial: " + (error.message || "Tente novamente"),
         variant: "destructive",
       });
     }
