@@ -72,9 +72,18 @@ Deno.serve(async (req) => {
       if (company) {
         // User owns a company but has no role - they're a legacy CEO
         // Assign CEO role and allow passwordless login
-        await supabaseAdmin
+        const { data: existingRole } = await supabaseAdmin
           .from('user_roles')
-          .upsert({ user_id: user.id, role: 'ceo' }, { onConflict: 'user_id' });
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('role', 'ceo')
+          .single();
+        
+        if (!existingRole) {
+          await supabaseAdmin
+            .from('user_roles')
+            .insert({ user_id: user.id, role: 'ceo' });
+        }
         
         // Generate a session for this CEO
         const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
