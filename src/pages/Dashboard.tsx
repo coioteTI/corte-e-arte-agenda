@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,25 +6,32 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Users, Scissors, Clock, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { format, isToday } from "date-fns";
+import { format } from "date-fns";
+import { useBranch } from "@/contexts/BranchContext";
+import { LoadingSkeleton, ErrorState } from "@/components/LoadingState";
+import { applyBranchFilter } from "@/hooks/useBranchData";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
+  const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
+  
   const [dashboardData, setDashboardData] = useState({
-    agendamentosHoje: [],
+    agendamentosHoje: [] as any[],
     totalClientes: 0,
     totalServicos: 0,
     totalProfissionais: 0,
     totalAgendamentos: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastBranchId, setLastBranchId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         navigate("/login");
@@ -38,40 +45,58 @@ const Dashboard = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (!company) return;
+      if (!company) {
+        setError('Empresa não encontrada');
+        return;
+      }
 
       const today = format(new Date(), 'yyyy-MM-dd');
 
-      // Load all dashboard data in parallel
+      // Build queries with branch filtering
+      let appointmentsTodayQuery = supabase
+        .from('appointments')
+        .select(`*, clients(name), services(name), professionals(name)`)
+        .eq('company_id', company.id)
+        .eq('appointment_date', today)
+        .order('appointment_time');
+      
+      let servicesQuery = supabase.from('services').select('id', { count: 'exact', head: true }).eq('company_id', company.id);
+      let professionalsQuery = supabase.from('professionals').select('id', { count: 'exact', head: true }).eq('company_id', company.id);
+      let appointmentsCountQuery = supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', company.id);
+      let clientsQuery = supabase.from('appointments').select('client_id').eq('company_id', company.id);
+
+      // Apply branch filter if not CEO
+      if (shouldFilterByBranch && currentBranchId) {
+        appointmentsTodayQuery = appointmentsTodayQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        appointmentsCountQuery = appointmentsCountQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        clientsQuery = clientsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
+      // Load all dashboard data in parallel with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Tempo limite excedido')), 15000)
+      );
+
       const [
         appointmentsToday,
         totalServices,
         totalProfessionals,
-        totalAppointments
-      ] = await Promise.all([
-        supabase
-          .from('appointments')
-          .select(`
-            *,
-            clients(name),
-            services(name),
-            professionals(name)
-          `)
-          .eq('company_id', company.id)
-          .eq('appointment_date', today)
-          .order('appointment_time'),
-        supabase.from('services').select('id', { count: 'exact', head: true }).eq('company_id', company.id),
-        supabase.from('professionals').select('id', { count: 'exact', head: true }).eq('company_id', company.id),
-        supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', company.id)
-      ]);
+        totalAppointments,
+        allAppointments
+      ] = await Promise.race([
+        Promise.all([
+          appointmentsTodayQuery,
+          servicesQuery,
+          professionalsQuery,
+          appointmentsCountQuery,
+          clientsQuery
+        ]),
+        timeoutPromise
+      ]) as any[];
 
-      // Count unique clients that have appointments with this company
-      const { data: allAppointments } = await supabase
-        .from('appointments')
-        .select('client_id')
-        .eq('company_id', company.id);
-
-      const uniqueClientIds = [...new Set(allAppointments?.map(apt => apt.client_id).filter(Boolean) || [])];
+      const uniqueClientIds = [...new Set(allAppointments?.data?.map((apt: any) => apt.client_id).filter(Boolean) || [])];
       const totalClientes = uniqueClientIds.length;
 
       setDashboardData({
@@ -81,19 +106,51 @@ const Dashboard = () => {
         totalProfissionais: totalProfessionals.count || 0,
         totalAgendamentos: totalAppointments.count || 0
       });
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      setLastBranchId(currentBranchId);
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate, currentBranchId, shouldFilterByBranch]);
 
-  if (loading) {
+  // Reload when branch changes
+  useEffect(() => {
+    if (branchLoading) return;
+    
+    // Clear and reload when branch changes
+    if (lastBranchId !== currentBranchId) {
+      setDashboardData({
+        agendamentosHoje: [],
+        totalClientes: 0,
+        totalServicos: 0,
+        totalProfissionais: 0,
+        totalAgendamentos: 0
+      });
+      loadDashboardData();
+    }
+  }, [currentBranchId, branchLoading, lastBranchId, loadDashboardData]);
+
+  // Initial load
+  useEffect(() => {
+    if (!branchLoading && lastBranchId === null) {
+      loadDashboardData();
+    }
+  }, [branchLoading, lastBranchId, loadDashboardData]);
+
+  if (loading || branchLoading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Carregando dashboard...</p>
-        </div>
+        <LoadingSkeleton cards={4} showHeader={true} />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={loadDashboardData} />
       </DashboardLayout>
     );
   }

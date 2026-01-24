@@ -41,7 +41,8 @@ const Agenda = () => {
     companyId, 
     loading, 
     error, 
-    refreshData 
+    refreshData,
+    currentBranchId
   } = useAgendamentos();
   
   const { toast } = useToast();
@@ -66,7 +67,7 @@ const Agenda = () => {
     }
 
     try {
-      console.log('Adding appointment with company_id:', companyId);
+      console.log('Adding appointment with company_id:', companyId, 'branch_id:', currentBranchId);
       const { error } = await supabase
         .from('appointments')
         .insert({
@@ -76,6 +77,7 @@ const Agenda = () => {
           appointment_date: novoAgendamento.appointment_date,
           appointment_time: novoAgendamento.appointment_time,
           company_id: companyId,
+          branch_id: currentBranchId, // Include branch_id for proper isolation
           status: 'scheduled'
         });
 

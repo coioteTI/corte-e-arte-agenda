@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Separator } from "@/components/ui/separator";
 import { Clock, User, Scissors, Calendar, Users, Phone, DollarSign } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { LoadingSkeleton, ErrorState } from "@/components/LoadingState";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useBranch } from "@/contexts/BranchContext";
 
 const Horarios = () => {
   const [selectedProfessional, setSelectedProfessional] = useState<string>("Todos");
@@ -17,8 +19,12 @@ const Horarios = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastBranchId, setLastBranchId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
+  const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
   
   const dataHoje = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -27,38 +33,44 @@ const Horarios = () => {
     day: "numeric"
   });
 
-  useEffect(() => {
-    fetchTodayAppointments();
-    fetchProfessionals();
-  }, []);
-
-  const fetchProfessionals = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!company) return;
-
-      const { data: professionalsData } = await supabase
-        .from('professionals')
-        .select('*')
-        .eq('company_id', company.id)
-        .order('name');
-
-      setProfessionals(professionalsData || []);
-    } catch (error) {
-      console.error('Error fetching professionals:', error);
+  const fetchProfessionals = useCallback(async (companyId: string) => {
+    let query = supabase
+      .from('professionals')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('name');
+    
+    if (shouldFilterByBranch && currentBranchId) {
+      query = query.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
     }
-  };
 
-  const fetchTodayAppointments = async () => {
+    const { data } = await query;
+    return data || [];
+  }, [shouldFilterByBranch, currentBranchId]);
+
+  const fetchTodayAppointments = useCallback(async (companyId: string) => {
+    const today = new Date().toISOString().split('T')[0];
+
+    let query = supabase
+      .from('appointments')
+      .select(`*, services(name, price), professionals(name), clients(name, phone)`)
+      .eq('company_id', companyId)
+      .eq('appointment_date', today)
+      .order('appointment_time');
+    
+    if (shouldFilterByBranch && currentBranchId) {
+      query = query.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+    }
+
+    const { data } = await query;
+    return data || [];
+  }, [shouldFilterByBranch, currentBranchId]);
+
+  const loadData = useCallback(async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -68,34 +80,57 @@ const Horarios = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (!company) return;
+      if (!company) {
+        setError('Empresa não encontrada');
+        return;
+      }
 
-      const today = new Date().toISOString().split('T')[0];
+      // Timeout promise
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Tempo limite excedido')), 15000)
+      );
 
-      const { data: appointmentsData } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          services(name, price),
-          professionals(name),
-          clients(name, phone)
-        `)
-        .eq('company_id', company.id)
-        .eq('appointment_date', today)
-        .order('appointment_time');
+      const [professionalsData, appointmentsData] = await Promise.race([
+        Promise.all([
+          fetchProfessionals(company.id),
+          fetchTodayAppointments(company.id)
+        ]),
+        timeoutPromise
+      ]) as any[];
 
-      setAppointments(appointmentsData || []);
-    } catch (error) {
-      console.error('Error fetching appointments:', error);
+      setProfessionals(professionalsData);
+      setAppointments(appointmentsData);
+      setLastBranchId(currentBranchId);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       toast({
         title: "Erro ao carregar dados",
-        description: "Não foi possível carregar os agendamentos de hoje.",
+        description: "Não foi possível carregar os horários. Tente novamente.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchProfessionals, fetchTodayAppointments, currentBranchId, toast]);
+
+  // Reload when branch changes
+  useEffect(() => {
+    if (branchLoading) return;
+    
+    if (lastBranchId !== currentBranchId) {
+      setAppointments([]);
+      setProfessionals([]);
+      loadData();
+    }
+  }, [currentBranchId, branchLoading, lastBranchId, loadData]);
+
+  // Initial load
+  useEffect(() => {
+    if (!branchLoading && lastBranchId === null) {
+      loadData();
+    }
+  }, [branchLoading, lastBranchId, loadData]);
 
   const agendamentosHoje = appointments.map(apt => ({
     id: apt.id,
@@ -142,7 +177,7 @@ const Horarios = () => {
       });
 
       setIsDetailsDialogOpen(false);
-      fetchTodayAppointments(); // Reload appointments
+      loadData(); // Reload appointments
     } catch (error) {
       console.error('Error completing appointment:', error);
       toast({
@@ -168,7 +203,7 @@ const Horarios = () => {
       });
 
       setIsDetailsDialogOpen(false);
-      fetchTodayAppointments(); // Reload appointments
+      loadData(); // Reload appointments
     } catch (error) {
       console.error('Error starting appointment:', error);
       toast({
@@ -245,17 +280,18 @@ const Horarios = () => {
     }
   };
 
-  if (loading) {
+  if (loading || branchLoading) {
     return (
       <DashboardLayout>
-        <div className="space-y-6">
-          <h1 className="text-2xl font-semibold">Horários</h1>
-          <Card>
-            <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">Carregando horários...</p>
-            </CardContent>
-          </Card>
-        </div>
+        <LoadingSkeleton cards={3} showHeader={true} />
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <ErrorState message={error} onRetry={loadData} />
       </DashboardLayout>
     );
   }
