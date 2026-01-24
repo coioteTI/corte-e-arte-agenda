@@ -7,11 +7,13 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ModuleSettingsProvider } from "@/contexts/ModuleSettingsContext";
+import { BranchProvider } from "@/contexts/BranchContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Cadastro from "./pages/Cadastro";
+import BranchSelection from "./pages/BranchSelection";
 import Dashboard from "./pages/Dashboard";
 import Agenda from "./pages/dashboard/Agenda";
 import Clientes from "./pages/dashboard/Clientes";
@@ -28,6 +30,7 @@ import Planos from "./pages/dashboard/Planos";
 import HistoricoSimples from "./pages/dashboard/HistoricoSimples";
 import Estoque from "./pages/dashboard/Estoque";
 import Salarios from "./pages/dashboard/Salarios";
+import Usuarios from "./pages/dashboard/Usuarios";
 import BuscarBarbearias from "./pages/BuscarBarbearias";
 import PerfilBarbearia from "./pages/PerfilBarbearia";
 import AgendarServico from "./pages/AgendarServico";
@@ -66,54 +69,58 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ModuleSettingsProvider>
-        <BrowserRouter>
-          <Toaster />
-          <Sonner />
-          <CookieConsent />
-          <PWAInstallPrompt />
-          <OfflineIndicator />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            
-            {/* Rotas do Cliente */}
-            <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
-            <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
-            <Route path="/agendar/:slug" element={<AgendarServico />} />
-            <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
-            <Route path="/cliente/historico" element={<Historico />} />
-            <Route path="/cliente/agendamentos" element={<Agendamentos />} />
-            <Route path="/cliente/favoritos" element={<Favoritos />} />
-            <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
-            
-            {/* Rotas da Empresa */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/cadastro" element={<Cadastro />} />
-            <Route path="/planos" element={<Planos />} />
-            <Route path="/plano-premium" element={<PlanoPremium />} />
-            <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
-            <Route path="/payment-success" element={<PaymentSuccess />} />
-            <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
-            <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
-            <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
-            <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
-            <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
-            <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
-            <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
-            <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
-            <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
-            <Route path="/dashboard/kirvano-webhooks" element={<ProtectedRoute><KirvanoWebhooks /></ProtectedRoute>} />
-            <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-            <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
-            <Route path="/dashboard/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
-            <Route path="/dashboard/salarios" element={<ProtectedRoute><Salarios /></ProtectedRoute>} />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <BranchProvider>
+          <BrowserRouter>
+            <Toaster />
+            <Sonner />
+            <CookieConsent />
+            <PWAInstallPrompt />
+            <OfflineIndicator />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              
+              {/* Rotas do Cliente */}
+              <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
+              <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
+              <Route path="/agendar/:slug" element={<AgendarServico />} />
+              <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
+              <Route path="/cliente/historico" element={<Historico />} />
+              <Route path="/cliente/agendamentos" element={<Agendamentos />} />
+              <Route path="/cliente/favoritos" element={<Favoritos />} />
+              <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
+              
+              {/* Rotas da Empresa */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/cadastro" element={<Cadastro />} />
+              <Route path="/selecionar-filial" element={<ProtectedRoute><BranchSelection /></ProtectedRoute>} />
+              <Route path="/planos" element={<Planos />} />
+              <Route path="/plano-premium" element={<PlanoPremium />} />
+              <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
+              <Route path="/payment-success" element={<PaymentSuccess />} />
+              <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+              <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+              <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
+              <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
+              <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
+              <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+              <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
+              <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
+              <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
+              <Route path="/dashboard/kirvano-webhooks" element={<ProtectedRoute><KirvanoWebhooks /></ProtectedRoute>} />
+              <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+              <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
+              <Route path="/dashboard/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
+              <Route path="/dashboard/salarios" element={<ProtectedRoute><Salarios /></ProtectedRoute>} />
+              <Route path="/dashboard/usuarios" element={<ProtectedRoute><Usuarios /></ProtectedRoute>} />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </BranchProvider>
       </ModuleSettingsProvider>
     </QueryClientProvider>
   </ErrorBoundary>
