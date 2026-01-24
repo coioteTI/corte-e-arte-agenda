@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Edit, Trash2, Receipt, Upload, Eye, Calendar, DollarSign, Building2 } from "lucide-react";
+import { Plus, Edit, Trash2, Receipt, Upload, Eye, Calendar, DollarSign, Building2, TrendingUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -69,11 +69,19 @@ interface SupplierProduct {
   supplier_id: string;
 }
 
-interface ExpensesTabProps {
-  companyId: string | null;
+interface Sale {
+  id: string;
+  total_price: number;
+  payment_status: string;
+  sold_at: string;
 }
 
-const ExpensesTab = ({ companyId }: ExpensesTabProps) => {
+interface ExpensesTabProps {
+  companyId: string | null;
+  sales?: Sale[];
+}
+
+const ExpensesTab = ({ companyId, sales = [] }: ExpensesTabProps) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
@@ -277,10 +285,38 @@ const ExpensesTab = ({ companyId }: ExpensesTabProps) => {
     });
   }, [expenses, filterPeriod, filterDate]);
 
-  // Calculate totals
+  // Calculate total expenses
   const totalExpenses = useMemo(() => {
     return filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
   }, [filteredExpenses]);
+
+  // Calculate sales total based on filter period (paid sales only)
+  const filteredSalesTotal = useMemo(() => {
+    if (filterPeriod === "all") {
+      return sales.filter(s => s.payment_status === 'paid').reduce((sum, s) => sum + s.total_price, 0);
+    }
+
+    return sales.filter(sale => {
+      if (sale.payment_status !== 'paid') return false;
+      const saleDate = parseISO(sale.sold_at.split('T')[0]);
+      
+      if (filterPeriod === "day") {
+        return format(saleDate, 'yyyy-MM-dd') === format(filterDate, 'yyyy-MM-dd');
+      } else if (filterPeriod === "week") {
+        const weekStart = startOfWeek(filterDate, { weekStartsOn: 0 });
+        const weekEnd = endOfWeek(filterDate, { weekStartsOn: 0 });
+        return isWithinInterval(saleDate, { start: weekStart, end: weekEnd });
+      } else if (filterPeriod === "month") {
+        const monthStart = startOfMonth(filterDate);
+        const monthEnd = endOfMonth(filterDate);
+        return isWithinInterval(saleDate, { start: monthStart, end: monthEnd });
+      }
+      return true;
+    }).reduce((sum, s) => sum + s.total_price, 0);
+  }, [sales, filterPeriod, filterDate]);
+
+  // Calculate net balance (sales - expenses)
+  const netBalance = filteredSalesTotal - totalExpenses;
 
   if (loading) {
     return (
@@ -293,14 +329,35 @@ const ExpensesTab = ({ companyId }: ExpensesTabProps) => {
   return (
     <div className="space-y-4">
       {/* Summary and filters */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <Card className="px-4 py-2">
+      <div className="flex flex-col gap-4">
+        {/* Summary Cards - Mobile responsive */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card className="px-3 py-2 md:px-4 md:py-3">
             <div className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-destructive" />
-              <div>
-                <p className="text-xs text-muted-foreground">Total de Gastos</p>
-                <p className="text-lg font-bold text-destructive">R$ {totalExpenses.toFixed(2)}</p>
+              <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-green-600 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Vendas (Pago)</p>
+                <p className="text-base md:text-lg font-bold text-green-600 truncate">R$ {filteredSalesTotal.toFixed(2)}</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="px-3 py-2 md:px-4 md:py-3">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-destructive shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Total Gastos</p>
+                <p className="text-base md:text-lg font-bold text-destructive truncate">R$ {totalExpenses.toFixed(2)}</p>
+              </div>
+            </div>
+          </Card>
+          <Card className={`px-3 py-2 md:px-4 md:py-3 ${netBalance >= 0 ? 'border-green-200 bg-green-50/50 dark:bg-green-950/20' : 'border-red-200 bg-red-50/50 dark:bg-red-950/20'}`}>
+            <div className="flex items-center gap-2">
+              <Wallet className={`h-4 w-4 md:h-5 md:w-5 shrink-0 ${netBalance >= 0 ? 'text-green-600' : 'text-destructive'}`} />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Saldo Líquido</p>
+                <p className={`text-base md:text-lg font-bold truncate ${netBalance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                  R$ {netBalance.toFixed(2)}
+                </p>
               </div>
             </div>
           </Card>

@@ -46,7 +46,7 @@ const Relatorios = () => {
   const [loading, setLoading] = useState(true);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("month"); // day, week, month
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("month"); // day, week, month, year
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -154,7 +154,7 @@ const Relatorios = () => {
     }
   };
 
-  // Filter by period (day, week, month)
+  // Filter by period (day, week, month, year)
   const filterByPeriod = (dateString: string) => {
     // Handle date strings like "2025-12-21" without timezone issues
     const dateParts = dateString.split('T')[0].split('-');
@@ -182,6 +182,10 @@ const Relatorios = () => {
       
       const itemDate = new Date(itemYear, itemMonth - 1, itemDay);
       return itemDate >= startOfWeek && itemDate <= endOfWeek;
+    } else if (selectedPeriod === "year") {
+      // Filter by entire year
+      const [year] = selectedMonth.split('-').map(Number);
+      return itemYear === year;
     } else {
       // month - uses the existing month filter
       const [year, month] = selectedMonth.split('-').map(Number);
@@ -420,6 +424,9 @@ const Relatorios = () => {
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
       return `Semana (${startOfWeek.toLocaleDateString('pt-BR')} - ${endOfWeek.toLocaleDateString('pt-BR')})`;
+    } else if (selectedPeriod === "year") {
+      const [year] = selectedMonth.split('-').map(Number);
+      return `Ano ${year}`;
     } else {
       return monthOptions.find(m => m.value === selectedMonth)?.label || selectedMonth;
     }
@@ -703,18 +710,22 @@ const Relatorios = () => {
                 <SelectItem value="day">Hoje</SelectItem>
                 <SelectItem value="week">Semana</SelectItem>
                 <SelectItem value="month">Mês</SelectItem>
+                <SelectItem value="year">Anual</SelectItem>
               </SelectContent>
             </Select>
 
-            {selectedPeriod === "month" && (
+            {(selectedPeriod === "month" || selectedPeriod === "year") && (
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Selecionar mês" />
+                  <SelectValue placeholder={selectedPeriod === "year" ? "Selecionar ano" : "Selecionar mês"} />
                 </SelectTrigger>
                 <SelectContent>
                   {monthOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {selectedPeriod === "year" 
+                        ? option.value.split('-')[0] // Show only the year
+                        : option.label
+                      }
                     </SelectItem>
                   ))}
                 </SelectContent>
