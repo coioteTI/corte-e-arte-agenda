@@ -138,9 +138,11 @@ const Usuarios = () => {
     }
   };
 
+  const [createdUserInfo, setCreatedUserInfo] = useState<{ email: string; tempPassword?: string } | null>(null);
+
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUserName || !newUserEmail || !newUserPassword) return;
+    if (!newUserName || !newUserEmail) return;
 
     // Admin can only create employees
     if (userRole === 'admin' && newUserRole !== 'employee') {
@@ -158,7 +160,7 @@ const Usuarios = () => {
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
           email: newUserEmail,
-          password: newUserPassword,
+          password: newUserPassword || undefined, // Optional - will trigger first access flow if empty
           full_name: newUserName,
           role: newUserRole,
           branch_ids: selectedBranches,
@@ -167,6 +169,16 @@ const Usuarios = () => {
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      // Show temp password if it was auto-generated
+      if (data?.user?.is_first_access && data?.user?.temp_password) {
+        setCreatedUserInfo({
+          email: newUserEmail,
+          tempPassword: data.user.temp_password,
+        });
+      } else {
+        setCreatedUserInfo(null);
+      }
 
       toast({
         title: "Usuário criado",
@@ -454,15 +466,14 @@ const Usuarios = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="userPassword">Senha *</Label>
+              <Label htmlFor="userPassword">Senha (opcional)</Label>
               <div className="relative">
                 <Input
                   id="userPassword"
                   type={showPassword ? "text" : "password"}
                   value={newUserPassword}
                   onChange={(e) => setNewUserPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
+                  placeholder="Deixe vazio para primeiro acesso"
                   className="pr-10"
                 />
                 <Button
@@ -475,6 +486,9 @@ const Usuarios = () => {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Se deixar vazio, o usuário criará sua própria senha no primeiro acesso.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -628,6 +642,47 @@ const Usuarios = () => {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Temp Password Info Dialog */}
+      <Dialog open={!!createdUserInfo} onOpenChange={() => setCreatedUserInfo(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Usuário Criado - Primeiro Acesso</DialogTitle>
+            <DialogDescription>
+              O usuário precisará usar a senha temporária abaixo para o primeiro acesso.
+              Após o login, ele será redirecionado para criar sua própria senha.
+            </DialogDescription>
+          </DialogHeader>
+
+          {createdUserInfo && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">E-mail</Label>
+                  <p className="font-medium">{createdUserInfo.email}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Senha Temporária</Label>
+                  <p className="font-mono text-sm bg-background p-2 rounded border break-all">
+                    {createdUserInfo.tempPassword}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  ⚠️ Copie e envie essas informações ao novo usuário de forma segura. 
+                  Esta senha será substituída no primeiro acesso.
+                </p>
+              </div>
+
+              <Button className="w-full" onClick={() => setCreatedUserInfo(null)}>
+                Entendi
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </DashboardLayout>

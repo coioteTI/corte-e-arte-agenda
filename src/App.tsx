@@ -10,6 +10,7 @@ import { ModuleSettingsProvider } from "@/contexts/ModuleSettingsContext";
 import { BranchProvider } from "@/contexts/BranchContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import CriarSenha from "./pages/CriarSenha";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Cadastro from "./pages/Cadastro";
@@ -91,6 +92,7 @@ const App = () => (
               
               {/* Rotas da Empresa */}
               <Route path="/login" element={<Login />} />
+              <Route path="/criar-senha" element={<ProtectedRoute><CriarSenha /></ProtectedRoute>} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/cadastro" element={<Cadastro />} />

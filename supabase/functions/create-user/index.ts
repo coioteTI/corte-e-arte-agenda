@@ -7,7 +7,7 @@ const corsHeaders = {
 
 interface CreateUserRequest {
   email: string;
-  password: string;
+  password?: string; // Optional - if not provided, user will set on first access
   full_name: string;
   role: 'employee' | 'admin' | 'ceo';
   branch_ids: string[];
@@ -83,12 +83,16 @@ Deno.serve(async (req) => {
     console.log(`Creating user: ${email} with role: ${role}`);
 
     // Validation
-    if (!email || !password || !full_name || !role) {
+    if (!email || !full_name || !role) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing required fields (email, full_name, role)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Generate temporary password if not provided (for first access flow)
+    const tempPassword = password || crypto.randomUUID();
+    const isFirstAccess = !password;
 
     // Admins can only create employees
     if (requestingUserRole === 'admin' && role !== 'employee') {
@@ -101,7 +105,7 @@ Deno.serve(async (req) => {
     // Create the user with admin API
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password,
+      password: tempPassword,
       email_confirm: true,
       user_metadata: {
         full_name,
@@ -118,12 +122,13 @@ Deno.serve(async (req) => {
 
     console.log(`User created: ${newUser.user.id}`);
 
-    // Create profile
+    // Create profile with is_first_access flag
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert({
         user_id: newUser.user.id,
         full_name,
+        is_first_access: isFirstAccess, // If no password provided, user needs to set on first login
       });
 
     if (profileError) {
@@ -170,6 +175,8 @@ Deno.serve(async (req) => {
           full_name,
           role,
           branches: branch_ids,
+          is_first_access: isFirstAccess,
+          temp_password: isFirstAccess ? tempPassword : undefined, // Return temp password for admin to share
         },
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
