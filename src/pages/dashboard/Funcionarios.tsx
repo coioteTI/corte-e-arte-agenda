@@ -32,7 +32,9 @@ import {
   Loader2,
   Building2,
   Eye,
-  EyeOff
+  EyeOff,
+  Copy,
+  Check
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +54,111 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ComponentType<any
   employee: { label: "Funcionário", icon: User, color: "bg-blue-500" },
   admin: { label: "Administrador", icon: Shield, color: "bg-orange-500" },
   ceo: { label: "CEO", icon: Crown, color: "bg-purple-500" },
+};
+
+// Component for displaying temp password with copy functionality
+const TempPasswordDisplay = ({ 
+  email, 
+  tempPassword, 
+  onClose 
+}: { 
+  email: string; 
+  tempPassword?: string; 
+  onClose: () => void;
+}) => {
+  const [copied, setCopied] = useState<'email' | 'password' | 'all' | null>(null);
+  const { toast } = useToast();
+
+  const copyToClipboard = async (text: string, type: 'email' | 'password' | 'all') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(type);
+      toast({
+        title: "Copiado!",
+        description: type === 'all' ? "Credenciais copiadas" : `${type === 'email' ? 'E-mail' : 'Senha'} copiada`,
+      });
+      setTimeout(() => setCopied(null), 2000);
+    } catch (err) {
+      toast({
+        title: "Erro ao copiar",
+        description: "Use Ctrl+C para copiar manualmente",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const copyAllCredentials = () => {
+    const text = `E-mail: ${email}\nSenha Temporária: ${tempPassword}`;
+    copyToClipboard(text, 'all');
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="p-4 bg-muted rounded-lg space-y-4">
+        <div>
+          <Label className="text-xs text-muted-foreground">E-mail de acesso</Label>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="font-medium flex-1 truncate">{email}</p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => copyToClipboard(email, 'email')}
+              className="shrink-0"
+            >
+              {copied === 'email' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+        
+        {tempPassword && (
+          <div>
+            <Label className="text-xs text-muted-foreground">Senha Temporária</Label>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="font-mono text-sm bg-background p-2 rounded border flex-1 break-all select-all">
+                {tempPassword}
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => copyToClipboard(tempPassword, 'password')}
+                className="shrink-0"
+              >
+                {copied === 'password' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <Button 
+        variant="outline" 
+        className="w-full" 
+        onClick={copyAllCredentials}
+      >
+        {copied === 'all' ? <Check className="h-4 w-4 mr-2 text-green-500" /> : <Copy className="h-4 w-4 mr-2" />}
+        Copiar Todas as Credenciais
+      </Button>
+
+      <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+        <p className="text-sm">
+          <strong>Instruções para o funcionário:</strong>
+        </p>
+        <ol className="text-sm text-muted-foreground mt-2 space-y-1 list-decimal list-inside">
+          <li>Acessar a página de login</li>
+          <li>Digitar o e-mail informado</li>
+          <li>Clicar em "Continuar"</li>
+          <li>Inserir a senha temporária</li>
+          <li>Criar uma senha definitiva</li>
+        </ol>
+      </div>
+
+      <Button className="w-full" onClick={onClose}>
+        Concluir
+      </Button>
+    </div>
+  );
 };
 
 const Funcionarios = () => {
@@ -649,39 +756,21 @@ const Funcionarios = () => {
       <Dialog open={!!createdUserInfo} onOpenChange={() => setCreatedUserInfo(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Usuário Criado - Primeiro Acesso</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-5 w-5 text-green-500" />
+              Funcionário Criado com Sucesso!
+            </DialogTitle>
             <DialogDescription>
-              O usuário precisará usar a senha temporária abaixo para o primeiro acesso.
-              Após o login, ele será redirecionado para criar sua própria senha.
+              Compartilhe as credenciais abaixo com o novo funcionário.
             </DialogDescription>
           </DialogHeader>
 
           {createdUserInfo && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg space-y-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">E-mail</Label>
-                  <p className="font-medium">{createdUserInfo.email}</p>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Senha Temporária</Label>
-                  <p className="font-mono text-sm bg-background p-2 rounded border break-all">
-                    {createdUserInfo.tempPassword}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  ⚠️ Copie e envie essas informações ao novo usuário de forma segura. 
-                  Esta senha será substituída no primeiro acesso.
-                </p>
-              </div>
-
-              <Button className="w-full" onClick={() => setCreatedUserInfo(null)}>
-                Entendi
-              </Button>
-            </div>
+            <TempPasswordDisplay 
+              email={createdUserInfo.email} 
+              tempPassword={createdUserInfo.tempPassword} 
+              onClose={() => setCreatedUserInfo(null)}
+            />
           )}
         </DialogContent>
       </Dialog>
