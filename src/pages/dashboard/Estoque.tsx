@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Edit, Trash2, MoveRight, Package, FolderOpen, ShoppingCart, History, Check, Clock, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Edit, Trash2, MoveRight, Package, FolderOpen, ShoppingCart, History, Check, Clock, AlertCircle, TrendingUp, TrendingDown, Building2, Receipt } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
+import SuppliersTab from "@/components/estoque/SuppliersTab";
+import ExpensesTab from "@/components/estoque/ExpensesTab";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -772,7 +774,7 @@ const Estoque = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="products" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               Produtos
@@ -780,6 +782,14 @@ const Estoque = () => {
             <TabsTrigger value="sales" className="flex items-center gap-2">
               <History className="h-4 w-4" />
               Vendas
+            </TabsTrigger>
+            <TabsTrigger value="suppliers" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Fornecedores
+            </TabsTrigger>
+            <TabsTrigger value="expenses" className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Gastos
             </TabsTrigger>
           </TabsList>
 
@@ -1098,6 +1108,16 @@ const Estoque = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Suppliers Tab */}
+          <TabsContent value="suppliers">
+            <SuppliersTab companyId={companyId} />
+          </TabsContent>
+
+          {/* Expenses Tab */}
+          <TabsContent value="expenses">
+            <ExpensesTab companyId={companyId} />
           </TabsContent>
         </Tabs>
       </div>
