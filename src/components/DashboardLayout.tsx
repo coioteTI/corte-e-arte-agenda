@@ -12,7 +12,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, UserCheck, History, Package, Wallet, Loader2, Lock, Shield, User } from "lucide-react";
+import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, UserCheck, History, Package, Wallet, Loader2, Lock, Shield, User, UsersRound } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +31,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   clientes: Users,
   servicos: FileText,
   profissionais: UserCheck,
+  funcionarios: UsersRound,
   estoque: Package,
   historico: History,
   salarios: Wallet,
@@ -38,7 +39,6 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   relatorios: BarChart,
   horarios: Clock,
   planos: Crown,
-  usuarios: Users,
 };
 
 // Role labels and styling

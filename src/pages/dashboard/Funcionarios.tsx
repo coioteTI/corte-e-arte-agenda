@@ -54,7 +54,7 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ComponentType<any
   ceo: { label: "CEO", icon: Crown, color: "bg-purple-500" },
 };
 
-const Usuarios = () => {
+const Funcionarios = () => {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -321,7 +321,7 @@ const Usuarios = () => {
             <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">Acesso Restrito</h2>
             <p className="text-muted-foreground">
-              Você não tem permissão para gerenciar usuários
+              Você não tem permissão para gerenciar funcionários
             </p>
           </CardContent>
         </Card>
@@ -336,23 +336,23 @@ const Usuarios = () => {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Users className="h-6 w-6" />
-              Gestão de Usuários
+              Gestão de Funcionários
             </h1>
             <p className="text-muted-foreground">
-              Gerencie os usuários e suas permissões no sistema
+              Gerencie funcionários, administradores e suas permissões no sistema
             </p>
           </div>
           <Button onClick={() => setIsAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Novo Usuário
+            Novo Funcionário
           </Button>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Usuários Cadastrados</CardTitle>
+            <CardTitle>Funcionários Cadastrados</CardTitle>
             <CardDescription>
-              Lista de todos os usuários com acesso ao sistema
+              Lista de todos os funcionários com acesso ao sistema
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -363,7 +363,7 @@ const Usuarios = () => {
             ) : users.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nenhum usuário cadastrado ainda</p>
+                <p>Nenhum funcionário cadastrado ainda</p>
               </div>
             ) : (
               <Table>
@@ -435,9 +435,9 @@ const Usuarios = () => {
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Novo Usuário</DialogTitle>
+            <DialogTitle>Novo Funcionário</DialogTitle>
             <DialogDescription>
-              Cadastre um novo usuário no sistema
+              Cadastre um novo funcionário no sistema
             </DialogDescription>
           </DialogHeader>
 
@@ -689,4 +689,4 @@ const Usuarios = () => {
   );
 };
 
-export default Usuarios;
+export default Funcionarios;

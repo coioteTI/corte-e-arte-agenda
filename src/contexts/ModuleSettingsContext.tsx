@@ -14,6 +14,7 @@ export const DEFAULT_MODULES = [
   { key: 'clientes', name: 'Clientes', url: '/dashboard/clientes' },
   { key: 'servicos', name: 'Serviços', url: '/dashboard/servicos' },
   { key: 'profissionais', name: 'Profissionais', url: '/dashboard/profissionais' },
+  { key: 'funcionarios', name: 'Funcionários', url: '/dashboard/funcionarios' },
   { key: 'estoque', name: 'Estoque', url: '/dashboard/estoque' },
   { key: 'historico', name: 'Histórico', url: '/dashboard/historico' },
   { key: 'salarios', name: 'Salários', url: '/dashboard/salarios' },
@@ -21,7 +22,6 @@ export const DEFAULT_MODULES = [
   { key: 'relatorios', name: 'Relatórios', url: '/dashboard/relatorios' },
   { key: 'horarios', name: 'Horários', url: '/dashboard/horarios' },
   { key: 'planos', name: 'Plano', url: '/dashboard/planos' },
-  { key: 'usuarios', name: 'Usuários', url: '/dashboard/usuarios' },
 ];
 
 interface ModuleSettingsContextType {

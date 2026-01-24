@@ -17,8 +17,8 @@ interface UserSession {
 // Define module permissions for each role
 const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
   employee: ['agenda', 'clientes', 'servicos', 'ranking', 'profissionais', 'historico'],
-  admin: ['agenda', 'clientes', 'servicos', 'ranking', 'profissionais', 'historico', 'horarios', 'estoque', 'configuracoes', 'salarios'],
-  ceo: ['agenda', 'clientes', 'servicos', 'ranking', 'profissionais', 'historico', 'horarios', 'estoque', 'configuracoes', 'salarios', 'planos', 'relatorios'],
+  admin: ['agenda', 'clientes', 'servicos', 'ranking', 'profissionais', 'historico', 'horarios', 'estoque', 'configuracoes', 'salarios', 'funcionarios'],
+  ceo: ['agenda', 'clientes', 'servicos', 'ranking', 'profissionais', 'historico', 'horarios', 'estoque', 'configuracoes', 'salarios', 'planos', 'relatorios', 'funcionarios'],
 };
 
 export const useUserRole = () => {
