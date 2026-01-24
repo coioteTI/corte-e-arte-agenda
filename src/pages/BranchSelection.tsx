@@ -43,6 +43,19 @@ const BranchSelection = () => {
     }
   }, [branches, selectedBranchId]);
 
+  // CEO bypasses password confirmation - skip directly to branch selection
+  useEffect(() => {
+    if (!roleLoading && role === 'ceo' && step === 'confirm') {
+      if (branches.length === 0) {
+        handleAutoConvertToBranch();
+      } else if (branches.length === 1) {
+        handleBranchSelect(branches[0].id);
+      } else {
+        setStep("branch");
+      }
+    }
+  }, [roleLoading, role, step, branches]);
+
   const handlePasswordConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -223,6 +236,34 @@ const BranchSelection = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show loading state for CEO while auto-processing
+  if (role === 'ceo' && step === 'confirm') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md animate-fade-in">
+          <CardHeader className="text-center">
+            <img 
+              src={logo} 
+              alt="Corte & Arte" 
+              className="h-12 w-auto mx-auto mb-4"
+            />
+            <CardTitle className="text-xl">Bem-vindo, CEO</CardTitle>
+            <CardDescription>Preparando seu acesso...</CardDescription>
+            <div className="flex justify-center mt-4">
+              <Badge className="bg-purple-500 text-white flex items-center gap-1">
+                <Crown className="h-3 w-3" />
+                CEO
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
