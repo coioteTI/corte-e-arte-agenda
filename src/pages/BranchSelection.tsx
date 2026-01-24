@@ -108,106 +108,57 @@ const BranchSelection = () => {
   };
 
   const handleAutoConvertToBranch = async () => {
+    setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get user's company
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id, name, address, city, state, zip_code, phone, email')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!company) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         toast({
           title: "Erro",
-          description: "Empresa não encontrada",
+          description: "Sessão expirada. Faça login novamente.",
           variant: "destructive",
         });
+        navigate("/login");
         return;
       }
 
-      // FIRST: Assign CEO role to user (BEFORE creating branch, so RLS policy allows it)
-      // Check if role already exists
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('role', 'ceo')
-        .single();
-
-      if (!existingRole) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: user.id,
-            role: 'ceo',
-          });
-
-        if (roleError) {
-          console.error('Error assigning CEO role:', roleError);
-          throw roleError;
+      // Call edge function to assign CEO role and create branch (bypasses RLS)
+      const response = await fetch(
+        `https://gwyickztdeiplccievyt.supabase.co/functions/v1/assign-ceo-role`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
         }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao criar filial');
       }
 
-      // Wait a moment for RLS to recognize the new role
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Now create first branch from company data (user now has CEO role)
-      const { data: newBranch, error: branchError } = await supabase
-        .from('branches')
-        .insert({
-          name: company.name + " - Matriz",
-          address: company.address,
-          city: company.city,
-          state: company.state,
-          zip_code: company.zip_code,
-          phone: company.phone,
-          email: company.email,
-        })
-        .select()
-        .single();
-
-      if (branchError) {
-        console.error('Error creating branch:', branchError);
-        throw branchError;
-      }
-
-      // Assign user to this branch
-      const { error: branchAssignError } = await supabase
-        .from('user_branches')
-        .insert({
-          user_id: user.id,
-          branch_id: newBranch.id,
-          is_primary: true,
+      // Successfully created branch, redirect to dashboard
+      if (result.branchId) {
+        await setCurrentBranch(result.branchId);
+        toast({
+          title: "Bem-vindo, CEO!",
+          description: result.hasMultipleBranches 
+            ? "Acesso liberado. Selecione uma filial."
+            : "Filial criada e acesso liberado.",
         });
-
-      if (branchAssignError) {
-        console.error('Error assigning branch:', branchAssignError);
+        navigate("/dashboard");
       }
-
-      // Update existing data with branch_id
-      await Promise.all([
-        supabase.from('professionals').update({ branch_id: newBranch.id }).eq('company_id', company.id),
-        supabase.from('services').update({ branch_id: newBranch.id }).eq('company_id', company.id),
-        supabase.from('appointments').update({ branch_id: newBranch.id }).eq('company_id', company.id),
-      ]);
-
-      // Set current branch and proceed
-      await handleBranchSelect(newBranch.id);
-
-      toast({
-        title: "Filial criada",
-        description: "Sua empresa foi convertida para a primeira filial do sistema",
-      });
     } catch (error: any) {
       console.error('Error converting to branch:', error);
       toast({
         title: "Erro",
-        description: "Erro ao criar filial: " + (error.message || "Tente novamente"),
+        description: error.message || "Erro ao criar filial. Tente novamente.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
