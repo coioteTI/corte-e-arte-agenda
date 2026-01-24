@@ -47,6 +47,15 @@ type Company = {
   phone: string;
 };
 
+type Branch = {
+  id: string;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  is_active: boolean;
+};
+
 type Service = {
   id: string;
   name: string;
@@ -54,6 +63,7 @@ type Service = {
   duration: number;
   description: string | null;
   professional_responsible: string | null;
+  branch_id?: string | null;
 };
 
 type Professional = {
@@ -65,6 +75,7 @@ type Professional = {
   email?: string | null;
   is_available: boolean;
   created_at?: string;
+  branch_id?: string | null;
 };
 
 type Appointment = {
@@ -87,6 +98,8 @@ export default function AgendarServico() {
   const { slug } = useParams();
   
   const [company, setCompany] = useState<Company | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -210,6 +223,26 @@ export default function AgendarServico() {
       
       console.log("✅ Empresa selecionada:", companyData.name);
       setCompany(companyData);
+
+      // Buscar filiais da empresa
+      console.log("🔍 Buscando filiais ativas...");
+      const { data: branchesData, error: branchesError } = await supabase
+        .from("branches")
+        .select("*")
+        .eq("is_active", true)
+        .order("name");
+
+      if (branchesError) {
+        console.error("❌ Erro ao buscar filiais:", branchesError);
+      } else {
+        console.log("✅ Filiais encontradas:", branchesData?.length || 0);
+        setBranches(branchesData || []);
+        
+        // Auto-selecionar se só tiver uma filial
+        if (branchesData && branchesData.length === 1) {
+          setSelectedBranchId(branchesData[0].id);
+        }
+      }
 
       // Buscar serviços
       console.log("🔍 Buscando serviços para empresa ID:", companyData.id);
@@ -354,9 +387,15 @@ export default function AgendarServico() {
     return () => clearInterval(interval);
   }, [company?.id, reloadAppointments]);
 
+  // Filtrar serviços por filial selecionada
+  const filteredServices = useMemo(() => {
+    if (!selectedBranchId) return services;
+    return services.filter(s => !s.branch_id || s.branch_id === selectedBranchId);
+  }, [services, selectedBranchId]);
+
   // Filtrar profissionais disponíveis usando useMemo para evitar re-renders
   const availableProfessionals = useMemo(() => {
-    return professionals.filter(p => {
+    let filtered = professionals.filter(p => {
       const isAvailable = p.is_available;
       // Garantir que sempre retornamos um boolean
       if (typeof isAvailable === 'boolean') return isAvailable === true;
@@ -364,7 +403,14 @@ export default function AgendarServico() {
       if (typeof isAvailable === 'string') return isAvailable === "true" || isAvailable === "t";
       return false;
     });
-  }, [professionals]);
+
+    // Filtrar por filial se selecionada
+    if (selectedBranchId) {
+      filtered = filtered.filter(p => !p.branch_id || p.branch_id === selectedBranchId);
+    }
+
+    return filtered;
+  }, [professionals, selectedBranchId]);
 
   // Filtrar profissionais com base no serviço usando useMemo
   const filteredProfessionals = useMemo(() => {
@@ -376,7 +422,7 @@ export default function AgendarServico() {
 
     // Get the first selected service for filtering professionals
     const firstServiceId = selectedServiceIds[0];
-    const selectedService = services.find(s => s.id === firstServiceId);
+    const selectedService = filteredServices.find(s => s.id === firstServiceId);
     
     // Se serviço não encontrado, mostrar todos disponíveis
     if (!selectedService) return availableProfessionals;
@@ -398,7 +444,15 @@ export default function AgendarServico() {
     // IMPORTANTE: Se não encontrar match, retornar TODOS os disponíveis
     // Isso evita a tela preta quando o filtro não encontra ninguém
     return matched.length > 0 ? matched : availableProfessionals;
-  }, [availableProfessionals, selectedServiceIds, services]);
+  }, [availableProfessionals, selectedServiceIds, filteredServices]);
+
+  // Reset selections when branch changes
+  useEffect(() => {
+    setSelectedServiceIds([]);
+    setSelectedProfessionalId(undefined);
+    setSelectedDate(undefined);
+    setSelectedTime(undefined);
+  }, [selectedBranchId]);
 
   // Calculate total duration and price for selected services
   const selectedServicesData = useMemo(() => {
@@ -929,6 +983,40 @@ export default function AgendarServico() {
             <CardTitle className="text-foreground">Agendar Serviço</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Seleção de Filial */}
+            {branches.length > 1 && (
+              <div className="mb-4">
+                <Label className="text-foreground">Escolha a Filial *</Label>
+                <Select 
+                  value={selectedBranchId || ""} 
+                  onValueChange={(value) => setSelectedBranchId(value || null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a filial para atendimento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        <div className="flex flex-col">
+                          <span>{branch.name}</span>
+                          {branch.city && branch.state && (
+                            <span className="text-xs text-muted-foreground">
+                              {branch.city}, {branch.state}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!selectedBranchId && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    ⚠️ Selecione uma filial para ver os serviços e profissionais disponíveis
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label className="text-foreground">Nome completo *</Label>
@@ -956,6 +1044,7 @@ export default function AgendarServico() {
               </div>
             </div>
 
+
             {/* Informação sobre os serviços selecionados */}
             {selectedServiceIds.length > 0 && (
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
@@ -973,10 +1062,12 @@ export default function AgendarServico() {
 
             <Label className="text-foreground">Escolha os Serviços * (pode selecionar mais de um)</Label>
             <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
-              {services.length === 0 ? (
+              {branches.length > 1 && !selectedBranchId ? (
+                <p className="text-sm text-muted-foreground">Selecione uma filial primeiro</p>
+              ) : filteredServices.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum serviço disponível</p>
               ) : (
-                services.map((s) => (
+                filteredServices.map((s) => (
                   <div key={s.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md transition-colors">
                     <Checkbox
                       id={`service-${s.id}`}

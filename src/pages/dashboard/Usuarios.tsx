@@ -154,15 +154,28 @@ const Usuarios = () => {
 
     setIsSaving(true);
     try {
-      // Note: Creating users requires admin API or edge function
-      // For now, we'll show a message about the process
+      // Call edge function to create user
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newUserEmail,
+          password: newUserPassword,
+          full_name: newUserName,
+          role: newUserRole,
+          branch_ids: selectedBranches,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
       toast({
-        title: "Funcionalidade em desenvolvimento",
-        description: "A criação de usuários requer configuração adicional do servidor. Por enquanto, os usuários devem se cadastrar manualmente.",
+        title: "Usuário criado",
+        description: `${newUserName} foi cadastrado com sucesso`,
       });
       
       setIsAddDialogOpen(false);
       resetForm();
+      loadUsers();
     } catch (error: any) {
       toast({
         title: "Erro",

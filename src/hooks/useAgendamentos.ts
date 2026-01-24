@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useBranch } from '@/contexts/BranchContext';
 
 interface Appointment {
   id: string;
@@ -14,6 +15,7 @@ interface Appointment {
   payment_method?: string;
   notes?: string;
   pix_payment_proof?: string;
+  branch_id?: string;
   created_at: string;
   updated_at: string;
   clients?: { name: string } | null;
@@ -27,6 +29,7 @@ interface Client {
   email?: string;
   phone: string;
   user_id?: string;
+  branch_id?: string;
 }
 
 interface Service {
@@ -35,6 +38,7 @@ interface Service {
   price: number;
   duration: number;
   company_id: string;
+  branch_id?: string;
 }
 
 interface Professional {
@@ -43,6 +47,7 @@ interface Professional {
   specialty?: string;
   company_id: string;
   is_available: boolean;
+  branch_id?: string;
 }
 
 export const useAgendamentos = () => {
@@ -53,6 +58,8 @@ export const useAgendamentos = () => {
   const [companyId, setCompanyId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const { currentBranchId, userRole } = useBranch();
 
   const loadData = useCallback(async () => {
     try {
@@ -79,17 +86,46 @@ export const useAgendamentos = () => {
 
       setCompanyId(company.id);
 
+      // Build queries with optional branch filtering
+      // CEO sees all branches, others see only their current branch
+      const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+
+      // Services query
+      let servicesQuery = supabase.from('services').select('*').eq('company_id', company.id);
+      if (shouldFilterByBranch) {
+        servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
+      // Professionals query
+      let professionalsQuery = supabase.from('professionals').select('*').eq('company_id', company.id);
+      if (shouldFilterByBranch) {
+        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
+      // Clients query - filter by branch
+      let clientsQuery = supabase.from('clients').select('*');
+      if (shouldFilterByBranch) {
+        clientsQuery = clientsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
+      // Appointments query
+      let appointmentsQuery = supabase
+        .from('appointments')
+        .select('*, pix_payment_proof')
+        .eq('company_id', company.id)
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true });
+      
+      if (shouldFilterByBranch) {
+        appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      }
+
       // Load all data in parallel
       const [servicesData, professionalsData, clientsData, appointmentsData] = await Promise.all([
-        supabase.from('services').select('*').eq('company_id', company.id),
-        supabase.from('professionals').select('*').eq('company_id', company.id),
-        supabase.from('clients').select('*'),
-        supabase
-          .from('appointments')
-          .select('*, pix_payment_proof')
-          .eq('company_id', company.id)
-          .order('appointment_date', { ascending: true })
-          .order('appointment_time', { ascending: true })
+        servicesQuery,
+        professionalsQuery,
+        clientsQuery,
+        appointmentsQuery,
       ]);
 
       // Check for errors
@@ -124,7 +160,7 @@ export const useAgendamentos = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentBranchId, userRole]);
 
   useEffect(() => {
     loadData();
@@ -138,6 +174,7 @@ export const useAgendamentos = () => {
     companyId,
     loading,
     error,
-    refreshData: loadData
+    refreshData: loadData,
+    currentBranchId,
   };
 };
