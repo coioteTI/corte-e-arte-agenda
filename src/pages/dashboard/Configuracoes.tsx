@@ -22,6 +22,7 @@ import { ExcluirContaSection } from "@/components/configuracoes/ExcluirContaSect
 import { GaleriaSection } from "@/components/configuracoes/GaleriaSection";
 import { PagamentoSection } from "@/components/configuracoes/PagamentoSection";
 import { SenhaAdminSection } from "@/components/configuracoes/SenhaAdminSection";
+import { SenhaUsuarioSection } from "@/components/configuracoes/SenhaUsuarioSection";
 import { ModulosSection } from "@/components/configuracoes/ModulosSection";
 import { FusoHorarioSection } from "@/components/configuracoes/FusoHorarioSection";
 
@@ -928,6 +929,7 @@ const Configuracoes = () => {
                     saving={saving}
                     companyId={companyId}
                   />
+                  <SenhaUsuarioSection />
                   <SenhaAdminSection companyId={companyId} />
                   <ExcluirContaSection companyId={companyId} />
                 </div>
