@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, Loader2, CheckCircle, KeyRound, CheckCircle2 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,20 +16,44 @@ const ResetPassword = () => {
   const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [senhaRedefinida, setSenhaRedefinida] = useState(false);
+  const [isFirstAccess, setIsFirstAccess] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Validation states
+  const hasMinLength = novaSenha.length >= 6;
+  const passwordsMatch = novaSenha === confirmarSenha && novaSenha.length > 0;
 
   useEffect(() => {
     // Verificar se há tokens na URL (vindos do link do e-mail)
     const accessToken = searchParams.get('access_token');
     const refreshToken = searchParams.get('refresh_token');
+    const type = searchParams.get('type');
+    
+    // Check if this is a recovery or first access
+    if (type === 'recovery' || type === 'signup') {
+      setIsFirstAccess(true);
+    }
     
     if (accessToken && refreshToken) {
       // Definir a sessão com os tokens recebidos
       supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
+      }).then(async ({ data }) => {
+        // Check if user has is_first_access flag
+        if (data.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_first_access')
+            .eq('user_id', data.user.id)
+            .single();
+          
+          if (profile?.is_first_access) {
+            setIsFirstAccess(true);
+          }
+        }
       });
     }
   }, [searchParams]);
@@ -37,19 +61,19 @@ const ResetPassword = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (novaSenha !== confirmarSenha) {
+    if (!hasMinLength) {
       toast({
-        title: "Erro",
-        description: "As senhas não coincidem.",
+        title: "Senha muito curta",
+        description: "A senha deve ter pelo menos 6 caracteres.",
         variant: "destructive"
       });
       return;
     }
 
-    if (novaSenha.length < 6) {
+    if (!passwordsMatch) {
       toast({
-        title: "Erro",
-        description: "A senha deve ter pelo menos 6 caracteres.",
+        title: "Senhas não coincidem",
+        description: "Confirme que as senhas são iguais.",
         variant: "destructive"
       });
       return;
@@ -58,7 +82,7 @@ const ResetPassword = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.updateUser({
+      const { data: userData, error } = await supabase.auth.updateUser({
         password: novaSenha
       });
 
@@ -71,10 +95,18 @@ const ResetPassword = () => {
         return;
       }
 
+      // Update is_first_access to false if user has this flag
+      if (userData.user) {
+        await supabase
+          .from('profiles')
+          .update({ is_first_access: false })
+          .eq('user_id', userData.user.id);
+      }
+
       setSenhaRedefinida(true);
       toast({
         title: "Sucesso!",
-        description: "Senha atualizada com sucesso.",
+        description: "Senha criada com sucesso. Agora você pode fazer login.",
       });
 
       // Redirecionar para login após 3 segundos
@@ -84,7 +116,7 @@ const ResetPassword = () => {
     } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Não foi possível redefinir a senha. Tente novamente.",
+        description: "Não foi possível criar a senha. Tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -102,29 +134,36 @@ const ResetPassword = () => {
               alt="Corte & Arte" 
               className="h-12 w-auto mx-auto mb-4"
             />
-            <CardTitle className="text-xl text-green-600 flex items-center justify-center gap-2">
-              <CheckCircle className="h-5 w-5" />
-              Senha Atualizada
+            <div className="mx-auto bg-green-100 dark:bg-green-900 p-3 rounded-full w-fit mb-2">
+              <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <CardTitle className="text-xl text-green-600 dark:text-green-400">
+              Senha Criada com Sucesso!
             </CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <p className="text-muted-foreground">
-              Sua senha foi atualizada com sucesso!
+              Sua senha foi criada. Agora você pode acessar o sistema usando seu e-mail e a nova senha.
             </p>
             <p className="text-sm text-muted-foreground">
-              Você será redirecionado para o login em instantes...
+              Redirecionando para o login...
             </p>
             <Button 
               onClick={() => navigate("/login")}
               className="w-full"
             >
-              Ir para Login
+              Ir para Login Agora
             </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
+
+  const title = isFirstAccess ? "Criar Sua Senha" : "Redefinir Senha";
+  const description = isFirstAccess 
+    ? "Defina uma senha segura para acessar o sistema."
+    : "Digite sua nova senha abaixo.";
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -135,7 +174,11 @@ const ResetPassword = () => {
             alt="Corte & Arte" 
             className="h-12 w-auto mx-auto mb-4"
           />
-          <CardTitle className="text-xl">Redefinir Senha</CardTitle>
+          <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
+            <KeyRound className="h-6 w-6 text-primary" />
+          </div>
+          <CardTitle className="text-xl">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleResetPassword} className="space-y-4">
@@ -145,12 +188,11 @@ const ResetPassword = () => {
                 <Input
                   id="nova-senha"
                   type={mostrarSenha ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Mínimo 6 caracteres"
                   value={novaSenha}
                   onChange={(e) => setNovaSenha(e.target.value)}
                   required
-                  minLength={6}
-                  className="pr-10 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  className="pr-10"
                 />
                 <Button
                   type="button"
@@ -166,20 +208,25 @@ const ResetPassword = () => {
                   )}
                 </Button>
               </div>
+              {novaSenha.length > 0 && (
+                <div className={`text-xs flex items-center gap-1 ${hasMinLength ? 'text-green-600' : 'text-muted-foreground'}`}>
+                  {hasMinLength && <CheckCircle2 className="h-3 w-3" />}
+                  Mínimo de 6 caracteres
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmar-senha">Confirmar Nova Senha</Label>
+              <Label htmlFor="confirmar-senha">Confirmar Senha</Label>
               <div className="relative">
                 <Input
                   id="confirmar-senha"
                   type={mostrarConfirmacao ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder="Repita a senha"
                   value={confirmarSenha}
                   onChange={(e) => setConfirmarSenha(e.target.value)}
                   required
-                  minLength={6}
-                  className="pr-10 transition-all duration-200 focus:ring-2 focus:ring-primary/20"
+                  className="pr-10"
                 />
                 <Button
                   type="button"
@@ -195,24 +242,36 @@ const ResetPassword = () => {
                   )}
                 </Button>
               </div>
+              {confirmarSenha.length > 0 && (
+                <div className={`text-xs flex items-center gap-1 ${passwordsMatch ? 'text-green-600' : 'text-destructive'}`}>
+                  {passwordsMatch ? <CheckCircle2 className="h-3 w-3" /> : null}
+                  {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
+                </div>
+              )}
             </div>
             
             <Button 
               type="submit" 
-              className="w-full hover:scale-105 transition-transform duration-200" 
+              className="w-full" 
               size="lg" 
-              disabled={isLoading}
+              disabled={isLoading || !hasMinLength || !passwordsMatch}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Atualizando...
+                  Salvando...
                 </>
               ) : (
-                "Atualizar Senha"
+                "Criar Senha"
               )}
             </Button>
           </form>
+
+          <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground text-center">
+              Esta senha será usada para todos os seus acessos futuros ao sistema.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
