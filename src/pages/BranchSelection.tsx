@@ -129,16 +129,26 @@ const BranchSelection = () => {
       }
 
       // FIRST: Assign CEO role to user (BEFORE creating branch, so RLS policy allows it)
-      const { error: roleError } = await supabase
+      // Check if role already exists
+      const { data: existingRole } = await supabase
         .from('user_roles')
-        .upsert({
-          user_id: user.id,
-          role: 'ceo',
-        }, { onConflict: 'user_id' });
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('role', 'ceo')
+        .single();
 
-      if (roleError) {
-        console.error('Error assigning CEO role:', roleError);
-        throw roleError;
+      if (!existingRole) {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: user.id,
+            role: 'ceo',
+          });
+
+        if (roleError) {
+          console.error('Error assigning CEO role:', roleError);
+          throw roleError;
+        }
       }
 
       // Wait a moment for RLS to recognize the new role
