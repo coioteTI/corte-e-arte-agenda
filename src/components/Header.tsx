@@ -4,31 +4,22 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, X } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { ThemeToggle } from "@/components/ThemeToggle";
-
 export const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   const navigationItems = [];
-
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
-
-  return (
-    <header className="bg-background shadow-card border-b border-border sticky top-0 z-50">
+  return <header className="bg-background shadow-card border-b border-border sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 md:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center space-x-3">
-            <img 
-              src={logo} 
-              alt="Corte & Arte" 
-              className="h-8 md:h-10 w-auto"
-            />
+            <img src={logo} alt="Corte & Arte" className="h-8 md:h-10 w-auto" />
             <div className="hidden sm:block">
               <h1 className="text-lg md:text-xl font-semibold text-foreground">
                 Corte & Arte
               </h1>
               <p className="text-xs md:text-sm text-muted-foreground">
-                Sistema Profissional de Agendamentos
+                ​Gestão completa para seu negócio   
               </p>
             </div>
           </div>
@@ -36,15 +27,9 @@ export const Header = () => {
           {/* Desktop Navigation */}
           <div className="flex items-center space-x-4">
             <nav className="hidden md:flex space-x-6">
-              {navigationItems.map((item) => (
-                <a 
-                  key={item.href}
-                  href={item.href} 
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                >
+              {navigationItems.map(item => <a key={item.href} href={item.href} className="text-muted-foreground hover:text-foreground transition-colors">
                   {item.label}
-                </a>
-              ))}
+                </a>)}
             </nav>
             
             {/* Theme Toggle */}
@@ -62,11 +47,7 @@ export const Header = () => {
             <SheetContent side="right" className="w-[280px] sm:w-[350px]">
               <div className="flex flex-col space-y-4 mt-6">
                 <div className="flex items-center space-x-3 pb-4 border-b">
-                  <img 
-                    src={logo} 
-                    alt="Corte & Arte" 
-                    className="h-8 w-auto"
-                  />
+                  <img src={logo} alt="Corte & Arte" className="h-8 w-auto" />
                   <div>
                     <h2 className="font-semibold text-foreground">Corte & Arte</h2>
                     <p className="text-sm text-muted-foreground">Menu</p>
@@ -74,16 +55,9 @@ export const Header = () => {
                 </div>
                 
                 <nav className="flex flex-col space-y-3">
-                  {navigationItems.map((item) => (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      className="text-foreground hover:text-primary transition-colors py-2 px-3 rounded-md hover:bg-muted"
-                      onClick={closeMobileMenu}
-                    >
+                  {navigationItems.map(item => <a key={item.href} href={item.href} className="text-foreground hover:text-primary transition-colors py-2 px-3 rounded-md hover:bg-muted" onClick={closeMobileMenu}>
                       {item.label}
-                    </a>
-                  ))}
+                    </a>)}
                 </nav>
                 
                 {/* Mobile Theme Toggle */}
@@ -98,6 +72,5 @@ export const Header = () => {
           </Sheet>
         </div>
       </div>
-    </header>
-  );
+    </header>;
 };
