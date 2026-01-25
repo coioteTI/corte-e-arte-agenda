@@ -48,6 +48,8 @@ const Configuracoes = () => {
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [validatingPassword, setValidatingPassword] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const { hasAdminPassword, validateAdminPassword } = useAdminPassword();
   
   const [configuracoes, setConfiguracoes] = useState<ConfiguracoesState>({
@@ -58,7 +60,7 @@ const Configuracoes = () => {
     },
     personalizacao: {
       nomeBarbearia: "",
-      corPrimaria: "#8B5CF6", // Mantido internamente mas removido da UI
+      corPrimaria: "#8B5CF6",
       corSecundaria: "#ffffff",
       emailContato: "",
       telefone: "",
@@ -109,16 +111,38 @@ const Configuracoes = () => {
   // Check if admin password is configured and require authentication
   useEffect(() => {
     let isMounted = true;
+    const timeoutId = setTimeout(() => {
+      if (isMounted && checkingAccess) {
+        console.warn('Timeout ao verificar acesso - liberando acesso padrão');
+        setHasPassword(false);
+        setIsAuthenticated(true);
+        setCheckingAccess(false);
+        setLoading(false);
+      }
+    }, 10000); // 10 second timeout
 
     const checkAdminPassword = async () => {
       try {
+        setPageError(null);
+        
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         
-        if (userError || !user) {
-          console.log('No user found or auth error, loading as guest');
+        if (userError) {
+          console.error('Auth error:', userError);
           if (isMounted) {
             setHasPassword(false);
             setIsAuthenticated(true);
+            setCheckingAccess(false);
+            setLoading(false);
+          }
+          return;
+        }
+        
+        if (!user) {
+          console.log('No user found, redirecting to login');
+          if (isMounted) {
+            setPageError('Usuário não autenticado. Faça login novamente.');
+            setCheckingAccess(false);
             setLoading(false);
           }
           return;
@@ -133,8 +157,10 @@ const Configuracoes = () => {
         if (companyError) {
           console.error("Error fetching company:", companyError);
           if (isMounted) {
+            // Allow access even if company fetch fails - might be new user
             setHasPassword(false);
             setIsAuthenticated(true);
+            setCheckingAccess(false);
             loadCompanyData();
           }
           return;
@@ -145,6 +171,7 @@ const Configuracoes = () => {
             const passwordExists = await hasAdminPassword(companies.id);
             if (isMounted) {
               setHasPassword(passwordExists);
+              setCheckingAccess(false);
               
               if (passwordExists) {
                 setLoading(false);
@@ -156,8 +183,10 @@ const Configuracoes = () => {
           } catch (pwError) {
             console.error("Error checking password:", pwError);
             if (isMounted) {
+              // On error, allow access but log the issue
               setHasPassword(false);
               setIsAuthenticated(true);
+              setCheckingAccess(false);
               loadCompanyData();
             }
           }
@@ -166,14 +195,15 @@ const Configuracoes = () => {
           if (isMounted) {
             setHasPassword(false);
             setIsAuthenticated(true);
+            setCheckingAccess(false);
             loadCompanyData();
           }
         }
       } catch (error) {
-        console.error("Error checking admin password:", error);
+        console.error("Critical error checking admin password:", error);
         if (isMounted) {
-          setHasPassword(false);
-          setIsAuthenticated(true);
+          setPageError('Erro ao verificar permissões. Tente recarregar a página.');
+          setCheckingAccess(false);
           setLoading(false);
         }
       }
@@ -183,6 +213,7 @@ const Configuracoes = () => {
 
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
     };
   }, []);
 
@@ -195,31 +226,54 @@ const Configuracoes = () => {
 
     setValidatingPassword(true);
     setPasswordError("");
+    setPageError(null);
 
-    // Get company ID first
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      // Get company ID first
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        setPasswordError("Erro de autenticação. Faça login novamente.");
+        setValidatingPassword(false);
+        return;
+      }
 
-    const { data: companies } = await supabase
-      .from("companies")
-      .select("id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+      const { data: companies, error: companyError } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    if (!companies) return;
+      if (companyError || !companies) {
+        setPasswordError("Empresa não encontrada. Entre em contato com o suporte.");
+        setValidatingPassword(false);
+        return;
+      }
 
-    const isValid = await validateAdminPassword(companies.id, passwordInput);
-    
-    if (isValid) {
-      setIsAuthenticated(true);
-      setLoading(true);
-      loadCompanyData();
-    } else {
-      setPasswordError("Senha incorreta. Acesso negado.");
-      setPasswordInput("");
+      const isValid = await validateAdminPassword(companies.id, passwordInput);
+      
+      if (isValid) {
+        setIsAuthenticated(true);
+        setLoading(true);
+        setPasswordError("");
+        loadCompanyData();
+      } else {
+        setPasswordError("Senha incorreta. Tente novamente.");
+        setPasswordInput("");
+      }
+    } catch (error) {
+      console.error("Error validating password:", error);
+      setPasswordError("Erro ao validar senha. Tente novamente.");
+    } finally {
+      setValidatingPassword(false);
     }
-    
-    setValidatingPassword(false);
+  };
+
+  const handleRetry = () => {
+    setPageError(null);
+    setCheckingAccess(true);
+    setLoading(true);
+    window.location.reload();
   };
 
   const loadCompanyData = async () => {
@@ -641,8 +695,43 @@ const Configuracoes = () => {
     }
   ];
 
+  // Show error state
+  if (pageError) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <h1 className="text-2xl font-semibold">Configurações</h1>
+          <div className="flex items-center justify-center p-12">
+            <Card className="w-full max-w-md">
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center gap-4 text-center">
+                  <div className="p-4 rounded-full bg-destructive/10">
+                    <ShieldAlert className="h-12 w-12 text-destructive" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">Erro ao carregar</h3>
+                    <p className="text-muted-foreground mt-1">{pageError}</p>
+                  </div>
+                  <div className="flex gap-2 w-full">
+                    <Button variant="outline" className="flex-1" onClick={() => navigate("/dashboard")}>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Voltar
+                    </Button>
+                    <Button className="flex-1" onClick={handleRetry}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   // Show loading state while checking password
-  if (hasPassword === null) {
+  if (checkingAccess || hasPassword === null) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
@@ -680,7 +769,10 @@ const Configuracoes = () => {
                     type="password"
                     placeholder="Digite a senha de administrador"
                     value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
+                    onChange={(e) => {
+                      setPasswordInput(e.target.value);
+                      setPasswordError("");
+                    }}
                     className="text-center"
                     autoFocus
                   />
