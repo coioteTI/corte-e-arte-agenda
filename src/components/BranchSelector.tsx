@@ -99,6 +99,18 @@ export const BranchSelector = () => {
       // Step 1: Validating data (0-20%)
       await simulateProgress(0, 20, "Validando dados...", 400);
 
+      // Get current user's company ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (!company) throw new Error('Empresa não encontrada');
+
       // Step 2: Creating branch (20-50%)
       await simulateProgress(20, 50, "Criando filial...", 500);
       
@@ -109,6 +121,7 @@ export const BranchSelector = () => {
           address: newBranchAddress || null,
           city: newBranchCity || null,
           phone: newBranchPhone || null,
+          company_id: company.id,
         });
 
       if (error) throw error;

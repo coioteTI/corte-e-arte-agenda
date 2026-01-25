@@ -115,6 +115,7 @@ Deno.serve(async (req) => {
         zip_code: company.zip_code,
         phone: company.phone,
         email: company.email,
+        company_id: company.id,
       })
       .select()
       .single();

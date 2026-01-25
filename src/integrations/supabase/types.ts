@@ -124,6 +124,7 @@ export type Database = {
         Row: {
           address: string | null
           city: string | null
+          company_id: string | null
           created_at: string
           email: string | null
           id: string
@@ -137,6 +138,7 @@ export type Database = {
         Insert: {
           address?: string | null
           city?: string | null
+          company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -150,6 +152,7 @@ export type Database = {
         Update: {
           address?: string | null
           city?: string | null
+          company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -160,7 +163,15 @@ export type Database = {
           updated_at?: string
           zip_code?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "branches_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
@@ -1735,6 +1746,7 @@ export type Database = {
           company_id: string
         }[]
       }
+      get_user_company_id: { Args: { _user_id: string }; Returns: string }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
