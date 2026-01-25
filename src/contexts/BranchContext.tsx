@@ -10,11 +10,13 @@ interface Branch {
   state?: string;
   phone?: string;
   is_active: boolean;
+  company_id?: string;
 }
 
 interface BranchContextType {
   currentBranch: Branch | null;
   currentBranchId: string | null;
+  companyId: string | null;
   branches: Branch[];
   userRole: AppRole | null;
   loading: boolean;
@@ -36,6 +38,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [currentBranch, setCurrentBranchState] = useState<Branch | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchUserRole = useCallback(async (userId: string) => {
@@ -91,6 +94,25 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const role = await fetchUserRole(user.id);
       const branchList = await fetchBranches(user.id, role);
       const currentBranchId = await fetchCurrentSession(user.id);
+
+      // Get company ID - works for both owners and employees
+      let fetchedCompanyId: string | null = null;
+      
+      // First try to get company where user is the owner
+      const { data: ownedCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (ownedCompany) {
+        fetchedCompanyId = ownedCompany.id;
+      } else if (branchList.length > 0 && branchList[0].company_id) {
+        // For employees, get company through branch
+        fetchedCompanyId = branchList[0].company_id;
+      }
+      
+      setCompanyId(fetchedCompanyId);
 
       if (currentBranchId) {
         const branch = branchList.find(b => b.id === currentBranchId);
@@ -165,6 +187,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       value={{
         currentBranch,
         currentBranchId: currentBranch?.id || null,
+        companyId,
         branches,
         userRole,
         loading,

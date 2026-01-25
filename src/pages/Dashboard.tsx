@@ -38,17 +38,38 @@ const Dashboard = () => {
         return;
       }
 
-      // Get company ID
-      const { data: company } = await supabase
+      // Get company ID - works for both owners and employees
+      let companyId: string | null = null;
+      
+      // First try to get company where user is the owner
+      const { data: ownedCompany } = await supabase
         .from('companies')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
+      
+      if (ownedCompany) {
+        companyId = ownedCompany.id;
+      } else {
+        // For employees, get company through branch association
+        const { data: branchData } = await supabase
+          .from('user_branches')
+          .select('branches(company_id)')
+          .eq('user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+        
+        if (branchData?.branches) {
+          companyId = (branchData.branches as any)?.company_id;
+        }
+      }
 
-      if (!company) {
-        setError('Empresa não encontrada');
+      if (!companyId) {
+        setError('Empresa não encontrada. Verifique se você está associado a uma filial.');
         return;
       }
+
+      const company = { id: companyId };
 
       const today = format(new Date(), 'yyyy-MM-dd');
 
