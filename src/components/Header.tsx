@@ -44,14 +44,19 @@ export const Header = () => {
                 <span className="sr-only">Abrir menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[280px] sm:w-[350px]">
+            <SheetContent side="right" className="w-[280px] sm:w-[350px]" hideCloseButton>
               <div className="flex flex-col space-y-4 mt-6">
-                <div className="flex items-center space-x-3 pb-4 border-b">
-                  <img src={logo} alt="Corte & Arte" className="h-8 w-auto" />
-                  <div>
-                    <h2 className="font-semibold text-foreground">Corte & Arte</h2>
-                    <p className="text-sm text-muted-foreground">Menu</p>
+                <div className="flex items-center justify-between pb-4 border-b">
+                  <div className="flex items-center space-x-3">
+                    <img src={logo} alt="Corte & Arte" className="h-8 w-auto" />
+                    <div>
+                      <h2 className="font-semibold text-foreground">Corte & Arte</h2>
+                      <p className="text-sm text-muted-foreground">Menu</p>
+                    </div>
                   </div>
+                  <Button variant="ghost" size="sm" onClick={closeMobileMenu} className="p-1">
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
                 
                 <nav className="flex flex-col space-y-3">

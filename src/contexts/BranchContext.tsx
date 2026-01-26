@@ -102,35 +102,61 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const initialize = useCallback(async () => {
+    // Immediately set loading to false if no active session check is needed for public routes
+    const startTime = Date.now();
+    const FAST_TIMEOUT = 5000; // 5 second timeout for faster feedback
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Use getSession instead of getUser for faster initial check
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        // No user, immediately stop loading - this is a public route
         setLoading(false);
         return;
       }
 
-      const role = await fetchUserRole(user.id);
-      const { branches: branchList, companyId: fetchedCompanyId } = await fetchBranches(user.id, role);
-      const currentBranchId = await fetchCurrentSession(user.id);
+      const user = session.user;
 
-      // Set company ID from branches fetch result and sync with ModuleSettingsContext
-      setCompanyId(fetchedCompanyId);
-      if (fetchedCompanyId) {
-        setModuleCompanyId(fetchedCompanyId);
-      }
+      // Run all fetches in parallel with timeout for speed
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), FAST_TIMEOUT)
+      );
 
-      if (currentBranchId) {
-        const branch = branchList.find(b => b.id === currentBranchId);
-        if (branch) {
-          setCurrentBranchState(branch);
+      try {
+        const [role, currentBranchIdResult] = await Promise.race([
+          Promise.all([
+            fetchUserRole(user.id),
+            fetchCurrentSession(user.id)
+          ]),
+          timeoutPromise
+        ]) as [any, any];
+
+        const { branches: branchList, companyId: fetchedCompanyId } = await fetchBranches(user.id, role);
+
+        // Set company ID from branches fetch result and sync with ModuleSettingsContext
+        setCompanyId(fetchedCompanyId);
+        if (fetchedCompanyId) {
+          setModuleCompanyId(fetchedCompanyId);
         }
+
+        if (currentBranchIdResult) {
+          const branch = branchList.find(b => b.id === currentBranchIdResult);
+          if (branch) {
+            setCurrentBranchState(branch);
+          }
+        }
+      } catch (timeoutError) {
+        console.warn('Branch context initialization timeout, using defaults');
       }
     } catch (error) {
       console.error('Error initializing branch context:', error);
     } finally {
+      const elapsed = Date.now() - startTime;
+      console.log(`[BranchContext] Initialized in ${elapsed}ms`);
       setLoading(false);
     }
-  }, [fetchUserRole, fetchBranches, fetchCurrentSession]);
+  }, [fetchUserRole, fetchBranches, fetchCurrentSession, setModuleCompanyId]);
 
   useEffect(() => {
     initialize();
