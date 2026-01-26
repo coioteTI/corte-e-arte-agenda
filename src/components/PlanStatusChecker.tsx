@@ -25,12 +25,13 @@ export const PlanStatusChecker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: company } = await supabase
+      const { data: companies } = await supabase
         .from('companies')
         .select('plan, updated_at')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
+      const company = Array.isArray(companies) ? companies[0] : companies;
       if (!company) return;
 
       // Planos ativos: premium, trial, pro (padrão) - apenas 'free' ou 'nenhum' são inativos

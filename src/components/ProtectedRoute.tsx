@@ -22,12 +22,14 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
         // Check if this is first access
         if (user) {
-          const { data: profile } = await supabase
+          const { data: profiles } = await supabase
             .from('profiles')
             .select('is_first_access')
             .eq('user_id', user.id)
-            .single();
+            .limit(1);
 
+          // Handle case where there might be multiple profiles or none
+          const profile = Array.isArray(profiles) ? profiles[0] : profiles;
           setIsFirstAccess(profile?.is_first_access ?? false);
         }
       } catch (error) {
@@ -47,12 +49,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         
         if (session?.user) {
           // Re-check first access status
-          const { data: profile } = await supabase
+          const { data: profiles } = await supabase
             .from('profiles')
             .select('is_first_access')
             .eq('user_id', session.user.id)
-            .single();
+            .limit(1);
 
+          const profile = Array.isArray(profiles) ? profiles[0] : profiles;
           setIsFirstAccess(profile?.is_first_access ?? false);
         } else {
           setIsFirstAccess(false);
