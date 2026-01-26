@@ -40,7 +40,8 @@ const Dashboard = () => {
 
       // Use companyId from context - already resolved for both owners and employees
       if (!companyId) {
-        setError('Empresa não encontrada. Verifique se você está associado a uma filial.');
+        // Don't show error, just show empty state
+        setLoading(false);
         return;
       }
 
@@ -68,42 +69,62 @@ const Dashboard = () => {
         clientsQuery = clientsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
       }
 
-      // Load all dashboard data in parallel with faster timeout
+      // Load all dashboard data in parallel with aggressive timeout
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Tempo limite excedido')), 5000)
+        setTimeout(() => reject(new Error('Tempo limite excedido')), 3000)
       );
 
-      const [
-        appointmentsToday,
-        totalServices,
-        totalProfessionals,
-        totalAppointments,
-        allAppointments
-      ] = await Promise.race([
-        Promise.all([
-          appointmentsTodayQuery,
-          servicesQuery,
-          professionalsQuery,
-          appointmentsCountQuery,
-          clientsQuery
-        ]),
-        timeoutPromise
-      ]) as any[];
+      try {
+        const [
+          appointmentsToday,
+          totalServices,
+          totalProfessionals,
+          totalAppointments,
+          allAppointments
+        ] = await Promise.race([
+          Promise.all([
+            appointmentsTodayQuery,
+            servicesQuery,
+            professionalsQuery,
+            appointmentsCountQuery,
+            clientsQuery
+          ]),
+          timeoutPromise
+        ]) as any[];
 
-      const uniqueClientIds = [...new Set(allAppointments?.data?.map((apt: any) => apt.client_id).filter(Boolean) || [])];
-      const totalClientes = uniqueClientIds.length;
+        const uniqueClientIds = [...new Set(allAppointments?.data?.map((apt: any) => apt.client_id).filter(Boolean) || [])];
+        const totalClientes = uniqueClientIds.length;
 
-      setDashboardData({
-        agendamentosHoje: appointmentsToday.data || [],
-        totalClientes,
-        totalServicos: totalServices.count || 0,
-        totalProfissionais: totalProfessionals.count || 0,
-        totalAgendamentos: totalAppointments.count || 0
-      });
+        setDashboardData({
+          agendamentosHoje: appointmentsToday.data || [],
+          totalClientes,
+          totalServicos: totalServices.count || 0,
+          totalProfissionais: totalProfessionals.count || 0,
+          totalAgendamentos: totalAppointments.count || 0
+        });
+      } catch (timeoutError) {
+        // On timeout, just show empty data instead of error
+        console.warn('Dashboard data load timeout, showing empty state');
+        setDashboardData({
+          agendamentosHoje: [],
+          totalClientes: 0,
+          totalServicos: 0,
+          totalProfissionais: 0,
+          totalAgendamentos: 0
+        });
+      }
+      
       setLastBranchId(currentBranchId);
     } catch (err) {
       console.error('Error loading dashboard data:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
+      // Show empty state instead of error for better UX
+      setDashboardData({
+        agendamentosHoje: [],
+        totalClientes: 0,
+        totalServicos: 0,
+        totalProfissionais: 0,
+        totalAgendamentos: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -111,7 +132,7 @@ const Dashboard = () => {
 
   // Reload when branch changes
   useEffect(() => {
-    if (branchLoading || !companyId) return;
+    if (branchLoading) return;
     
     // Clear and reload when branch changes
     if (lastBranchId !== currentBranchId) {
@@ -124,16 +145,25 @@ const Dashboard = () => {
       });
       loadDashboardData();
     }
-  }, [currentBranchId, branchLoading, lastBranchId, loadDashboardData, companyId]);
+  }, [currentBranchId, branchLoading, lastBranchId, loadDashboardData]);
 
-  // Initial load
+  // Initial load - with max wait time
   useEffect(() => {
-    if (!branchLoading && companyId && lastBranchId === null) {
+    const maxWait = setTimeout(() => {
+      if (loading) {
+        setLoading(false);
+      }
+    }, 5000);
+    
+    if (!branchLoading && lastBranchId === null) {
       loadDashboardData();
     }
-  }, [branchLoading, lastBranchId, loadDashboardData, companyId]);
+    
+    return () => clearTimeout(maxWait);
+  }, [branchLoading, lastBranchId, loadDashboardData, loading]);
 
-  if (loading || branchLoading) {
+  // Never show loading state for more than 5 seconds
+  if ((loading || branchLoading) && !dashboardData.agendamentosHoje.length) {
     return (
       <DashboardLayout>
         <LoadingSkeleton cards={4} showHeader={true} />
