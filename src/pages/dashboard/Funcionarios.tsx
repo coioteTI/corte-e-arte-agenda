@@ -191,13 +191,6 @@ const Funcionarios = () => {
     try {
       setLoading(true);
       
-      // Get all user branches
-      const { data: userBranchesData, error: branchesError } = await supabase
-        .from('user_branches')
-        .select('user_id, branch_id, branches(id, name)');
-
-      if (branchesError) throw branchesError;
-
       // Get all user roles
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
@@ -205,25 +198,39 @@ const Funcionarios = () => {
 
       if (rolesError) throw rolesError;
 
-      // For Admin: filter to only show employees from their current branch
-      // CEO is ALWAYS visible and should never be filtered out
       let filteredRoles = rolesData || [];
+      let userBranchesData: any[] = [];
       
       if (userRole === 'admin' && currentBranchId) {
-        // Get user IDs that belong to the current branch
+        // Admin: Only get user_branches for the CURRENT branch
+        const { data: branchUsersData, error: branchUsersError } = await supabase
+          .from('user_branches')
+          .select('user_id, branch_id, branches(id, name)')
+          .eq('branch_id', currentBranchId);
+
+        if (branchUsersError) throw branchUsersError;
+        userBranchesData = branchUsersData || [];
+        
+        // Get ONLY user IDs that belong to the current branch
         const usersInCurrentBranch = new Set(
-          userBranchesData
-            ?.filter(ub => ub.branch_id === currentBranchId)
-            .map(ub => ub.user_id) || []
+          branchUsersData?.map(ub => ub.user_id) || []
         );
         
         // Filter: only employees from current branch, EXCLUDE CEO and other admins
         filteredRoles = rolesData?.filter(r => {
           // Admin can only see employees - never CEO or other admins
           if (r.role === 'ceo' || r.role === 'admin') return false;
-          // Only show employees from current branch
+          // CRITICAL: Only show employees that are EXPLICITLY assigned to current branch
           return usersInCurrentBranch.has(r.user_id);
         }) || [];
+      } else {
+        // CEO: Get all user branches
+        const { data: allBranchesData, error: branchesError } = await supabase
+          .from('user_branches')
+          .select('user_id, branch_id, branches(id, name)');
+
+        if (branchesError) throw branchesError;
+        userBranchesData = allBranchesData || [];
       }
 
       // Get profiles for these users
