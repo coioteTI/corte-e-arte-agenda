@@ -13,7 +13,7 @@ import { applyBranchFilter } from "@/hooks/useBranchData";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
+  const { currentBranchId, userRole, companyId, loading: branchLoading } = useBranch();
   const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
   
   const [dashboardData, setDashboardData] = useState({
@@ -38,53 +38,26 @@ const Dashboard = () => {
         return;
       }
 
-      // Get company ID - works for both owners and employees
-      let companyId: string | null = null;
-      
-      // First try to get company where user is the owner
-      const { data: ownedCompany } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (ownedCompany) {
-        companyId = ownedCompany.id;
-      } else {
-        // For employees, get company through branch association
-        const { data: branchData } = await supabase
-          .from('user_branches')
-          .select('branches(company_id)')
-          .eq('user_id', user.id)
-          .limit(1)
-          .maybeSingle();
-        
-        if (branchData?.branches) {
-          companyId = (branchData.branches as any)?.company_id;
-        }
-      }
-
+      // Use companyId from context - already resolved for both owners and employees
       if (!companyId) {
         setError('Empresa não encontrada. Verifique se você está associado a uma filial.');
         return;
       }
 
-      const company = { id: companyId };
-
       const today = format(new Date(), 'yyyy-MM-dd');
 
-      // Build queries with branch filtering
+      // Build queries with branch filtering using companyId from context
       let appointmentsTodayQuery = supabase
         .from('appointments')
         .select(`*, clients(name), services(name), professionals(name)`)
-        .eq('company_id', company.id)
+        .eq('company_id', companyId)
         .eq('appointment_date', today)
         .order('appointment_time');
       
-      let servicesQuery = supabase.from('services').select('id', { count: 'exact', head: true }).eq('company_id', company.id);
-      let professionalsQuery = supabase.from('professionals').select('id', { count: 'exact', head: true }).eq('company_id', company.id);
-      let appointmentsCountQuery = supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', company.id);
-      let clientsQuery = supabase.from('appointments').select('client_id').eq('company_id', company.id);
+      let servicesQuery = supabase.from('services').select('id', { count: 'exact', head: true }).eq('company_id', companyId);
+      let professionalsQuery = supabase.from('professionals').select('id', { count: 'exact', head: true }).eq('company_id', companyId);
+      let appointmentsCountQuery = supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', companyId);
+      let clientsQuery = supabase.from('appointments').select('client_id').eq('company_id', companyId);
 
       // Apply branch filter if not CEO
       if (shouldFilterByBranch && currentBranchId) {
@@ -134,11 +107,11 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate, currentBranchId, shouldFilterByBranch]);
+  }, [navigate, currentBranchId, shouldFilterByBranch, companyId]);
 
   // Reload when branch changes
   useEffect(() => {
-    if (branchLoading) return;
+    if (branchLoading || !companyId) return;
     
     // Clear and reload when branch changes
     if (lastBranchId !== currentBranchId) {
@@ -151,14 +124,14 @@ const Dashboard = () => {
       });
       loadDashboardData();
     }
-  }, [currentBranchId, branchLoading, lastBranchId, loadDashboardData]);
+  }, [currentBranchId, branchLoading, lastBranchId, loadDashboardData, companyId]);
 
   // Initial load
   useEffect(() => {
-    if (!branchLoading && lastBranchId === null) {
+    if (!branchLoading && companyId && lastBranchId === null) {
       loadDashboardData();
     }
-  }, [branchLoading, lastBranchId, loadDashboardData]);
+  }, [branchLoading, lastBranchId, loadDashboardData, companyId]);
 
   if (loading || branchLoading) {
     return (

@@ -49,9 +49,19 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return roleData as AppRole || 'ceo';
   }, []);
 
-  const fetchBranches = useCallback(async (userId: string, role: AppRole) => {
+  const fetchBranches = useCallback(async (userId: string, role: AppRole): Promise<{ branches: Branch[]; companyId: string | null }> => {
+    let fetchedCompanyId: string | null = null;
+    
     if (role === 'ceo') {
-      // CEO can see all branches
+      // CEO can see all branches - get company first
+      const { data: ownedCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      fetchedCompanyId = ownedCompany?.id || null;
+      
       const { data } = await supabase
         .from('branches')
         .select('*')
@@ -59,17 +69,23 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .order('name');
       
       setBranches(data || []);
-      return data || [];
+      return { branches: data || [], companyId: fetchedCompanyId };
     } else {
       // Other roles see only assigned branches
       const { data } = await supabase
         .from('user_branches')
-        .select('branch_id, is_primary, branches(*)')
+        .select('branch_id, is_primary, branches(id, name, address, city, state, phone, is_active, company_id)')
         .eq('user_id', userId);
 
       const branchList = data?.map(ub => ub.branches as unknown as Branch).filter(Boolean) || [];
       setBranches(branchList);
-      return branchList;
+      
+      // Get company_id from the first branch
+      if (branchList.length > 0 && branchList[0].company_id) {
+        fetchedCompanyId = branchList[0].company_id;
+      }
+      
+      return { branches: branchList, companyId: fetchedCompanyId };
     }
   }, []);
 
@@ -92,26 +108,10 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       const role = await fetchUserRole(user.id);
-      const branchList = await fetchBranches(user.id, role);
+      const { branches: branchList, companyId: fetchedCompanyId } = await fetchBranches(user.id, role);
       const currentBranchId = await fetchCurrentSession(user.id);
 
-      // Get company ID - works for both owners and employees
-      let fetchedCompanyId: string | null = null;
-      
-      // First try to get company where user is the owner
-      const { data: ownedCompany } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (ownedCompany) {
-        fetchedCompanyId = ownedCompany.id;
-      } else if (branchList.length > 0 && branchList[0].company_id) {
-        // For employees, get company through branch
-        fetchedCompanyId = branchList[0].company_id;
-      }
-      
+      // Set company ID from branches fetch result
       setCompanyId(fetchedCompanyId);
 
       if (currentBranchId) {
