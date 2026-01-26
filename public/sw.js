@@ -1,4 +1,4 @@
-const CACHE_NAME = 'corte-arte-v2';
+const CACHE_NAME = 'corte-arte-v3';
 
 // Only cache essential assets that we know exist
 const STATIC_ASSETS = [
