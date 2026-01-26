@@ -178,44 +178,68 @@ const Funcionarios = () => {
   const [isSaving, setIsSaving] = useState(false);
   
   const { toast } = useToast();
-  const { userRole, branches } = useBranch();
+  const { userRole, branches, currentBranchId } = useBranch();
 
   const canManageUsers = userRole === 'ceo' || userRole === 'admin';
   const canCreateAdmins = userRole === 'ceo';
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [currentBranchId, userRole]);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
       
-      // Get all user roles
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
+      // Get user branches - filter by current branch if admin
+      let userBranchesQuery = supabase
+        .from('user_branches')
+        .select('user_id, branch_id, branches(id, name)');
+
+      // Admin can only see users from their current branch
+      if (userRole === 'admin' && currentBranchId) {
+        userBranchesQuery = userBranchesQuery.eq('branch_id', currentBranchId);
+      }
+
+      const { data: userBranchesData, error: branchesError } = await userBranchesQuery;
+
+      if (branchesError) throw branchesError;
+
+      // Get unique user IDs from the branch filter
+      const allowedUserIds = userRole === 'admin' && currentBranchId
+        ? [...new Set(userBranchesData?.map(ub => ub.user_id) || [])]
+        : null;
+
+      // Get all user roles (filtered if admin)
+      let rolesQuery = supabase.from('user_roles').select('user_id, role');
+      
+      // Admin can only see employees, not other admins or CEOs
+      if (userRole === 'admin') {
+        rolesQuery = rolesQuery.eq('role', 'employee');
+      }
+
+      const { data: rolesData, error: rolesError } = await rolesQuery;
 
       if (rolesError) throw rolesError;
 
+      // Filter roles by allowed user IDs if admin
+      const filteredRoles = allowedUserIds 
+        ? rolesData?.filter(r => allowedUserIds.includes(r.user_id)) 
+        : rolesData;
+
       // Get profiles for these users
+      const userIds = filteredRoles?.map(r => r.user_id) || [];
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name');
+        .select('user_id, full_name')
+        .in('user_id', userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000']);
 
       if (profilesError) throw profilesError;
-
-      // Get user branches
-      const { data: userBranchesData, error: branchesError } = await supabase
-        .from('user_branches')
-        .select('user_id, branches(id, name)');
-
-      if (branchesError) throw branchesError;
 
       // Combine data
       const usersMap = new Map<string, UserData>();
       
-      rolesData?.forEach(role => {
+      filteredRoles?.forEach(role => {
         const profile = profilesData?.find(p => p.user_id === role.user_id);
         const userBranches = userBranchesData
           ?.filter(ub => ub.user_id === role.user_id)
@@ -261,6 +285,20 @@ const Funcionarios = () => {
       return;
     }
 
+    // Admin must assign to their current branch only
+    const branchesToAssign = userRole === 'admin' && currentBranchId 
+      ? [currentBranchId] 
+      : selectedBranches;
+
+    if (branchesToAssign.length === 0 && newUserRole !== 'ceo') {
+      toast({
+        title: "Selecione uma filial",
+        description: "É necessário selecionar pelo menos uma filial",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Call edge function to create user
@@ -270,7 +308,7 @@ const Funcionarios = () => {
           password: newUserPassword || undefined, // Optional - will trigger first access flow if empty
           full_name: newUserName,
           role: newUserRole,
-          branch_ids: selectedBranches,
+          branch_ids: branchesToAssign,
         },
       });
 
@@ -310,39 +348,53 @@ const Funcionarios = () => {
     e.preventDefault();
     if (!selectedUser) return;
 
+    // Admin can only edit employees and can't change their role
+    if (userRole === 'admin') {
+      if (selectedUser.role !== 'employee') {
+        toast({
+          title: "Sem permissão",
+          description: "Você só pode editar funcionários",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
-      // Update user role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({
-          user_id: selectedUser.id,
-          role: newUserRole,
-        }, { onConflict: 'user_id,role' });
+      // Only CEO can change roles
+      if (userRole === 'ceo') {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .upsert({
+            user_id: selectedUser.id,
+            role: newUserRole,
+          }, { onConflict: 'user_id,role' });
 
-      if (roleError) throw roleError;
+        if (roleError) throw roleError;
 
-      // Update user branches - remove old ones and add new ones
-      await supabase
-        .from('user_branches')
-        .delete()
-        .eq('user_id', selectedUser.id);
-
-      if (selectedBranches.length > 0) {
-        const branchInserts = selectedBranches.map((branchId, index) => ({
-          user_id: selectedUser.id,
-          branch_id: branchId,
-          is_primary: index === 0,
-        }));
-
-        const { error: branchInsertError } = await supabase
+        // Only CEO can update branches
+        await supabase
           .from('user_branches')
-          .insert(branchInserts);
+          .delete()
+          .eq('user_id', selectedUser.id);
 
-        if (branchInsertError) throw branchInsertError;
+        if (selectedBranches.length > 0) {
+          const branchInserts = selectedBranches.map((branchId, index) => ({
+            user_id: selectedUser.id,
+            branch_id: branchId,
+            is_primary: index === 0,
+          }));
+
+          const { error: branchInsertError } = await supabase
+            .from('user_branches')
+            .insert(branchInserts);
+
+          if (branchInsertError) throw branchInsertError;
+        }
       }
 
-      // Update profile name
+      // Update profile name (both admin and CEO can do this)
       await supabase
         .from('profiles')
         .upsert({
@@ -631,29 +683,45 @@ const Funcionarios = () => {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Filiais de acesso</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {branches.map(branch => (
-                  <Button
-                    key={branch.id}
-                    type="button"
-                    variant={selectedBranches.includes(branch.id) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleBranch(branch.id)}
-                    className="justify-start"
-                  >
-                    <Building2 className="h-4 w-4 mr-2" />
-                    {branch.name}
-                  </Button>
-                ))}
+            {/* Branch selection - only for CEO, Admin assigns to their current branch automatically */}
+            {userRole === 'ceo' ? (
+              <div className="space-y-2">
+                <Label>Filiais de acesso</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {branches.map(branch => (
+                    <Button
+                      key={branch.id}
+                      type="button"
+                      variant={selectedBranches.includes(branch.id) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleBranch(branch.id)}
+                      className="justify-start"
+                    >
+                      <Building2 className="h-4 w-4 mr-2" />
+                      {branch.name}
+                    </Button>
+                  ))}
+                </div>
+                {selectedBranches.length === 0 && newUserRole !== 'ceo' && (
+                  <p className="text-xs text-muted-foreground">
+                    Selecione pelo menos uma filial
+                  </p>
+                )}
               </div>
-              {selectedBranches.length === 0 && newUserRole !== 'ceo' && (
+            ) : (
+              <div className="space-y-2">
+                <Label>Filial de acesso</Label>
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">
+                    {branches.find(b => b.id === currentBranchId)?.name || 'Filial atual'}
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Selecione pelo menos uma filial
+                  Funcionários serão automaticamente vinculados à sua filial
                 </p>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -688,57 +756,92 @@ const Funcionarios = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Perfil de acesso</Label>
-              <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Funcionário
-                    </div>
-                  </SelectItem>
-                  {canCreateAdmins && (
+            {/* Role selection - only for CEO */}
+            {userRole === 'ceo' ? (
+              <div className="space-y-2">
+                <Label>Perfil de acesso</Label>
+                <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employee">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Funcionário
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="admin">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4" />
+                        Administrador
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="ceo">
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-4 w-4" />
+                        CEO
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Perfil de acesso</Label>
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+                  {selectedUser && roleLabels[selectedUser.role] && (
                     <>
-                      <SelectItem value="admin">
-                        <div className="flex items-center gap-2">
-                          <Shield className="h-4 w-4" />
-                          Administrador
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="ceo">
-                        <div className="flex items-center gap-2">
-                          <Crown className="h-4 w-4" />
-                          CEO
-                        </div>
-                      </SelectItem>
+                      {(() => {
+                        const RoleIcon = roleLabels[selectedUser.role].icon;
+                        return <RoleIcon className="h-4 w-4" />;
+                      })()}
+                      <span className="text-sm">{roleLabels[selectedUser.role].label}</span>
                     </>
                   )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Filiais de acesso</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {branches.map(branch => (
-                  <Button
-                    key={branch.id}
-                    type="button"
-                    variant={selectedBranches.includes(branch.id) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleBranch(branch.id)}
-                    className="justify-start"
-                  >
-                    <Building2 className="h-4 w-4 mr-2" />
-                    {branch.name}
-                  </Button>
-                ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Apenas o CEO pode alterar o perfil de acesso
+                </p>
               </div>
-            </div>
+            )}
+
+            {/* Branch selection - only for CEO */}
+            {userRole === 'ceo' ? (
+              <div className="space-y-2">
+                <Label>Filiais de acesso</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {branches.map(branch => (
+                    <Button
+                      key={branch.id}
+                      type="button"
+                      variant={selectedBranches.includes(branch.id) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleBranch(branch.id)}
+                      className="justify-start"
+                    >
+                      <Building2 className="h-4 w-4 mr-2" />
+                      {branch.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Filial de acesso</Label>
+                <div className="flex flex-wrap gap-1">
+                  {selectedUser?.branches.map(branch => (
+                    <Badge key={branch.id} variant="secondary">
+                      <Building2 className="h-3 w-3 mr-1" />
+                      {branch.name}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Apenas o CEO pode alterar filiais de acesso
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>

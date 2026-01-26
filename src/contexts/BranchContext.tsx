@@ -141,6 +141,13 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
+      // Validate that the user has access to this branch (non-CEOs must be assigned)
+      const hasAccess = branches.some(b => b.id === branchId);
+      if (!hasAccess) {
+        console.error('[BranchContext] User does not have access to branch:', branchId);
+        return false;
+      }
+
       // If changing branches, this will trigger data reload in components
       const previousBranchId = currentBranch?.id;
 
