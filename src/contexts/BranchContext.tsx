@@ -23,7 +23,6 @@ interface BranchContextType {
   setCurrentBranch: (branchId: string) => Promise<boolean>;
   refreshBranches: () => Promise<void>;
   hasModuleAccess: (moduleKey: string) => boolean;
-  setModuleCompanyId: (id: string | null) => void;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
@@ -40,15 +39,8 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [branches, setBranches] = useState<Branch[]>([]);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const moduleCompanyIdRef = useRef<((id: string | null) => void) | null>(null);
+  const [loading, setLoading] = useState(false); // Start as false to not block initial render
   const initializeRef = useRef(false);
-
-  const setModuleCompanyId = useCallback((id: string | null) => {
-    if (moduleCompanyIdRef.current) {
-      moduleCompanyIdRef.current(id);
-    }
-  }, []);
 
   const fetchUserRole = useCallback(async (userId: string) => {
     try {
@@ -129,13 +121,16 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const startTime = Date.now();
     
     try {
+      // Use getSession for faster initial check
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        setLoading(false);
+        // No user - don't block, just return
         return;
       }
 
+      // User exists - now we can show loading for authenticated pages
+      setLoading(true);
       const user = session.user;
 
       // Fetch data sequentially but quickly
@@ -163,6 +158,26 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     initialize();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        // Clear all state on sign out
+        setCurrentBranchState(null);
+        setBranches([]);
+        setUserRole(null);
+        setCompanyId(null);
+        initializeRef.current = false;
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        // Re-initialize on sign in
+        initializeRef.current = false;
+        initialize();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [initialize]);
 
   const setCurrentBranch = async (branchId: string): Promise<boolean> => {
@@ -226,7 +241,6 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentBranch,
         refreshBranches,
         hasModuleAccess,
-        setModuleCompanyId,
       }}
     >
       {children}
