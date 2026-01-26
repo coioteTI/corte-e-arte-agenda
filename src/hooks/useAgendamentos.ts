@@ -59,12 +59,11 @@ export const useAgendamentos = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [companyId, setCompanyId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastBranchId, setLastBranchId] = useState<string | null>(null);
 
-  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
+  const { currentBranchId, userRole, companyId, loading: branchLoading } = useBranch();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadData = useCallback(async () => {
@@ -84,52 +83,24 @@ export const useAgendamentos = () => {
         return;
       }
 
-      // Get company ID - works for both owners and employees
-      let fetchedCompanyId: string | null = null;
-      
-      // First try to get company where user is the owner
-      const { data: ownedCompany } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (ownedCompany) {
-        fetchedCompanyId = ownedCompany.id;
-      } else {
-        // For employees, get company through branch association
-        const { data: branchData } = await supabase
-          .from('user_branches')
-          .select('branches(company_id)')
-          .eq('user_id', user.id)
-          .limit(1)
-          .maybeSingle();
-        
-        if (branchData?.branches) {
-          fetchedCompanyId = (branchData.branches as any)?.company_id;
-        }
-      }
-
-      if (!fetchedCompanyId) {
+      // Use companyId from BranchContext - already resolved for both owners and employees
+      if (!companyId) {
         setError('Empresa não encontrada. Verifique se você está associado a uma filial.');
         return;
       }
-
-      const company = { id: fetchedCompanyId };
-      setCompanyId(company.id);
 
       // Build queries with optional branch filtering
       // CEO sees all branches, others see only their current branch
       const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
 
       // Services query
-      let servicesQuery = supabase.from('services').select('*').eq('company_id', company.id);
+      let servicesQuery = supabase.from('services').select('*').eq('company_id', companyId);
       if (shouldFilterByBranch) {
         servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
       }
 
       // Professionals query
-      let professionalsQuery = supabase.from('professionals').select('*').eq('company_id', company.id);
+      let professionalsQuery = supabase.from('professionals').select('*').eq('company_id', companyId);
       if (shouldFilterByBranch) {
         professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
       }
@@ -144,7 +115,7 @@ export const useAgendamentos = () => {
       let appointmentsQuery = supabase
         .from('appointments')
         .select('*, pix_payment_proof')
-        .eq('company_id', company.id)
+        .eq('company_id', companyId)
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
       
@@ -208,11 +179,11 @@ export const useAgendamentos = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentBranchId, userRole]);
+  }, [currentBranchId, userRole, companyId]);
 
   // Clear and reload when branch changes
   useEffect(() => {
-    if (branchLoading) return;
+    if (branchLoading || !companyId) return;
 
     // Detect branch change and clear data before reloading
     if (lastBranchId !== currentBranchId) {
@@ -223,14 +194,14 @@ export const useAgendamentos = () => {
       setProfessionals([]);
       loadData();
     }
-  }, [currentBranchId, branchLoading, lastBranchId, loadData]);
+  }, [currentBranchId, branchLoading, lastBranchId, loadData, companyId]);
 
   // Initial load
   useEffect(() => {
-    if (!branchLoading && lastBranchId === null) {
+    if (!branchLoading && companyId && lastBranchId === null) {
       loadData();
     }
-  }, [branchLoading, lastBranchId, loadData]);
+  }, [branchLoading, lastBranchId, loadData, companyId]);
 
   // Cleanup on unmount
   useEffect(() => {
