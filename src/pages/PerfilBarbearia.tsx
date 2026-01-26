@@ -19,6 +19,7 @@ const PerfilBarbearia = () => {
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [serviceIndex, setServiceIndex] = useState(0);
+  const [isBookingEnabled, setIsBookingEnabled] = useState(true);
 
   useEffect(() => {
     fetchCompanyData();
@@ -77,6 +78,17 @@ const PerfilBarbearia = () => {
           setProfessionals(professionalsData || []);
         }
 
+        // Check if public booking is enabled for this company
+        const { data: moduleSettings } = await supabase
+          .from('module_settings')
+          .select('is_enabled')
+          .eq('company_id', foundCompany.id)
+          .eq('module_key', 'agendamento_publico')
+          .maybeSingle();
+        
+        // Default to true if no setting found
+        setIsBookingEnabled(moduleSettings?.is_enabled ?? true);
+
         // Check if user already liked this company
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -85,7 +97,7 @@ const PerfilBarbearia = () => {
             .select('id')
             .eq('user_id', user.id)
             .eq('company_id', foundCompany.id)
-            .single();
+            .maybeSingle();
           
           setIsLiked(!!favorite);
         }
@@ -365,18 +377,20 @@ const PerfilBarbearia = () => {
           </CardContent>
         </Card>
 
-        {/* Botão de Agendamento */}
-        <div className="text-center space-y-4">
-          <Button 
-            asChild 
-            className="w-full animate-pulse hover:scale-105 transition-transform duration-200" 
-            size="lg"
-          >
-            <Link to={`/agendar/${slug}`}>
-              Agendar Agora
-            </Link>
-          </Button>
-        </div>
+        {/* Botão de Agendamento - só aparece se módulo estiver ativo */}
+        {isBookingEnabled && (
+          <div className="text-center space-y-4">
+            <Button 
+              asChild 
+              className="w-full animate-pulse hover:scale-105 transition-transform duration-200" 
+              size="lg"
+            >
+              <Link to={`/agendar/${slug}`}>
+                Agendar Agora
+              </Link>
+            </Button>
+          </div>
+        )}
 
         {/* Avaliações da barbearia */}
         <ReviewSection companyId={company.id} canReview={true} />
