@@ -79,15 +79,21 @@ const PerfilBarbearia = () => {
         }
 
         // Check if public booking is enabled for this company
-        const { data: moduleSettings } = await supabase
+        const { data: moduleSettings, error: moduleError } = await supabase
           .from('module_settings')
           .select('is_enabled')
           .eq('company_id', foundCompany.id)
           .eq('module_key', 'agendamento_publico')
           .maybeSingle();
         
-        // Default to true if no setting found
-        setIsBookingEnabled(moduleSettings?.is_enabled ?? true);
+        console.log('Module settings for agendamento_publico:', moduleSettings, 'Error:', moduleError);
+        
+        // Default to true if no setting found, otherwise use the actual value
+        if (moduleSettings !== null) {
+          setIsBookingEnabled(moduleSettings.is_enabled);
+        } else {
+          setIsBookingEnabled(true);
+        }
 
         // Check if user already liked this company
         const { data: { user } } = await supabase.auth.getUser();
