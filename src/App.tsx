@@ -66,66 +66,68 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-const App = () => (
-  <ErrorBoundary>
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        <ModuleSettingsProvider>
+const App = () => {
+  return (
+    <ErrorBoundary>
+      <BrowserRouter>
+        <QueryClientProvider client={queryClient}>
           <BranchProvider>
-            <Toaster />
-            <Sonner />
-            <CookieConsent />
-            <PWAInstallPrompt />
-            <OfflineIndicator />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              
-              {/* Rotas do Cliente */}
-              <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
-              <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
-              <Route path="/agendar/:slug" element={<AgendarServico />} />
-              <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
-              <Route path="/cliente/historico" element={<Historico />} />
-              <Route path="/cliente/agendamentos" element={<Agendamentos />} />
-              <Route path="/cliente/favoritos" element={<Favoritos />} />
-              <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
-              
-              {/* Rotas da Empresa */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/criar-senha" element={<ProtectedRoute><CriarSenha /></ProtectedRoute>} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/cadastro" element={<Cadastro />} />
-              <Route path="/selecionar-filial" element={<ProtectedRoute><BranchSelection /></ProtectedRoute>} />
-              <Route path="/planos" element={<Planos />} />
-              <Route path="/plano-premium" element={<PlanoPremium />} />
-              <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
-              <Route path="/payment-success" element={<PaymentSuccess />} />
-              <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
-              <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
-              <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
-              <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
-              <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
-              <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
-              <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
-              <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
-              <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
-              <Route path="/dashboard/kirvano-webhooks" element={<ProtectedRoute><KirvanoWebhooks /></ProtectedRoute>} />
-              <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
-              <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
-              <Route path="/dashboard/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
-              <Route path="/dashboard/salarios" element={<ProtectedRoute><Salarios /></ProtectedRoute>} />
-              <Route path="/dashboard/funcionarios" element={<ProtectedRoute><Funcionarios /></ProtectedRoute>} />
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <ModuleSettingsProvider>
+              <Toaster />
+              <Sonner />
+              <CookieConsent />
+              <PWAInstallPrompt />
+              <OfflineIndicator />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                
+                {/* Rotas do Cliente */}
+                <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
+                <Route path="/barbearia/:slug" element={<PerfilBarbearia />} />
+                <Route path="/agendar/:slug" element={<AgendarServico />} />
+                <Route path="/agendamento-confirmado/:slug" element={<AgendamentoConfirmado />} />
+                <Route path="/cliente/historico" element={<Historico />} />
+                <Route path="/cliente/agendamentos" element={<Agendamentos />} />
+                <Route path="/cliente/favoritos" element={<Favoritos />} />
+                <Route path="/cliente/configuracoes" element={<ConfiguracoesCliente />} />
+                
+                {/* Rotas da Empresa */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/criar-senha" element={<ProtectedRoute><CriarSenha /></ProtectedRoute>} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/cadastro" element={<Cadastro />} />
+                <Route path="/selecionar-filial" element={<ProtectedRoute><BranchSelection /></ProtectedRoute>} />
+                <Route path="/planos" element={<Planos />} />
+                <Route path="/plano-premium" element={<PlanoPremium />} />
+                <Route path="/pagamento-sucesso" element={<PagamentoSucesso />} />
+                <Route path="/payment-success" element={<PaymentSuccess />} />
+                <Route path="/pagamento-cancelado" element={<PagamentoCancelado />} />
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/dashboard/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+                <Route path="/dashboard/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+                <Route path="/dashboard/servicos" element={<ProtectedRoute><Servicos /></ProtectedRoute>} />
+                <Route path="/dashboard/profissionais" element={<ProtectedRoute><Profissionais /></ProtectedRoute>} />
+                <Route path="/dashboard/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
+                <Route path="/dashboard/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+                <Route path="/dashboard/horarios" element={<ProtectedRoute><Horarios /></ProtectedRoute>} />
+                <Route path="/dashboard/planos" element={<ProtectedRoute><Planos /></ProtectedRoute>} />
+                <Route path="/dashboard/webhook-logs" element={<ProtectedRoute><WebhookLogs /></ProtectedRoute>} />
+                <Route path="/dashboard/kirvano-webhooks" element={<ProtectedRoute><KirvanoWebhooks /></ProtectedRoute>} />
+                <Route path="/dashboard/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+                <Route path="/dashboard/historico" element={<ProtectedRoute><HistoricoSimples /></ProtectedRoute>} />
+                <Route path="/dashboard/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
+                <Route path="/dashboard/salarios" element={<ProtectedRoute><Salarios /></ProtectedRoute>} />
+                <Route path="/dashboard/funcionarios" element={<ProtectedRoute><Funcionarios /></ProtectedRoute>} />
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </ModuleSettingsProvider>
           </BranchProvider>
-        </ModuleSettingsProvider>
-      </QueryClientProvider>
-    </BrowserRouter>
-  </ErrorBoundary>
-);
+        </QueryClientProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
+  );
+};
 
 export default App;

@@ -185,32 +185,27 @@ interface DashboardLayoutProps {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [companyName, setCompanyName] = useState<string>("");
   const [companyLogo, setCompanyLogo] = useState<string>("");
-  const { setCompanyId } = useModuleSettingsContext();
-  const { currentBranch, userRole } = useBranch();
+  const { currentBranch, userRole, companyId } = useBranch();
 
   useEffect(() => {
     loadCompanyInfo();
-  }, []);
+  }, [companyId]);
 
   const loadCompanyInfo = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: companies } = await supabase
-          .from('companies')
-          .select('id, name, logo_url')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (companies?.id) {
-          setCompanyId(companies.id);
-        }
-        if (companies?.name) {
-          setCompanyName(companies.name);
-        }
-        if (companies?.logo_url) {
-          setCompanyLogo(companies.logo_url);
-        }
+      if (!companyId) return;
+      
+      const { data: company } = await supabase
+        .from('companies')
+        .select('name, logo_url')
+        .eq('id', companyId)
+        .maybeSingle();
+      
+      if (company?.name) {
+        setCompanyName(company.name);
+      }
+      if (company?.logo_url) {
+        setCompanyLogo(company.logo_url);
       }
     } catch (error) {
       console.error('Error loading company info:', error);
