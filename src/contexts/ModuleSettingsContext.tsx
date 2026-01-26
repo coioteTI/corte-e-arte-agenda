@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useBranch } from '@/contexts/BranchContext';
 
 export interface ModuleSetting {
   id: string;
@@ -28,7 +29,6 @@ interface ModuleSettingsContextType {
   modules: ModuleSetting[];
   loading: boolean;
   companyId: string | null;
-  setCompanyId: (id: string | null) => void;
   toggleModule: (moduleKey: string, enabled: boolean) => Promise<boolean>;
   getEnabledModules: () => ModuleSetting[];
   getDisabledModules: () => ModuleSetting[];
@@ -51,9 +51,10 @@ interface ModuleSettingsProviderProps {
 }
 
 export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps) => {
+  const { companyId: branchCompanyId } = useBranch();
   const [modules, setModules] = useState<ModuleSetting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [companyId, setCompanyId] = useState<string | null>(null);
+  const companyId = branchCompanyId;
 
   const loadModules = useCallback(async () => {
     if (!companyId) {
@@ -222,7 +223,6 @@ export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps
         modules,
         loading,
         companyId,
-        setCompanyId,
         toggleModule,
         getEnabledModules,
         getDisabledModules,
