@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppRole } from '@/hooks/useUserRole';
-import { useModuleSettingsContext } from '@/contexts/ModuleSettingsContext';
 
 interface Branch {
   id: string;
@@ -24,6 +23,7 @@ interface BranchContextType {
   setCurrentBranch: (branchId: string) => Promise<boolean>;
   refreshBranches: () => Promise<void>;
   hasModuleAccess: (moduleKey: string) => boolean;
+  setModuleCompanyId: (id: string | null) => void;
 }
 
 const BranchContext = createContext<BranchContextType | undefined>(undefined);
@@ -36,127 +36,130 @@ const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
 };
 
 export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { setCompanyId: setModuleCompanyId } = useModuleSettingsContext();
   const [currentBranch, setCurrentBranchState] = useState<Branch | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const moduleCompanyIdRef = useRef<((id: string | null) => void) | null>(null);
+  const initializeRef = useRef(false);
+
+  const setModuleCompanyId = useCallback((id: string | null) => {
+    if (moduleCompanyIdRef.current) {
+      moduleCompanyIdRef.current(id);
+    }
+  }, []);
 
   const fetchUserRole = useCallback(async (userId: string) => {
-    const { data: roleData } = await supabase
-      .rpc('get_user_role', { _user_id: userId });
-    
-    setUserRole(roleData as AppRole || 'ceo');
-    return roleData as AppRole || 'ceo';
+    try {
+      const { data: roleData } = await supabase
+        .rpc('get_user_role', { _user_id: userId });
+      
+      const role = roleData as AppRole || 'ceo';
+      setUserRole(role);
+      return role;
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      return 'ceo' as AppRole;
+    }
   }, []);
 
   const fetchBranches = useCallback(async (userId: string, role: AppRole): Promise<{ branches: Branch[]; companyId: string | null }> => {
     let fetchedCompanyId: string | null = null;
     
-    if (role === 'ceo') {
-      // CEO can see all branches - get company first
-      const { data: ownedCompany } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      fetchedCompanyId = ownedCompany?.id || null;
-      
-      const { data } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-      
-      setBranches(data || []);
-      return { branches: data || [], companyId: fetchedCompanyId };
-    } else {
-      // Other roles see only assigned branches
-      const { data } = await supabase
-        .from('user_branches')
-        .select('branch_id, is_primary, branches(id, name, address, city, state, phone, is_active, company_id)')
-        .eq('user_id', userId);
+    try {
+      if (role === 'ceo') {
+        const { data: ownedCompany } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+        
+        fetchedCompanyId = ownedCompany?.id || null;
+        
+        const { data } = await supabase
+          .from('branches')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+        
+        setBranches(data || []);
+        return { branches: data || [], companyId: fetchedCompanyId };
+      } else {
+        const { data } = await supabase
+          .from('user_branches')
+          .select('branch_id, is_primary, branches(id, name, address, city, state, phone, is_active, company_id)')
+          .eq('user_id', userId);
 
-      const branchList = data?.map(ub => ub.branches as unknown as Branch).filter(Boolean) || [];
-      setBranches(branchList);
-      
-      // Get company_id from the first branch
-      if (branchList.length > 0 && branchList[0].company_id) {
-        fetchedCompanyId = branchList[0].company_id;
+        const branchList = data?.map(ub => ub.branches as unknown as Branch).filter(Boolean) || [];
+        setBranches(branchList);
+        
+        if (branchList.length > 0 && branchList[0].company_id) {
+          fetchedCompanyId = branchList[0].company_id;
+        }
+        
+        return { branches: branchList, companyId: fetchedCompanyId };
       }
-      
-      return { branches: branchList, companyId: fetchedCompanyId };
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+      return { branches: [], companyId: null };
     }
   }, []);
 
   const fetchCurrentSession = useCallback(async (userId: string) => {
-    const { data: session } = await supabase
-      .from('user_sessions')
-      .select('current_branch_id')
-      .eq('user_id', userId)
-      .single();
+    try {
+      const { data: session } = await supabase
+        .from('user_sessions')
+        .select('current_branch_id')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    return session?.current_branch_id;
+      return session?.current_branch_id;
+    } catch (error) {
+      console.error('Error fetching current session:', error);
+      return null;
+    }
   }, []);
 
   const initialize = useCallback(async () => {
-    // Immediately set loading to false if no active session check is needed for public routes
+    // Prevent double initialization
+    if (initializeRef.current) return;
+    initializeRef.current = true;
+    
     const startTime = Date.now();
-    const FAST_TIMEOUT = 5000; // 5 second timeout for faster feedback
     
     try {
-      // Use getSession instead of getUser for faster initial check
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        // No user, immediately stop loading - this is a public route
         setLoading(false);
         return;
       }
 
       const user = session.user;
 
-      // Run all fetches in parallel with timeout for speed
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), FAST_TIMEOUT)
-      );
+      // Fetch data sequentially but quickly
+      const role = await fetchUserRole(user.id);
+      const currentBranchIdResult = await fetchCurrentSession(user.id);
+      const { branches: branchList, companyId: fetchedCompanyId } = await fetchBranches(user.id, role);
 
-      try {
-        const [role, currentBranchIdResult] = await Promise.race([
-          Promise.all([
-            fetchUserRole(user.id),
-            fetchCurrentSession(user.id)
-          ]),
-          timeoutPromise
-        ]) as [any, any];
+      // Set company ID
+      setCompanyId(fetchedCompanyId);
 
-        const { branches: branchList, companyId: fetchedCompanyId } = await fetchBranches(user.id, role);
-
-        // Set company ID from branches fetch result and sync with ModuleSettingsContext
-        setCompanyId(fetchedCompanyId);
-        if (fetchedCompanyId) {
-          setModuleCompanyId(fetchedCompanyId);
+      if (currentBranchIdResult) {
+        const branch = branchList.find(b => b.id === currentBranchIdResult);
+        if (branch) {
+          setCurrentBranchState(branch);
         }
-
-        if (currentBranchIdResult) {
-          const branch = branchList.find(b => b.id === currentBranchIdResult);
-          if (branch) {
-            setCurrentBranchState(branch);
-          }
-        }
-      } catch (timeoutError) {
-        console.warn('Branch context initialization timeout, using defaults');
       }
+      
+      console.log(`[BranchContext] Initialized in ${Date.now() - startTime}ms`);
     } catch (error) {
       console.error('Error initializing branch context:', error);
     } finally {
-      const elapsed = Date.now() - startTime;
-      console.log(`[BranchContext] Initialized in ${elapsed}ms`);
       setLoading(false);
     }
-  }, [fetchUserRole, fetchBranches, fetchCurrentSession, setModuleCompanyId]);
+  }, [fetchUserRole, fetchBranches, fetchCurrentSession]);
 
   useEffect(() => {
     initialize();
@@ -167,15 +170,11 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      // Validate that the user has access to this branch (non-CEOs must be assigned)
       const hasAccess = branches.some(b => b.id === branchId);
       if (!hasAccess) {
         console.error('[BranchContext] User does not have access to branch:', branchId);
         return false;
       }
-
-      // If changing branches, this will trigger data reload in components
-      const previousBranchId = currentBranch?.id;
 
       const { error } = await supabase
         .from('user_sessions')
@@ -194,11 +193,6 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const branch = branches.find(b => b.id === branchId);
       if (branch) {
         setCurrentBranchState(branch);
-        
-        // Log branch switch for debugging
-        if (previousBranchId && previousBranchId !== branchId) {
-          console.log(`[BranchContext] Switched from branch ${previousBranchId} to ${branchId}`);
-        }
       }
 
       return true;
@@ -232,6 +226,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentBranch,
         refreshBranches,
         hasModuleAccess,
+        setModuleCompanyId,
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Download, X } from "lucide-react";
@@ -16,6 +16,16 @@ export const PWAInstallPrompt = () => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
+  // Check if dismissed recently (memoized to avoid recalculation)
+  const isDismissedRecently = useMemo(() => {
+    const dismissedTime = localStorage.getItem('pwa-install-dismissed');
+    if (dismissedTime) {
+      const daysSinceDismissed = (Date.now() - parseInt(dismissedTime)) / (1000 * 60 * 60 * 24);
+      return daysSinceDismissed < 7;
+    }
+    return false;
+  }, []);
+
   useEffect(() => {
     // Check if PWA is already installed
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
@@ -25,9 +35,7 @@ export const PWAInstallPrompt = () => {
 
     // Listen for the beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent Chrome 67 and earlier from automatically showing the prompt
       e.preventDefault();
-      // Stash the event so it can be triggered later
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setShowPrompt(true);
     };
@@ -37,7 +45,6 @@ export const PWAInstallPrompt = () => {
       setIsInstalled(true);
       setShowPrompt(false);
       setDeferredPrompt(null);
-      console.log('PWA was installed');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -51,19 +58,9 @@ export const PWAInstallPrompt = () => {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      // Show the install prompt
       deferredPrompt.prompt();
-      
-      // Wait for the user to respond to the prompt
       const { outcome } = await deferredPrompt.userChoice;
-      
-      if (outcome === 'accepted') {
-        console.log('User accepted the install prompt');
-      } else {
-        console.log('User dismissed the install prompt');
-      }
-      
-      // Clear the deferredPrompt
+      console.log('Install prompt outcome:', outcome);
       setDeferredPrompt(null);
       setShowPrompt(false);
     }
@@ -71,27 +68,17 @@ export const PWAInstallPrompt = () => {
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    // Store in localStorage to not show again for a while
     localStorage.setItem('pwa-install-dismissed', Date.now().toString());
   };
 
-  // Don't show if already installed or dismissed recently
-  if (isInstalled || !showPrompt || !deferredPrompt) {
+  // Early return - don't render anything if conditions aren't met
+  if (isInstalled || !showPrompt || !deferredPrompt || isDismissedRecently) {
     return null;
   }
 
-  // Check if user dismissed recently (within 7 days)
-  const dismissedTime = localStorage.getItem('pwa-install-dismissed');
-  if (dismissedTime) {
-    const daysSinceDismissed = (Date.now() - parseInt(dismissedTime)) / (1000 * 60 * 60 * 24);
-    if (daysSinceDismissed < 7) {
-      return null;
-    }
-  }
-
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 md:left-auto md:right-4 md:max-w-sm">
-      <Card className="border-primary/20 bg-background/95 backdrop-blur-sm">
+    <div className="fixed bottom-4 left-4 right-4 z-40 md:left-auto md:right-4 md:max-w-sm animate-in slide-in-from-bottom-4 duration-300">
+      <Card className="border-primary/20 bg-background/95 backdrop-blur-sm shadow-lg">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <div className="flex-1">
@@ -115,6 +102,7 @@ export const PWAInstallPrompt = () => {
                   variant="ghost" 
                   onClick={handleDismiss}
                   className="h-8 px-2"
+                  aria-label="Fechar"
                 >
                   <X className="h-3 w-3" />
                 </Button>
