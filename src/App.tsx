@@ -71,8 +71,8 @@ const App = () => {
     <ErrorBoundary>
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
-          <BranchProvider>
-            <ModuleSettingsProvider>
+          <ModuleSettingsProvider>
+            <BranchProvider>
               <Toaster />
               <Sonner />
               <CookieConsent />
@@ -122,8 +122,8 @@ const App = () => {
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </ModuleSettingsProvider>
-          </BranchProvider>
+            </BranchProvider>
+          </ModuleSettingsProvider>
         </QueryClientProvider>
       </BrowserRouter>
     </ErrorBoundary>
