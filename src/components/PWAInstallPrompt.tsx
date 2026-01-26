@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Download, X } from "lucide-react";
@@ -11,27 +11,58 @@ interface BeforeInstallPromptEvent extends Event {
   }>;
 }
 
+// Storage key for dismissal
+const DISMISS_KEY = 'pwa-install-dismissed';
+const DISMISS_DURATION_DAYS = 7;
+
+// Check if dismissed recently (outside component to avoid re-renders)
+const checkIfDismissedRecently = (): boolean => {
+  try {
+    const dismissedTime = localStorage.getItem(DISMISS_KEY);
+    if (dismissedTime) {
+      const daysSinceDismissed = (Date.now() - parseInt(dismissedTime)) / (1000 * 60 * 60 * 24);
+      return daysSinceDismissed < DISMISS_DURATION_DAYS;
+    }
+  } catch (e) {
+    // localStorage might not be available
+  }
+  return false;
+};
+
+// Check if already installed (outside component)
+const checkIfInstalled = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  
+  try {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isIOSStandalone = (window.navigator as any).standalone === true;
+    return isStandalone || isIOSStandalone;
+  } catch (e) {
+    return true; // Assume installed if we can't check
+  }
+};
+
 export const PWAInstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
-
-  // Check if dismissed recently (memoized to avoid recalculation)
-  const isDismissedRecently = useMemo(() => {
-    const dismissedTime = localStorage.getItem('pwa-install-dismissed');
-    if (dismissedTime) {
-      const daysSinceDismissed = (Date.now() - parseInt(dismissedTime)) / (1000 * 60 * 60 * 24);
-      return daysSinceDismissed < 7;
-    }
-    return false;
-  }, []);
+  const [isInstalled, setIsInstalled] = useState(true); // Start as true to prevent flash
+  const [isDismissed, setIsDismissed] = useState(true); // Start as true to prevent flash
 
   useEffect(() => {
-    // Check if PWA is already installed
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+    // Early exit conditions - check synchronously first
+    if (checkIfInstalled()) {
       setIsInstalled(true);
       return;
     }
+    
+    if (checkIfDismissedRecently()) {
+      setIsDismissed(true);
+      return;
+    }
+
+    // Not installed and not dismissed
+    setIsInstalled(false);
+    setIsDismissed(false);
 
     // Listen for the beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -56,28 +87,37 @@ export const PWAInstallPrompt = () => {
     };
   }, []);
 
-  const handleInstallClick = async () => {
+  const handleInstallClick = useCallback(async () => {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log('Install prompt outcome:', outcome);
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('Install prompt outcome:', outcome);
+      } catch (e) {
+        console.error('Install prompt error:', e);
+      }
       setDeferredPrompt(null);
       setShowPrompt(false);
     }
-  };
+  }, [deferredPrompt]);
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     setShowPrompt(false);
-    localStorage.setItem('pwa-install-dismissed', Date.now().toString());
-  };
+    setIsDismissed(true);
+    try {
+      localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    } catch (e) {
+      // localStorage might not be available
+    }
+  }, []);
 
-  // Early return - don't render anything if conditions aren't met
-  if (isInstalled || !showPrompt || !deferredPrompt || isDismissedRecently) {
+  // Don't render if any condition is true
+  if (isInstalled || isDismissed || !showPrompt || !deferredPrompt) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-40 md:left-auto md:right-4 md:max-w-sm animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed bottom-4 left-4 right-4 z-30 md:left-auto md:right-4 md:max-w-sm animate-in slide-in-from-bottom-4 duration-300">
       <Card className="border-primary/20 bg-background/95 backdrop-blur-sm shadow-lg">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">

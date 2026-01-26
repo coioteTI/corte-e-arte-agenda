@@ -57,8 +57,8 @@ const queryClient = new QueryClient({
   },
 });
 
-// Initialize PWA
-if ('serviceWorker' in navigator) {
+// Initialize PWA - with error handling
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then(registration => console.log('SW registered:', registration))
@@ -71,8 +71,8 @@ const App = () => {
     <ErrorBoundary>
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
-          <ModuleSettingsProvider>
-            <BranchProvider>
+          <BranchProvider>
+            <ModuleSettingsProvider>
               <Toaster />
               <Sonner />
               <CookieConsent />
@@ -122,8 +122,8 @@ const App = () => {
                 
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </BranchProvider>
-          </ModuleSettingsProvider>
+            </ModuleSettingsProvider>
+          </BranchProvider>
         </QueryClientProvider>
       </BrowserRouter>
     </ErrorBoundary>
