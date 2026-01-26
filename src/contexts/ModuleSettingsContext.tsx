@@ -52,14 +52,15 @@ interface ModuleSettingsProviderProps {
 
 export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps) => {
   const [modules, setModules] = useState<ModuleSetting[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false to prevent blocking
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   const loadModules = useCallback(async () => {
     if (!companyId) {
-      setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     try {
       const { data, error } = await supabase

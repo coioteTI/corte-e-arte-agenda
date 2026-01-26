@@ -68,9 +68,9 @@ const Dashboard = () => {
         clientsQuery = clientsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
       }
 
-      // Load all dashboard data in parallel with timeout
+      // Load all dashboard data in parallel with faster timeout
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Tempo limite excedido')), 15000)
+        setTimeout(() => reject(new Error('Tempo limite excedido')), 5000)
       );
 
       const [
