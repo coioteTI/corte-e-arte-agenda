@@ -37,12 +37,13 @@ const ConfiguracoesCliente = () => {
       setUser(user);
 
       // Buscar dados do perfil
-      const { data: profileData } = await supabase
+      const { data: profiles } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
+      const profileData = Array.isArray(profiles) ? profiles[0] : profiles;
       if (profileData) {
         setProfile(profileData);
       }

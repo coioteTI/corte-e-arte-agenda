@@ -66,12 +66,13 @@ export const useSubscription = () => {
         return;
       }
 
-      const { data: company, error } = await supabase
+      const { data: companies, error } = await supabase
         .from('companies')
         .select('plan, subscription_start_date, subscription_end_date, subscription_status, trial_appointments_used, trial_appointments_limit, updated_at')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
+      const company = Array.isArray(companies) ? companies[0] : companies;
       if (error || !company) {
         setSubscription(null);
         setIsLoading(false);

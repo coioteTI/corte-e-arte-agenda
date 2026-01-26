@@ -150,11 +150,13 @@ Deno.serve(async (req) => {
     }
 
     // 4. For non-CEO users, check if they need to create password (first access)
-    const { data: profile } = await supabaseAdmin
+    const { data: profiles } = await supabaseAdmin
       .from('profiles')
       .select('is_first_access')
       .eq('user_id', user.id)
-      .single();
+      .limit(1);
+
+    const profile = Array.isArray(profiles) ? profiles[0] : profiles;
 
     return new Response(
       JSON.stringify({ 

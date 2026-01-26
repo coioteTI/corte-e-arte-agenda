@@ -92,12 +92,13 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const fetchCurrentSession = useCallback(async (userId: string) => {
-    const { data: session } = await supabase
+    const { data: sessions } = await supabase
       .from('user_sessions')
-      .select('current_branch_id')
+      .select('current_branch_id, session_started_at')
       .eq('user_id', userId)
-      .single();
+      .limit(1);
 
+    const session = Array.isArray(sessions) ? sessions[0] : sessions;
     return session?.current_branch_id;
   }, []);
 

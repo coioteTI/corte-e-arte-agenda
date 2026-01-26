@@ -121,12 +121,13 @@ const Clientes = () => {
       }
 
       // Get company ID first
-      const { data: company } = await supabase
+      const { data: companies } = await supabase
         .from('companies')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
+      const company = Array.isArray(companies) ? companies[0] : companies;
       if (!company) {
         setLoading(false);
         return;

@@ -22,12 +22,13 @@ export const TrialBanner = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: company } = await supabase
+      const { data: companies } = await supabase
         .from('companies')
         .select('plan, trial_appointments_used, trial_appointments_limit')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
 
+      const company = Array.isArray(companies) ? companies[0] : companies;
       if (company && company.plan === 'trial') {
         setTrialInfo({
           used: company.trial_appointments_used || 0,
