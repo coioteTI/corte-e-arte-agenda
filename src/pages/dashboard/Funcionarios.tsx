@@ -191,41 +191,40 @@ const Funcionarios = () => {
     try {
       setLoading(true);
       
-      // Get user branches - filter by current branch if admin
-      let userBranchesQuery = supabase
+      // Get all user branches
+      const { data: userBranchesData, error: branchesError } = await supabase
         .from('user_branches')
         .select('user_id, branch_id, branches(id, name)');
 
-      // Admin can only see users from their current branch
-      if (userRole === 'admin' && currentBranchId) {
-        userBranchesQuery = userBranchesQuery.eq('branch_id', currentBranchId);
-      }
-
-      const { data: userBranchesData, error: branchesError } = await userBranchesQuery;
-
       if (branchesError) throw branchesError;
 
-      // Get unique user IDs from the branch filter
-      const allowedUserIds = userRole === 'admin' && currentBranchId
-        ? [...new Set(userBranchesData?.map(ub => ub.user_id) || [])]
-        : null;
-
-      // Get all user roles (filtered if admin)
-      let rolesQuery = supabase.from('user_roles').select('user_id, role');
-      
-      // Admin can only see employees, not other admins or CEOs
-      if (userRole === 'admin') {
-        rolesQuery = rolesQuery.eq('role', 'employee');
-      }
-
-      const { data: rolesData, error: rolesError } = await rolesQuery;
+      // Get all user roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
 
       if (rolesError) throw rolesError;
 
-      // Filter roles by allowed user IDs if admin
-      const filteredRoles = allowedUserIds 
-        ? rolesData?.filter(r => allowedUserIds.includes(r.user_id)) 
-        : rolesData;
+      // For Admin: filter to only show employees from their current branch
+      // CEO is ALWAYS visible and should never be filtered out
+      let filteredRoles = rolesData || [];
+      
+      if (userRole === 'admin' && currentBranchId) {
+        // Get user IDs that belong to the current branch
+        const usersInCurrentBranch = new Set(
+          userBranchesData
+            ?.filter(ub => ub.branch_id === currentBranchId)
+            .map(ub => ub.user_id) || []
+        );
+        
+        // Filter: only employees from current branch, EXCLUDE CEO and other admins
+        filteredRoles = rolesData?.filter(r => {
+          // Admin can only see employees - never CEO or other admins
+          if (r.role === 'ceo' || r.role === 'admin') return false;
+          // Only show employees from current branch
+          return usersInCurrentBranch.has(r.user_id);
+        }) || [];
+      }
 
       // Get profiles for these users
       const userIds = filteredRoles?.map(r => r.user_id) || [];
