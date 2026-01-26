@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppRole } from '@/hooks/useUserRole';
+import { useModuleSettingsContext } from '@/contexts/ModuleSettingsContext';
 
 interface Branch {
   id: string;
@@ -35,6 +36,7 @@ const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
 };
 
 export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { setCompanyId: setModuleCompanyId } = useModuleSettingsContext();
   const [currentBranch, setCurrentBranchState] = useState<Branch | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
@@ -111,8 +113,11 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const { branches: branchList, companyId: fetchedCompanyId } = await fetchBranches(user.id, role);
       const currentBranchId = await fetchCurrentSession(user.id);
 
-      // Set company ID from branches fetch result
+      // Set company ID from branches fetch result and sync with ModuleSettingsContext
       setCompanyId(fetchedCompanyId);
+      if (fetchedCompanyId) {
+        setModuleCompanyId(fetchedCompanyId);
+      }
 
       if (currentBranchId) {
         const branch = branchList.find(b => b.id === currentBranchId);
