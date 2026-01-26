@@ -39,8 +39,8 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [branches, setBranches] = useState<Branch[]>([]);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false); // Start as false to not block initial render
-  const initializeRef = useRef(false);
+  const [loading, setLoading] = useState(true); // Start true, set false quickly if no user
+  const [initialized, setInitialized] = useState(false);
 
   const fetchUserRole = useCallback(async (userId: string) => {
     try {
@@ -52,6 +52,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return role;
     } catch (error) {
       console.error('Error fetching user role:', error);
+      setUserRole('ceo');
       return 'ceo' as AppRole;
     }
   }, []);
@@ -115,36 +116,45 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const initialize = useCallback(async () => {
     // Prevent double initialization
-    if (initializeRef.current) return;
-    initializeRef.current = true;
+    if (initialized) return;
     
     const startTime = Date.now();
     
     try {
-      // Use getSession for faster initial check
-      const { data: { session } } = await supabase.auth.getSession();
+      // Use getSession for faster initial check with timeout
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
       
-      if (!session?.user) {
-        // No user - don't block, just return
+      const result = await Promise.race([sessionPromise, timeoutPromise]);
+      
+      if (!result || !('data' in result) || !result.data.session?.user) {
+        // No user or timeout - don't block
+        setLoading(false);
+        setInitialized(true);
         return;
       }
 
-      // User exists - now we can show loading for authenticated pages
-      setLoading(true);
-      const user = session.user;
+      const user = result.data.session.user;
 
-      // Fetch data sequentially but quickly
-      const role = await fetchUserRole(user.id);
-      const currentBranchIdResult = await fetchCurrentSession(user.id);
-      const { branches: branchList, companyId: fetchedCompanyId } = await fetchBranches(user.id, role);
+      // Fetch data with timeout protection
+      const dataPromise = (async () => {
+        const role = await fetchUserRole(user.id);
+        const currentBranchIdResult = await fetchCurrentSession(user.id);
+        const { branches: branchList, companyId: fetchedCompanyId } = await fetchBranches(user.id, role);
+        return { role, currentBranchIdResult, branchList, fetchedCompanyId };
+      })();
 
-      // Set company ID
-      setCompanyId(fetchedCompanyId);
+      const dataTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+      const data = await Promise.race([dataPromise, dataTimeout]);
 
-      if (currentBranchIdResult) {
-        const branch = branchList.find(b => b.id === currentBranchIdResult);
-        if (branch) {
-          setCurrentBranchState(branch);
+      if (data) {
+        setCompanyId(data.fetchedCompanyId);
+
+        if (data.currentBranchIdResult) {
+          const branch = data.branchList.find(b => b.id === data.currentBranchIdResult);
+          if (branch) {
+            setCurrentBranchState(branch);
+          }
         }
       }
       
@@ -153,8 +163,9 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error('Error initializing branch context:', error);
     } finally {
       setLoading(false);
+      setInitialized(true);
     }
-  }, [fetchUserRole, fetchBranches, fetchCurrentSession]);
+  }, [initialized, fetchUserRole, fetchBranches, fetchCurrentSession]);
 
   useEffect(() => {
     initialize();
@@ -167,11 +178,10 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setBranches([]);
         setUserRole(null);
         setCompanyId(null);
-        initializeRef.current = false;
+        setInitialized(false);
       } else if (event === 'SIGNED_IN' && session?.user) {
         // Re-initialize on sign in
-        initializeRef.current = false;
-        initialize();
+        setInitialized(false);
       }
     });
 
