@@ -58,30 +58,66 @@ const BuscarBarbearias = () => {
       // Fetch companies and rankings
       await Promise.all([fetchCompanies(), fetchTopRankings()]);
 
-      // Subscribe to realtime changes for companies (likes_count updates)
-      const companiesChannel = supabase.channel('companies-likes-updates').on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'companies',
-        filter: 'likes_count=neq.null'
-      }, payload => {
-        console.log('Company likes_count updated:', payload);
-        const updatedCompany = payload.new as any;
+      // Subscribe to ALL realtime changes for companies (INSERT, UPDATE, DELETE)
+      const companiesChannel = supabase.channel('companies-realtime')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'companies'
+        }, payload => {
+          console.log('Company inserted:', payload);
+          const newCompany = payload.new as any;
+          // Only add if has valid name
+          if (newCompany.name && newCompany.name.trim()) {
+            const companyWithSlug = {
+              ...newCompany,
+              slug: newCompany.name.toLowerCase().replace(/\s+/g, '-'),
+              is_favorite: false
+            };
+            setResultados(prev => [companyWithSlug, ...prev]);
+            // Refresh rankings
+            fetchTopRankings();
+          }
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'companies'
+        }, payload => {
+          console.log('Company updated:', payload);
+          const updatedCompany = payload.new as any;
 
-        // Update resultados
-        setResultados(prev => prev.map(company => company.id === updatedCompany.id ? {
-          ...company,
-          likes_count: updatedCompany.likes_count
-        } : company));
+          // Update resultados
+          setResultados(prev => prev.map(company => company.id === updatedCompany.id ? {
+            ...company,
+            ...updatedCompany,
+            slug: updatedCompany.name?.toLowerCase().replace(/\s+/g, '-') || company.slug
+          } : company));
 
-        // Update topBarbearias
-        setTopBarbearias(prev => prev.map(company => company.id === updatedCompany.id ? {
-          ...company,
-          likes_count: updatedCompany.likes_count
-        } : company));
-      }).subscribe(status => {
-        console.log('Companies realtime subscription status:', status);
-      });
+          // Update topBarbearias
+          setTopBarbearias(prev => prev.map(company => company.id === updatedCompany.id ? {
+            ...company,
+            ...updatedCompany,
+            slug: updatedCompany.name?.toLowerCase().replace(/\s+/g, '-') || company.slug
+          } : company));
+        })
+        .on('postgres_changes', {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'companies'
+        }, payload => {
+          console.log('Company deleted:', payload);
+          const deletedCompany = payload.old as any;
+          
+          // Remove from resultados
+          setResultados(prev => prev.filter(company => company.id !== deletedCompany.id));
+          
+          // Remove from topBarbearias
+          setTopBarbearias(prev => prev.filter(company => company.id !== deletedCompany.id));
+        })
+        .subscribe(status => {
+          console.log('Companies realtime subscription status:', status);
+        });
 
       // Cleanup function
       return () => {
@@ -102,6 +138,12 @@ const BuscarBarbearias = () => {
         ascending: false
       });
       if (error) throw error;
+      
+      // Filter out companies without valid names
+      const validCompanies = (companies || []).filter(company => 
+        company.name && company.name.trim().length > 0
+      );
+      
       let companiesWithFavorites: Barbearia[] = [];
 
       // If user is logged in, check favorites
@@ -112,14 +154,14 @@ const BuscarBarbearias = () => {
         } = await supabase.from('favorites').select('company_id').eq('user_id', user.id);
         if (!favError && favorites) {
           const favoriteIds = favorites.map(f => f.company_id);
-          companiesWithFavorites = (companies || []).map(company => ({
+          companiesWithFavorites = validCompanies.map(company => ({
             ...company,
             slug: company.name.toLowerCase().replace(/\s+/g, '-'),
             is_favorite: favoriteIds.includes(company.id)
           })) as Barbearia[];
         }
       } else {
-        companiesWithFavorites = (companies || []).map(company => ({
+        companiesWithFavorites = validCompanies.map(company => ({
           ...company,
           slug: company.name.toLowerCase().replace(/\s+/g, '-'),
           is_favorite: false
@@ -151,12 +193,20 @@ const BuscarBarbearias = () => {
           error: companiesError
         } = await supabase.rpc('get_public_company_data');
         if (!companiesError && companies) {
-          const top3: Barbearia[] = companies.map(company => ({
-            ...company,
-            slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-            is_favorite: false,
-            ranking: rankings.find(r => r.id === company.id)?.ranking || 0
-          })) as Barbearia[];
+          // Filter companies with valid names and match top 3
+          const validCompanies = companies.filter(company => 
+            company.name && company.name.trim().length > 0 && top3Ids.includes(company.id)
+          );
+          
+          const top3: Barbearia[] = validCompanies
+            .map(company => ({
+              ...company,
+              slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+              is_favorite: false,
+              ranking: rankings.find(r => r.id === company.id)?.ranking || 0
+            }))
+            .sort((a, b) => a.ranking - b.ranking)
+            .slice(0, 3) as Barbearia[];
           setTopBarbearias(top3);
         }
       }
