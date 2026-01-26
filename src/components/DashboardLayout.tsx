@@ -186,6 +186,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [companyName, setCompanyName] = useState<string>("");
   const [companyLogo, setCompanyLogo] = useState<string>("");
   const { currentBranch, userRole, companyId } = useBranch();
+  const { setCompanyId: setModuleCompanyId } = useModuleSettingsContext();
+
+  // Sync companyId with ModuleSettingsContext
+  useEffect(() => {
+    if (companyId) {
+      setModuleCompanyId(companyId);
+    }
+  }, [companyId, setModuleCompanyId]);
 
   useEffect(() => {
     loadCompanyInfo();

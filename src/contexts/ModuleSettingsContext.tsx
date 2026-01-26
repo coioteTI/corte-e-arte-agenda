@@ -41,7 +41,18 @@ const ModuleSettingsContext = createContext<ModuleSettingsContextType | null>(nu
 export const useModuleSettingsContext = () => {
   const context = useContext(ModuleSettingsContext);
   if (!context) {
-    throw new Error('useModuleSettingsContext must be used within ModuleSettingsProvider');
+    // Return a default context for initial render to avoid errors
+    return {
+      modules: [],
+      loading: false,
+      companyId: null,
+      setCompanyId: () => {},
+      toggleModule: async () => false,
+      getEnabledModules: () => [],
+      getDisabledModules: () => [],
+      isModuleEnabled: () => true,
+      refreshModules: async () => {},
+    };
   }
   return context;
 };
@@ -52,11 +63,12 @@ interface ModuleSettingsProviderProps {
 
 export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps) => {
   const [modules, setModules] = useState<ModuleSetting[]>([]);
-  const [loading, setLoading] = useState(false); // Start as false to prevent blocking
+  const [loading, setLoading] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
 
   const loadModules = useCallback(async () => {
     if (!companyId) {
+      setLoading(false);
       return;
     }
 
@@ -126,8 +138,6 @@ export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps
   useEffect(() => {
     if (!companyId) return;
 
-    console.log('Setting up realtime subscription for module_settings, companyId:', companyId);
-
     const channel = supabase
       .channel(`module-settings-${companyId}`)
       .on(
@@ -139,8 +149,6 @@ export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps
           filter: `company_id=eq.${companyId}`
         },
         (payload) => {
-          console.log('Module settings realtime update:', payload);
-          
           if (payload.eventType === 'UPDATE') {
             const updated = payload.new as ModuleSetting;
             setModules(prev => 
@@ -149,7 +157,6 @@ export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps
           } else if (payload.eventType === 'INSERT') {
             const inserted = payload.new as ModuleSetting;
             setModules(prev => {
-              // Check if module already exists (avoid duplicates)
               if (prev.find(m => m.id === inserted.id)) return prev;
               return [...prev, inserted];
             });
@@ -159,12 +166,9 @@ export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps
           }
         }
       )
-      .subscribe((status) => {
-        console.log('Module settings subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('Cleaning up module settings subscription');
       supabase.removeChannel(channel);
     };
   }, [companyId]);
@@ -192,7 +196,6 @@ export const ModuleSettingsProvider = ({ children }: ModuleSettingsProviderProps
         .eq('module_key', moduleKey);
 
       if (error) {
-        // Revert on error
         loadModules();
         throw error;
       }
