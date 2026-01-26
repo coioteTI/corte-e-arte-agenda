@@ -135,13 +135,11 @@ const Login = () => {
       }
 
       // Check if this is first access (user needs to create password)
-      const { data: profiles } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('is_first_access')
         .eq('user_id', data.user?.id)
-        .limit(1);
-
-      const profile = Array.isArray(profiles) ? profiles[0] : profiles;
+        .single();
 
       if (profile?.is_first_access) {
         toast({
@@ -153,13 +151,11 @@ const Login = () => {
       }
       
       // Verificar se o usuário tem um plano ativo
-      const { data: companiesData } = await supabase
+      const { data: companies } = await supabase
         .from('companies')
         .select('plan')
         .eq('user_id', data.user?.id)
-        .limit(1);
-
-      const companies = Array.isArray(companiesData) ? companiesData[0] : companiesData;
+        .single();
 
       const hasActivePlan = companies?.plan && companies.plan !== 'nenhum';
       

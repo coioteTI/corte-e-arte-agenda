@@ -22,13 +22,12 @@ export const usePlanAccess = (requiredPlan?: 'premium_mensal' | 'premium_anual')
         return;
       }
 
-      const { data: companies } = await supabase
+      const { data: company } = await supabase
         .from('companies')
         .select('plan, updated_at, trial_appointments_used, trial_appointments_limit')
         .eq('user_id', user.id)
-        .limit(1);
+        .single();
 
-      const company = Array.isArray(companies) ? companies[0] : companies;
       if (!company) {
         setHasAccess(false);
         setIsLoading(false);

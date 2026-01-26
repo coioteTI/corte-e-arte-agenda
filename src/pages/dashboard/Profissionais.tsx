@@ -53,13 +53,12 @@ const Profissionais = () => {
       if (!user) return;
 
       // Get company ID
-      const { data: companies } = await supabase
+      const { data: company } = await supabase
         .from('companies')
         .select('id')
         .eq('user_id', user.id)
-        .limit(1);
+        .single();
 
-      const company = Array.isArray(companies) ? companies[0] : companies;
       if (!company) return;
       
       setCompanyId(company.id);

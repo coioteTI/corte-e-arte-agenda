@@ -23,13 +23,12 @@ const Agendamentos = () => {
       if (!user) return;
 
       // Get client ID first
-      const { data: clients, error: clientError } = await supabase
+      const { data: client, error: clientError } = await supabase
         .from('clients')
         .select('id')
         .eq('user_id', user.id)
-        .limit(1);
+        .single();
 
-      const client = Array.isArray(clients) ? clients[0] : clients;
       if (clientError || !client) {
         console.log('No client found');
         setLoading(false);

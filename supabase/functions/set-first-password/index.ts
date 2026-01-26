@@ -70,13 +70,11 @@ Deno.serve(async (req) => {
     }
 
     // Check if user is on first access
-    const { data: profiles, error: profileError } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('is_first_access')
       .eq('user_id', user.id)
-      .limit(1);
-
-    const profile = Array.isArray(profiles) ? profiles[0] : profiles;
+      .single();
 
     if (profileError) {
       console.error('Error checking profile:', profileError);

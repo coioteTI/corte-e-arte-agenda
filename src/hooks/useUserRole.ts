@@ -68,13 +68,12 @@ export const useUserRole = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: sessions } = await supabase
+      const { data: sessionData } = await supabase
         .from('user_sessions')
         .select('current_branch_id, session_started_at')
         .eq('user_id', user.id)
-        .limit(1);
+        .single();
 
-      const sessionData = Array.isArray(sessions) ? sessions[0] : sessions;
       if (sessionData) {
         setSession({
           currentBranchId: sessionData.current_branch_id,

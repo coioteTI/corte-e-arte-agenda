@@ -44,13 +44,12 @@ const ResetPassword = () => {
       }).then(async ({ data }) => {
         // Check if user has is_first_access flag
         if (data.user) {
-          const { data: profiles } = await supabase
+          const { data: profile } = await supabase
             .from('profiles')
             .select('is_first_access')
             .eq('user_id', data.user.id)
-            .limit(1);
+            .single();
           
-          const profile = Array.isArray(profiles) ? profiles[0] : profiles;
           if (profile?.is_first_access) {
             setIsFirstAccess(true);
           }

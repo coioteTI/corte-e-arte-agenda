@@ -38,13 +38,11 @@ const CriarSenha = () => {
       }
 
       // Check if user needs to create password
-      const { data: profiles } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('is_first_access')
         .eq('user_id', user.id)
-        .limit(1);
-
-      const profile = Array.isArray(profiles) ? profiles[0] : profiles;
+        .single();
 
       if (!profile?.is_first_access) {
         // Not first access, redirect to normal flow
