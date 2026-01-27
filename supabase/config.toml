@@ -43,6 +43,12 @@ verify_jwt = false
 [functions.create-user]
 verify_jwt = false
 
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.trigger-appointment-push]
+verify_jwt = false
+
 [edge-runtime]
 ip_version = "IPv4Only"
 

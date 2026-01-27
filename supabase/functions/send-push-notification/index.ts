@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +13,7 @@ interface PushMessage {
   badge?: string;
   url?: string;
   tag?: string;
+  data?: Record<string, unknown>;
 }
 
 serve(async (req) => {
@@ -20,11 +22,14 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, clientId, message }: { 
+    const { userId, companyId, branchId, message }: { 
       userId?: string; 
-      clientId?: string; 
+      companyId?: string;
+      branchId?: string;
       message: PushMessage 
     } = await req.json();
+
+    console.log('Push notification request:', { userId, companyId, branchId, message });
 
     if (!message.title || !message.body) {
       return new Response(
@@ -33,25 +38,35 @@ serve(async (req) => {
       );
     }
 
-    // Buscar as subscriptions do usuário/cliente
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Build query to get subscriptions
     let query = supabase.from('push_subscriptions').select('*');
     
     if (userId) {
       query = query.eq('user_id', userId);
     }
-    if (clientId) {
-      query = query.eq('client_id', clientId);
+    
+    // If companyId provided, get all users from that company
+    if (companyId) {
+      // Get the company owner's user_id
+      const { data: company } = await supabase
+        .from('companies')
+        .select('user_id')
+        .eq('id', companyId)
+        .single();
+      
+      if (company) {
+        query = query.eq('user_id', company.user_id);
+      }
     }
 
     const { data: subscriptions, error } = await query;
 
     if (error) {
-      console.error('Erro ao buscar subscriptions:', error);
+      console.error('Error fetching subscriptions:', error);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch subscriptions' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -59,6 +74,7 @@ serve(async (req) => {
     }
 
     if (!subscriptions || subscriptions.length === 0) {
+      console.log('No subscriptions found');
       return new Response(
         JSON.stringify({ message: 'No subscriptions found' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -76,7 +92,9 @@ serve(async (req) => {
       );
     }
 
-    // Enviar notificações para cada subscription
+    console.log(`Sending push to ${subscriptions.length} subscriptions`);
+
+    // Send notifications to each subscription
     const sendPromises = subscriptions.map(async (sub) => {
       try {
         const payload = JSON.stringify({
@@ -84,11 +102,11 @@ serve(async (req) => {
           body: message.body,
           icon: message.icon || '/icon-192x192.png',
           badge: message.badge || '/icon-192x192.png',
-          url: message.url || '/',
-          tag: message.tag || 'default',
+          url: message.url || '/dashboard/agenda',
+          tag: message.tag || 'appointment',
+          data: message.data || {},
         });
 
-        // Usar web-push para enviar a notificação
         const webpush = await import('https://esm.sh/web-push@3.6.6');
         
         webpush.setVapidDetails(
@@ -106,12 +124,14 @@ serve(async (req) => {
         };
 
         await webpush.sendNotification(subscription, payload);
+        console.log('Push sent successfully to:', sub.id);
         return { success: true, subscription_id: sub.id };
-      } catch (error) {
-        console.error('Erro ao enviar notificação:', error);
+      } catch (error: any) {
+        console.error('Error sending push notification:', error);
         
-        // Se a subscription é inválida, remover do banco
-        if (error.statusCode === 410) {
+        // If subscription is invalid (expired/unsubscribed), remove it
+        if (error.statusCode === 410 || error.statusCode === 404) {
+          console.log('Removing invalid subscription:', sub.id);
           await supabase
             .from('push_subscriptions')
             .delete()
@@ -126,6 +146,8 @@ serve(async (req) => {
     const successful = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
 
+    console.log(`Push results: ${successful} sent, ${failed} failed`);
+
     return new Response(
       JSON.stringify({
         message: `Sent ${successful} notifications, ${failed} failed`,
@@ -137,8 +159,8 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
-    console.error('Erro na função:', error);
+  } catch (error: any) {
+    console.error('Push notification function error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
