@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Bell, BellOff, Smartphone, Clock, Tag } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Bell, BellOff, Smartphone, Clock, Tag, Check, AlertCircle } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { cn } from '@/lib/utils';
 
 interface NotificationSettingsProps {
   isClient?: boolean;
@@ -16,6 +17,7 @@ export const NotificationSettings = ({ isClient = false }: NotificationSettingsP
     isSupported, 
     permission, 
     subscription, 
+    isLoading,
     subscribe, 
     unsubscribe 
   } = usePushNotifications();
@@ -41,33 +43,60 @@ export const NotificationSettings = ({ isClient = false }: NotificationSettingsP
   const getPermissionStatus = () => {
     switch (permission) {
       case 'granted':
-        return { text: 'Permitidas', color: 'text-green-600' };
+        return { 
+          text: 'Notificações ativadas', 
+          color: 'text-green-600',
+          bgColor: 'bg-green-50 dark:bg-green-950/20',
+          icon: Check
+        };
       case 'denied':
-        return { text: 'Negadas', color: 'text-red-600' };
+        return { 
+          text: 'Bloqueadas pelo navegador', 
+          color: 'text-red-600',
+          bgColor: 'bg-red-50 dark:bg-red-950/20',
+          icon: AlertCircle
+        };
       default:
-        return { text: 'Não solicitadas', color: 'text-yellow-600' };
+        return { 
+          text: 'Não configuradas', 
+          color: 'text-yellow-600',
+          bgColor: 'bg-yellow-50 dark:bg-yellow-950/20',
+          icon: Bell
+        };
     }
   };
 
   const permissionStatus = getPermissionStatus();
+  const StatusIcon = permissionStatus.icon;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Bell className="h-5 w-5" />
+          <Smartphone className="h-5 w-5" />
           Notificações Push
         </CardTitle>
+        <CardDescription>
+          Receba alertas de novos agendamentos diretamente no seu celular
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Status das notificações */}
-        <div className="flex items-center justify-between p-4 bg-muted/10 rounded-lg">
+        <div className={cn(
+          "flex items-center justify-between p-4 rounded-lg transition-colors",
+          permissionStatus.bgColor
+        )}>
           <div className="flex items-center gap-3">
-            <Smartphone className="h-5 w-5 text-muted-foreground" />
+            <div className={cn(
+              "p-2 rounded-full",
+              subscription ? "bg-green-100 dark:bg-green-900/30" : "bg-muted"
+            )}>
+              <StatusIcon className={cn("h-5 w-5", permissionStatus.color)} />
+            </div>
             <div>
               <p className="font-medium">Status das Notificações</p>
               <p className={`text-sm ${permissionStatus.color}`}>
-                {permissionStatus.text}
+                {subscription ? 'Ativas - você receberá alertas' : permissionStatus.text}
               </p>
             </div>
           </div>
@@ -75,10 +104,19 @@ export const NotificationSettings = ({ isClient = false }: NotificationSettingsP
           {isSupported ? (
             <Button
               onClick={handleToggleNotifications}
-              variant={subscription ? "destructive" : "default"}
+              variant={subscription ? "outline" : "default"}
               size="sm"
+              disabled={isLoading}
+              className={cn(
+                subscription && "border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              )}
             >
-              {subscription ? (
+              {isLoading ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Processando...
+                </>
+              ) : subscription ? (
                 <>
                   <BellOff className="h-4 w-4 mr-2" />
                   Desativar
@@ -86,7 +124,7 @@ export const NotificationSettings = ({ isClient = false }: NotificationSettingsP
               ) : (
                 <>
                   <Bell className="h-4 w-4 mr-2" />
-                  Ativar
+                  Ativar Notificações
                 </>
               )}
             </Button>
@@ -96,6 +134,29 @@ export const NotificationSettings = ({ isClient = false }: NotificationSettingsP
             </p>
           )}
         </div>
+
+        {/* Badge information */}
+        {subscription && (
+          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+            <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+              📱 Recursos ativos
+            </h4>
+            <ul className="space-y-2 text-sm text-blue-700 dark:text-blue-300">
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4" />
+                Notificações mesmo com app fechado
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4" />
+                Badge no ícone do app (contador de não lidas)
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-4 w-4" />
+                Central de notificações no app
+              </li>
+            </ul>
+          </div>
+        )}
 
         {/* Configurações de tipos de notificação */}
         {subscription && (
@@ -123,7 +184,7 @@ export const NotificationSettings = ({ isClient = false }: NotificationSettingsP
                   <div className="flex items-center gap-3">
                     <Bell className="h-4 w-4 text-muted-foreground" />
                     <Label htmlFor="appointments" className="text-sm">
-                      Confirmações de agendamento
+                      Novos agendamentos
                     </Label>
                   </div>
                   <Switch
@@ -153,14 +214,27 @@ export const NotificationSettings = ({ isClient = false }: NotificationSettingsP
 
         {/* Informações sobre notificações */}
         {!subscription && isSupported && (
-          <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-lg">
-            <p className="font-medium mb-1">📱 Receba notificações sobre:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Lembretes 1 hora antes do seu agendamento</li>
-              <li>Confirmações de novos agendamentos</li>
-              <li>Promoções e ofertas especiais</li>
-              <li>Atualizações importantes do estabelecimento</li>
+          <div className="text-xs text-muted-foreground bg-muted/50 p-4 rounded-lg space-y-2">
+            <p className="font-medium">📱 Ao ativar, você receberá:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Alertas instantâneos de novos agendamentos</li>
+              <li>Lembretes antes dos horários marcados</li>
+              <li>Atualizações de cancelamentos/alterações</li>
+              <li>Notificações mesmo com o app fechado</li>
             </ul>
+            <p className="text-muted-foreground/80 pt-2">
+              O ícone do app mostrará um número indicando quantas notificações não lidas você tem.
+            </p>
+          </div>
+        )}
+
+        {permission === 'denied' && (
+          <div className="text-xs text-red-600 bg-red-50 dark:bg-red-950/20 p-3 rounded-lg">
+            <p className="font-medium">⚠️ Notificações bloqueadas</p>
+            <p className="mt-1">
+              Você bloqueou as notificações no navegador. Para ativar, acesse as 
+              configurações do navegador e permita notificações para este site.
+            </p>
           </div>
         )}
       </CardContent>

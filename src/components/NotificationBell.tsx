@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Check, CheckCheck, Volume2, VolumeX, Calendar, User, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,33 @@ export const NotificationBell = () => {
     soundEnabled,
     toggleSound
   } = useNotificationsRealtime();
+
+  // Update app badge when unread count changes
+  useEffect(() => {
+    const updateAppBadge = async () => {
+      if ('setAppBadge' in navigator) {
+        try {
+          if (unreadCount > 0) {
+            await (navigator as any).setAppBadge(unreadCount);
+          } else {
+            await (navigator as any).clearAppBadge();
+          }
+        } catch (error) {
+          console.log('Badge API error:', error);
+        }
+      }
+      
+      // Also notify service worker
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SET_BADGE_COUNT',
+          count: unreadCount
+        });
+      }
+    };
+
+    updateAppBadge();
+  }, [unreadCount]);
 
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
