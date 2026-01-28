@@ -48,80 +48,52 @@ const BuscarBarbearias = () => {
   const initializeData = async () => {
     try {
       // Get current user
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
 
-      // Fetch companies and rankings
+      // Fetch branches and rankings
       await Promise.all([fetchCompanies(), fetchTopRankings()]);
 
-      // Subscribe to ALL realtime changes for companies (INSERT, UPDATE, DELETE)
-      const companiesChannel = supabase.channel('companies-realtime')
+      // Subscribe to ALL realtime changes for branches (INSERT, UPDATE, DELETE)
+      const branchesChannel = supabase.channel('branches-realtime')
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
-          table: 'companies'
-        }, payload => {
-          console.log('Company inserted:', payload);
-          const newCompany = payload.new as any;
-          // Only add if has valid name
-          if (newCompany.name && newCompany.name.trim()) {
-            const companyWithSlug = {
-              ...newCompany,
-              slug: newCompany.name.toLowerCase().replace(/\s+/g, '-'),
-              is_favorite: false
-            };
-            setResultados(prev => [companyWithSlug, ...prev]);
-            // Refresh rankings
-            fetchTopRankings();
-          }
+          table: 'branches'
+        }, () => {
+          // Refresh all data when branch is added
+          fetchCompanies();
+          fetchTopRankings();
         })
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
-          table: 'companies'
-        }, payload => {
-          console.log('Company updated:', payload);
-          const updatedCompany = payload.new as any;
-
-          // Update resultados
-          setResultados(prev => prev.map(company => company.id === updatedCompany.id ? {
-            ...company,
-            ...updatedCompany,
-            slug: updatedCompany.name?.toLowerCase().replace(/\s+/g, '-') || company.slug
-          } : company));
-
-          // Update topBarbearias
-          setTopBarbearias(prev => prev.map(company => company.id === updatedCompany.id ? {
-            ...company,
-            ...updatedCompany,
-            slug: updatedCompany.name?.toLowerCase().replace(/\s+/g, '-') || company.slug
-          } : company));
+          table: 'branches'
+        }, () => {
+          // Refresh all data when branch is updated
+          fetchCompanies();
+          fetchTopRankings();
         })
         .on('postgres_changes', {
           event: 'DELETE',
           schema: 'public',
-          table: 'companies'
+          table: 'branches'
         }, payload => {
-          console.log('Company deleted:', payload);
-          const deletedCompany = payload.old as any;
+          const deletedBranch = payload.old as any;
           
           // Remove from resultados
-          setResultados(prev => prev.filter(company => company.id !== deletedCompany.id));
+          setResultados(prev => prev.filter(branch => branch.id !== deletedBranch.id));
           
           // Remove from topBarbearias
-          setTopBarbearias(prev => prev.filter(company => company.id !== deletedCompany.id));
+          setTopBarbearias(prev => prev.filter(branch => branch.id !== deletedBranch.id));
         })
         .subscribe(status => {
-          console.log('Companies realtime subscription status:', status);
+          console.log('Branches realtime subscription status:', status);
         });
 
       // Cleanup function
       return () => {
-        supabase.removeChannel(companiesChannel);
+        supabase.removeChannel(branchesChannel);
       };
     } catch (error) {
       console.error('Error initializing data:', error);
@@ -131,45 +103,58 @@ const BuscarBarbearias = () => {
   };
   const fetchCompanies = async () => {
     try {
-      const {
-        data: companies,
-        error
-      } = await supabase.rpc('get_public_company_data').order('likes_count', {
-        ascending: false
-      });
+      // Fetch branches directly with their associated company info
+      const { data: branches, error } = await supabase
+        .from('branches')
+        .select('*, companies!inner(name, city, state, likes_count, logo_url, plan, primary_color)')
+        .eq('is_active', true)
+        .order('name');
+
       if (error) throw error;
       
-      // Filter out companies without valid names
-      const validCompanies = (companies || []).filter(company => 
-        company.name && company.name.trim().length > 0
+      // Filter out branches without valid names and transform data
+      const validBranches = (branches || []).filter(branch => 
+        branch.name && branch.name.trim().length > 0
       );
       
-      let companiesWithFavorites: Barbearia[] = [];
+      let branchesWithFavorites: Barbearia[] = [];
+
+      // Transform branches into the expected format
+      const transformBranch = (branch: any, isFavorite: boolean = false) => ({
+        id: branch.id,
+        name: branch.name,
+        city: branch.city || branch.companies?.city || '',
+        state: branch.state || branch.companies?.state || '',
+        likes_count: branch.companies?.likes_count || 0,
+        slug: branch.name.toLowerCase().replace(/\s+/g, '-'),
+        is_favorite: isFavorite,
+        logo_url: branch.companies?.logo_url || null,
+        plan: branch.companies?.plan || 'trial',
+        primary_color: branch.companies?.primary_color || '#8B5CF6',
+        phone: branch.phone,
+        address: branch.address,
+      });
 
       // If user is logged in, check favorites
       if (user) {
-        const {
-          data: favorites,
-          error: favError
-        } = await supabase.from('favorites').select('company_id').eq('user_id', user.id);
+        const { data: favorites, error: favError } = await supabase
+          .from('favorites')
+          .select('company_id')
+          .eq('user_id', user.id);
+        
         if (!favError && favorites) {
           const favoriteIds = favorites.map(f => f.company_id);
-          companiesWithFavorites = validCompanies.map(company => ({
-            ...company,
-            slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-            is_favorite: favoriteIds.includes(company.id)
-          })) as Barbearia[];
+          branchesWithFavorites = validBranches.map(branch => 
+            transformBranch(branch, favoriteIds.includes(branch.company_id))
+          );
         }
       } else {
-        companiesWithFavorites = validCompanies.map(company => ({
-          ...company,
-          slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-          is_favorite: false
-        })) as Barbearia[];
+        branchesWithFavorites = validBranches.map(branch => transformBranch(branch, false));
       }
-      setResultados(companiesWithFavorites);
+      
+      setResultados(branchesWithFavorites);
     } catch (error) {
-      console.error('Error fetching companies:', error);
+      console.error('Error fetching branches:', error);
       toast({
         title: "Erro ao carregar barbearias",
         description: "Não foi possível carregar as barbearias.",
@@ -179,37 +164,35 @@ const BuscarBarbearias = () => {
   };
   const fetchTopRankings = async () => {
     try {
-      const {
-        data: rankings,
-        error
-      } = await supabase.rpc('get_company_rankings');
+      // Fetch top branches based on their company's likes count
+      const { data: branches, error } = await supabase
+        .from('branches')
+        .select('*, companies!inner(name, city, state, likes_count, logo_url, plan, primary_color)')
+        .eq('is_active', true)
+        .order('name')
+        .limit(20);
+
       if (error) throw error;
 
-      // Get full company data for top 3
-      const top3Ids = (rankings || []).slice(0, 3).map(r => r.id);
-      if (top3Ids.length > 0) {
-        const {
-          data: companies,
-          error: companiesError
-        } = await supabase.rpc('get_public_company_data');
-        if (!companiesError && companies) {
-          // Filter companies with valid names and match top 3
-          const validCompanies = companies.filter(company => 
-            company.name && company.name.trim().length > 0 && top3Ids.includes(company.id)
-          );
-          
-          const top3: Barbearia[] = validCompanies
-            .map(company => ({
-              ...company,
-              slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-              is_favorite: false,
-              ranking: rankings.find(r => r.id === company.id)?.ranking || 0
-            }))
-            .sort((a, b) => a.ranking - b.ranking)
-            .slice(0, 3) as Barbearia[];
-          setTopBarbearias(top3);
-        }
-      }
+      // Transform and sort by company likes
+      const validBranches = (branches || [])
+        .filter(branch => branch.name && branch.name.trim().length > 0)
+        .map((branch, index) => ({
+          id: branch.id,
+          name: branch.name,
+          city: branch.city || branch.companies?.city || '',
+          state: branch.state || branch.companies?.state || '',
+          likes_count: branch.companies?.likes_count || 0,
+          slug: branch.name.toLowerCase().replace(/\s+/g, '-'),
+          is_favorite: false,
+          logo_url: branch.companies?.logo_url || null,
+          ranking: 0,
+        }))
+        .sort((a, b) => b.likes_count - a.likes_count)
+        .slice(0, 3)
+        .map((branch, index) => ({ ...branch, ranking: index + 1 }));
+
+      setTopBarbearias(validBranches);
     } catch (error) {
       console.error('Error fetching rankings:', error);
     }
@@ -217,50 +200,63 @@ const BuscarBarbearias = () => {
   const handleBuscar = async () => {
     setLoading(true);
     try {
-      const {
-        data: allCompanies,
-        error
-      } = await supabase.rpc('get_public_company_data');
+      // Fetch branches with filtering
+      const { data: branches, error } = await supabase
+        .from('branches')
+        .select('*, companies!inner(name, city, state, likes_count, logo_url, plan, primary_color)')
+        .eq('is_active', true)
+        .order('name');
+
       if (error) throw error;
 
-      // Apply filters client-side since RPC doesn't support complex filtering
-      let companies = allCompanies || [];
+      // Apply filters client-side
+      let filteredBranches = branches || [];
       if (estado.trim()) {
-        companies = companies.filter(c => c.state?.toLowerCase().includes(estado.trim().toLowerCase()));
+        filteredBranches = filteredBranches.filter(b => 
+          (b.state?.toLowerCase().includes(estado.trim().toLowerCase())) ||
+          (b.companies?.state?.toLowerCase().includes(estado.trim().toLowerCase()))
+        );
       }
       if (cidade.trim()) {
-        companies = companies.filter(c => c.city?.toLowerCase().includes(cidade.trim().toLowerCase()));
+        filteredBranches = filteredBranches.filter(b => 
+          (b.city?.toLowerCase().includes(cidade.trim().toLowerCase())) ||
+          (b.companies?.city?.toLowerCase().includes(cidade.trim().toLowerCase()))
+        );
       }
 
-      // Only get companies that have location data
-      companies = companies.filter(c => c.state && c.city);
-
       // Sort by likes
-      companies.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
-      let companiesWithFavorites: Barbearia[] = [];
+      filteredBranches.sort((a, b) => (b.companies?.likes_count || 0) - (a.companies?.likes_count || 0));
+
+      const transformBranch = (branch: any, isFavorite: boolean = false) => ({
+        id: branch.id,
+        name: branch.name,
+        city: branch.city || branch.companies?.city || '',
+        state: branch.state || branch.companies?.state || '',
+        likes_count: branch.companies?.likes_count || 0,
+        slug: branch.name.toLowerCase().replace(/\s+/g, '-'),
+        is_favorite: isFavorite,
+        logo_url: branch.companies?.logo_url || null,
+      });
+
+      let branchesWithFavorites: Barbearia[] = [];
 
       // Check favorites if user is logged in
       if (user) {
-        const {
-          data: favorites,
-          error: favError
-        } = await supabase.from('favorites').select('company_id').eq('user_id', user.id);
+        const { data: favorites, error: favError } = await supabase
+          .from('favorites')
+          .select('company_id')
+          .eq('user_id', user.id);
+
         if (!favError && favorites) {
           const favoriteIds = favorites.map(f => f.company_id);
-          companiesWithFavorites = (companies || []).map(company => ({
-            ...company,
-            slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-            is_favorite: favoriteIds.includes(company.id)
-          })) as Barbearia[];
+          branchesWithFavorites = filteredBranches.map(branch => 
+            transformBranch(branch, favoriteIds.includes(branch.company_id))
+          );
         }
       } else {
-        companiesWithFavorites = (companies || []).map(company => ({
-          ...company,
-          slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-          is_favorite: false
-        })) as Barbearia[];
+        branchesWithFavorites = filteredBranches.map(branch => transformBranch(branch, false));
       }
-      setResultados(companiesWithFavorites);
+      setResultados(branchesWithFavorites);
     } catch (error) {
       console.error('Error searching companies:', error);
       toast({
@@ -277,65 +273,77 @@ const BuscarBarbearias = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(async position => {
         try {
-          const {
-            latitude,
-            longitude
-          } = position.coords;
+          const { latitude, longitude } = position.coords;
 
           // Usar API de geocoding para obter cidade e estado
           const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=b8a86b8d6c1f42a58c8e5a0d1e6f1234&language=pt&pretty=1`);
           const data = await response.json();
           if (data.results && data.results[0]) {
             const result = data.results[0];
-            const cidade = result.components.city || result.components.town || result.components.village || '';
-            const estado = result.components.state_code || result.components.state || '';
+            const cidadeResult = result.components.city || result.components.town || result.components.village || '';
+            const estadoResult = result.components.state_code || result.components.state || '';
 
             // Atualizar os campos de busca
-            setCidade(cidade);
-            setEstado(estado);
+            setCidade(cidadeResult);
+            setEstado(estadoResult);
 
-            // Buscar barbearias próximas
-            const {
-              data: allCompanies,
-              error: searchError
-            } = await supabase.rpc('get_public_company_data');
+            // Buscar filiais próximas
+            const { data: branches, error: searchError } = await supabase
+              .from('branches')
+              .select('*, companies!inner(name, city, state, likes_count, logo_url, plan, primary_color)')
+              .eq('is_active', true)
+              .order('name');
+
             if (searchError) throw searchError;
-            let companies = allCompanies || [];
-            if (estado) {
-              companies = companies.filter(c => c.state?.toLowerCase().includes(estado.toLowerCase()));
+
+            let filteredBranches = branches || [];
+            if (estadoResult) {
+              filteredBranches = filteredBranches.filter(b => 
+                (b.state?.toLowerCase().includes(estadoResult.toLowerCase())) ||
+                (b.companies?.state?.toLowerCase().includes(estadoResult.toLowerCase()))
+              );
             }
-            if (cidade) {
-              companies = companies.filter(c => c.city?.toLowerCase().includes(cidade.toLowerCase()));
+            if (cidadeResult) {
+              filteredBranches = filteredBranches.filter(b => 
+                (b.city?.toLowerCase().includes(cidadeResult.toLowerCase())) ||
+                (b.companies?.city?.toLowerCase().includes(cidadeResult.toLowerCase()))
+              );
             }
-            companies.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
-            if (companies) {
-              let companiesWithFavorites: Barbearia[] = [];
-              if (user) {
-                const {
-                  data: favorites,
-                  error: favError
-                } = await supabase.from('favorites').select('company_id').eq('user_id', user.id);
-                if (!favError && favorites) {
-                  const favoriteIds = favorites.map(f => f.company_id);
-                  companiesWithFavorites = companies.map(company => ({
-                    ...company,
-                    slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-                    is_favorite: favoriteIds.includes(company.id)
-                  })) as Barbearia[];
-                }
-              } else {
-                companiesWithFavorites = companies.map(company => ({
-                  ...company,
-                  slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-                  is_favorite: false
-                })) as Barbearia[];
+            filteredBranches.sort((a, b) => (b.companies?.likes_count || 0) - (a.companies?.likes_count || 0));
+
+            const transformBranch = (branch: any, isFavorite: boolean = false) => ({
+              id: branch.id,
+              name: branch.name,
+              city: branch.city || branch.companies?.city || '',
+              state: branch.state || branch.companies?.state || '',
+              likes_count: branch.companies?.likes_count || 0,
+              slug: branch.name.toLowerCase().replace(/\s+/g, '-'),
+              is_favorite: isFavorite,
+              logo_url: branch.companies?.logo_url || null,
+            });
+
+            let branchesWithFavorites: Barbearia[] = [];
+            if (user) {
+              const { data: favorites, error: favError } = await supabase
+                .from('favorites')
+                .select('company_id')
+                .eq('user_id', user.id);
+
+              if (!favError && favorites) {
+                const favoriteIds = favorites.map(f => f.company_id);
+                branchesWithFavorites = filteredBranches.map(branch => 
+                  transformBranch(branch, favoriteIds.includes(branch.company_id))
+                );
               }
-              setResultados(companiesWithFavorites);
+            } else {
+              branchesWithFavorites = filteredBranches.map(branch => transformBranch(branch, false));
             }
+            setResultados(branchesWithFavorites);
+
             setLocalizacaoPermitida(true);
             toast({
               title: "Localização ativada!",
-              description: `Mostrando barbearias em ${cidade}, ${estado}`
+              description: `Mostrando barbearias em ${cidadeResult}, ${estadoResult}`
             });
           } else {
             throw new Error('Não foi possível obter a localização');

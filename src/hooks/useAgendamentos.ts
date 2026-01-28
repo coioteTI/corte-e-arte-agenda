@@ -183,7 +183,14 @@ export const useAgendamentos = () => {
 
   // Clear and reload when branch changes
   useEffect(() => {
-    if (branchLoading || !companyId) return;
+    // Allow loading even without companyId initially - will show error state
+    if (branchLoading) return;
+
+    // If no companyId after branch loading is done, set error and stop loading
+    if (!companyId) {
+      setLoading(false);
+      return;
+    }
 
     // Detect branch change and clear data before reloading
     if (lastBranchId !== currentBranchId) {
@@ -200,6 +207,10 @@ export const useAgendamentos = () => {
   useEffect(() => {
     if (!branchLoading && companyId && lastBranchId === null) {
       loadData();
+    }
+    // If no companyId and not loading, stop the loading state
+    if (!branchLoading && !companyId) {
+      setLoading(false);
     }
   }, [branchLoading, lastBranchId, loadData, companyId]);
 

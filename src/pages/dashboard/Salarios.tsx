@@ -83,7 +83,7 @@ interface Payment {
 
 export default function Salarios() {
   const navigate = useNavigate();
-  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
+  const { currentBranchId, userRole, companyId: branchCompanyId, loading: branchLoading } = useBranch();
   const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
   
   const [loading, setLoading] = useState(true);
