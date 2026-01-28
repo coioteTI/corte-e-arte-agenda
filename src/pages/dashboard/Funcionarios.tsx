@@ -178,16 +178,14 @@ const Funcionarios = () => {
   const [isSaving, setIsSaving] = useState(false);
   
   const { toast } = useToast();
-  const { userRole, branches, currentBranchId, loading: branchLoading } = useBranch();
+  const { userRole, branches, currentBranchId } = useBranch();
 
   const canManageUsers = userRole === 'ceo' || userRole === 'admin';
   const canCreateAdmins = userRole === 'ceo';
 
   useEffect(() => {
-    if (!branchLoading) {
-      loadUsers();
-    }
-  }, [currentBranchId, userRole, branchLoading]);
+    loadUsers();
+  }, [currentBranchId, userRole]);
 
   const loadUsers = async () => {
     try {

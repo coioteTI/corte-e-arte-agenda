@@ -13,7 +13,7 @@ import { Tag } from "lucide-react";
 import { useBranch } from "@/contexts/BranchContext";
 
 const Servicos = () => {
-  const { currentBranchId, userRole, companyId: branchCompanyId, loading: branchLoading } = useBranch();
+  const { currentBranchId, userRole } = useBranch();
   const [servicos, setServicos] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -46,45 +46,30 @@ const Servicos = () => {
   const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
 
   useEffect(() => {
-    if (!branchLoading) {
-      loadCompanyData();
-    }
-  }, [currentBranchId, userRole, branchLoading]);
+    loadCompanyData();
+  }, [currentBranchId, userRole]);
 
   const loadCompanyData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      if (!user) return;
 
-      // Use companyId from BranchContext (works for both owners and employees)
-      let resolvedCompanyId = branchCompanyId;
+      // Get company ID
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
 
-      // Fallback: Get company ID directly if not available from context
-      if (!resolvedCompanyId) {
-        const { data: company } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        
-        resolvedCompanyId = company?.id || null;
-      }
-
-      if (!resolvedCompanyId) {
-        setLoading(false);
-        return;
-      }
+      if (!company) return;
       
-      setCompanyId(resolvedCompanyId);
+      setCompanyId(company.id);
 
       // Build query with branch filtering
       let servicesQuery = supabase
         .from('services')
         .select('*')
-        .eq('company_id', resolvedCompanyId);
+        .eq('company_id', company.id);
 
       if (shouldFilterByBranch) {
         servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);

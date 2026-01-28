@@ -23,7 +23,7 @@ const Horarios = () => {
   const [lastBranchId, setLastBranchId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { currentBranchId, userRole, companyId: branchCompanyId, loading: branchLoading } = useBranch();
+  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
   const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
   
   const dataHoje = new Date().toLocaleDateString("pt-BR", {

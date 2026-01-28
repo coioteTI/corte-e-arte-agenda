@@ -34,7 +34,7 @@ const Clientes = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { hasAdminPassword } = useAdminPassword();
-  const { currentBranchId, userRole, companyId: branchCompanyId, loading: branchLoading } = useBranch();
+  const { currentBranchId, userRole } = useBranch();
   const [searchTerm, setSearchTerm] = useState("");
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,10 +89,8 @@ const Clientes = () => {
   const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
 
   useEffect(() => {
-    if (!branchLoading) {
-      loadClientes();
-    }
-  }, [currentBranchId, userRole, branchLoading]);
+    loadClientes();
+  }, [currentBranchId, userRole]);
 
   useEffect(() => {
     // Check if admin password is configured
@@ -122,42 +120,35 @@ const Clientes = () => {
         return;
       }
 
-      // Use companyId from BranchContext (works for both owners and employees)
-      let resolvedCompanyId = branchCompanyId;
+      // Get company ID first
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
 
-      // Fallback: Get company ID directly if not available from context
-      if (!resolvedCompanyId) {
-        const { data: company } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        
-        resolvedCompanyId = company?.id || null;
-      }
-
-      if (!resolvedCompanyId) {
+      if (!company) {
         setLoading(false);
         return;
       }
-      setCompanyId(resolvedCompanyId);
+      setCompanyId(company.id);
 
       // Build base queries with branch filtering
       let appointmentsQuery = supabase
         .from('appointments')
         .select('client_id')
-        .eq('company_id', resolvedCompanyId);
+        .eq('company_id', company.id);
       
       let servicesQuery = supabase
         .from('services')
         .select('id, name, price, duration')
-        .eq('company_id', resolvedCompanyId)
+        .eq('company_id', company.id)
         .order('name');
       
       let professionalsQuery = supabase
         .from('professionals')
         .select('id, name, specialty')
-        .eq('company_id', resolvedCompanyId)
+        .eq('company_id', company.id)
         .eq('is_available', true)
         .order('name');
 

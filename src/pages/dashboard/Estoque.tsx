@@ -96,7 +96,7 @@ interface Sale {
 }
 
 const Estoque = () => {
-  const { currentBranchId, userRole, companyId: branchCompanyId, loading: branchLoading } = useBranch();
+  const { currentBranchId, userRole, loading: branchLoading } = useBranch();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
