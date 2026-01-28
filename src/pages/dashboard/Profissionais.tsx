@@ -15,7 +15,7 @@ import { ProfessionalAvatarUpload } from "@/components/ProfessionalAvatarUpload"
 import { useBranch } from "@/contexts/BranchContext";
 
 const Profissionais = () => {
-  const { currentBranchId, userRole } = useBranch();
+  const { currentBranchId, userRole, companyId: branchCompanyId, loading: branchLoading } = useBranch();
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -44,30 +44,45 @@ const Profissionais = () => {
   const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
 
   useEffect(() => {
-    loadCompanyData();
-  }, [currentBranchId, userRole]);
+    if (!branchLoading) {
+      loadCompanyData();
+    }
+  }, [currentBranchId, userRole, branchLoading]);
 
   const loadCompanyData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-      // Get company ID
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
+      // Use companyId from BranchContext (works for both owners and employees)
+      let resolvedCompanyId = branchCompanyId;
 
-      if (!company) return;
+      // Fallback: Get company ID directly if not available from context
+      if (!resolvedCompanyId) {
+        const { data: company } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        resolvedCompanyId = company?.id || null;
+      }
+
+      if (!resolvedCompanyId) {
+        setLoading(false);
+        return;
+      }
       
-      setCompanyId(company.id);
+      setCompanyId(resolvedCompanyId);
 
       // Build query with branch filtering
       let professionalsQuery = supabase
         .from('professionals')
         .select('*')
-        .eq('company_id', company.id);
+        .eq('company_id', resolvedCompanyId);
 
       if (shouldFilterByBranch) {
         professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);

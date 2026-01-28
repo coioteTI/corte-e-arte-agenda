@@ -42,7 +42,7 @@ interface CompanyData {
 }
 
 const Relatorios = () => {
-  const { currentBranchId, userRole } = useBranch();
+  const { currentBranchId, userRole, companyId: branchCompanyId, loading: branchLoading } = useBranch();
   const [loading, setLoading] = useState(true);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedProfessional, setSelectedProfessional] = useState<string>("all");
@@ -75,26 +75,61 @@ const Relatorios = () => {
   const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
 
   useEffect(() => {
-    fetchCompanyData();
-  }, [currentBranchId, userRole]);
+    if (!branchLoading) {
+      fetchCompanyData();
+    }
+  }, [currentBranchId, userRole, branchLoading]);
 
   const fetchCompanyData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        setCheckingAuth(false);
+        return;
+      }
 
-      const { data: company } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      // Use companyId from BranchContext
+      let resolvedCompanyId = branchCompanyId;
 
-      if (!company) return;
+      // Fallback: Get company ID directly if not available from context
+      if (!resolvedCompanyId) {
+        const { data: companyResult } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (!companyResult) {
+          setLoading(false);
+          setCheckingAuth(false);
+          return;
+        }
+        setCompanyData(prev => ({ ...prev, company: companyResult }));
+        setCompanyId(companyResult.id);
+        resolvedCompanyId = companyResult.id;
+      } else {
+        // Fetch full company data
+        const { data: companyResult } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('id', resolvedCompanyId)
+          .maybeSingle();
+        
+        if (companyResult) {
+          setCompanyData(prev => ({ ...prev, company: companyResult }));
+          setCompanyId(companyResult.id);
+        }
+      }
 
-      setCompanyId(company.id);
+      if (!resolvedCompanyId) {
+        setLoading(false);
+        setCheckingAuth(false);
+        return;
+      }
 
       // Check if admin password is configured
-      const hasPassword = await hasAdminPassword(company.id);
+      const hasPassword = await hasAdminPassword(resolvedCompanyId);
       setHasAdminPasswordConfigured(hasPassword);
       
       // If no password configured, auto-authenticate
@@ -107,11 +142,11 @@ const Relatorios = () => {
       setCheckingAuth(false);
 
       // Build queries with optional branch filtering
-      let servicesQuery = supabase.from('services').select('*').eq('company_id', company.id);
-      let appointmentsQuery = supabase.from('appointments').select(`*, services(*), professionals(*), clients(*)`).eq('company_id', company.id);
-      let professionalsQuery = supabase.from('professionals').select('*').eq('company_id', company.id);
-      let stockSalesQuery = supabase.from('stock_sales').select(`*, stock_products(*)`).eq('company_id', company.id);
-      let stockProductsQuery = supabase.from('stock_products').select('*').eq('company_id', company.id);
+      let servicesQuery = supabase.from('services').select('*').eq('company_id', resolvedCompanyId);
+      let appointmentsQuery = supabase.from('appointments').select(`*, services(*), professionals(*), clients(*)`).eq('company_id', resolvedCompanyId);
+      let professionalsQuery = supabase.from('professionals').select('*').eq('company_id', resolvedCompanyId);
+      let stockSalesQuery = supabase.from('stock_sales').select(`*, stock_products(*)`).eq('company_id', resolvedCompanyId);
+      let stockProductsQuery = supabase.from('stock_products').select('*').eq('company_id', resolvedCompanyId);
 
       if (shouldFilterByBranch) {
         servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
@@ -127,20 +162,20 @@ const Relatorios = () => {
         professionalsQuery,
         stockSalesQuery,
         stockProductsQuery,
-        supabase.from('expenses').select(`*, suppliers(*)`).eq('company_id', company.id),
-        supabase.from('supplier_products').select('*').eq('company_id', company.id)
+        supabase.from('expenses').select(`*, suppliers(*)`).eq('company_id', resolvedCompanyId),
+        supabase.from('supplier_products').select('*').eq('company_id', resolvedCompanyId)
       ]);
 
-      setCompanyData({
+      setCompanyData(prev => ({
         services: servicesRes.data || [],
         appointments: appointmentsRes.data || [],
         professionals: professionalsRes.data || [],
-        company,
+        company: prev.company,
         stockSales: stockSalesRes.data || [],
         stockProducts: stockProductsRes.data || [],
         expenses: expensesRes.data || [],
         supplierProducts: supplierProductsRes.data || []
-      });
+      }));
 
     } catch (error) {
       console.error('Error fetching company data:', error);
