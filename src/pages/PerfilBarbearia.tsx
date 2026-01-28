@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link, useParams } from "react-router-dom";
-import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Heart, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Phone, Instagram, Clock, Star, MessageCircle, ExternalLink, Heart, ArrowLeft, ChevronLeft, ChevronRight, Building2 } from "lucide-react";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ const PerfilBarbearia = () => {
   const [company, setCompany] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [professionals, setProfessionals] = useState<any[]>([]);
+  const [otherBranches, setOtherBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
   const [serviceIndex, setServiceIndex] = useState(0);
@@ -106,6 +107,19 @@ const PerfilBarbearia = () => {
             .maybeSingle();
           
           setIsLiked(!!favorite);
+        }
+
+        // Fetch other branches (same company, different branches)
+        const { data: branchesData, error: branchesError } = await supabase
+          .from('branches')
+          .select('*')
+          .eq('company_id', foundCompany.id)
+          .eq('is_active', true)
+          .order('name');
+        
+        if (!branchesError && branchesData && branchesData.length > 0) {
+          // Filter out current branch if viewing a branch profile
+          setOtherBranches(branchesData);
         }
       }
     } catch (error) {
@@ -400,6 +414,60 @@ const PerfilBarbearia = () => {
 
         {/* Avaliações da barbearia */}
         <ReviewSection companyId={company.id} canReview={true} />
+
+        {/* Outras Filiais */}
+        {otherBranches.length > 1 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Outras Filiais
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {otherBranches.map((branch) => (
+                  <Card 
+                    key={branch.id} 
+                    className="overflow-hidden border-2 border-muted hover:border-primary/50 transition-all duration-300"
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-foreground truncate">
+                            {branch.name}
+                          </h3>
+                          {(branch.city || branch.state) && (
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                              <MapPin className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">
+                                {[branch.city, branch.state].filter(Boolean).join(', ')}
+                              </span>
+                            </div>
+                          )}
+                          {branch.address && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate">
+                              {branch.address}
+                            </p>
+                          )}
+                          {branch.phone && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                              <Phone className="h-3 w-3 flex-shrink-0" />
+                              <span>{branch.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
       
       {/* WhatsApp Widget */}

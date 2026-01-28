@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Star, User, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,7 @@ export const ReviewSection = ({
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
+  const [reviewerName, setReviewerName] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const fetchReviews = async () => {
@@ -114,11 +116,12 @@ export const ReviewSection = ({
             .eq('user_id', user.id)
             .maybeSingle();
 
+          const clientName = reviewerName.trim() || profileData?.full_name || user.email?.split('@')[0] || 'Cliente';
           const { data: newClient, error: clientError } = await supabase
             .from('clients')
             .insert({
               user_id: user.id,
-              name: profileData?.full_name || user.email?.split('@')[0] || 'Cliente',
+              name: clientName,
               email: user.email,
               phone: ''
             })
@@ -139,11 +142,12 @@ export const ReviewSection = ({
           .maybeSingle();
 
         if (!existingClient) {
-          // Criar cliente anônimo
+          // Criar cliente anônimo com nome opcional
+          const clientName = reviewerName.trim() || 'Cliente Anônimo';
           const { data: newClient, error: clientError } = await supabase
             .from('clients')
             .insert({
-              name: 'Cliente Anônimo',
+              name: clientName,
               phone: clientKey, // Usar client_key como identificador
               email: null
             })
@@ -181,6 +185,7 @@ export const ReviewSection = ({
       setShowReviewForm(false);
       setRating(0);
       setComment('');
+      setReviewerName('');
       fetchReviews();
     } catch (error) {
       console.error('Erro ao enviar avaliação:', error);
@@ -255,6 +260,17 @@ export const ReviewSection = ({
           <div className="mb-6 p-4 border rounded-lg bg-muted/10">
             <h4 className="font-medium mb-3">Deixe sua avaliação</h4>
             <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Seu nome (opcional):
+                </label>
+                <Input
+                  value={reviewerName}
+                  onChange={(e) => setReviewerName(e.target.value)}
+                  placeholder="Digite seu nome ou deixe em branco para anônimo"
+                  maxLength={100}
+                />
+              </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   Avaliação:
