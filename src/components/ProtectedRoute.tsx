@@ -17,30 +17,50 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   useEffect(() => {
     let mounted = true;
     
+    // Safety timeout - never wait more than 5 seconds
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('[ProtectedRoute] Safety timeout reached, forcing load completion');
+        setLoading(false);
+      }
+    }, 5000);
+    
     // Verificar se há um usuário logado - using getSession for speed
     const checkUser = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Add timeout for getSession
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+        
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
         
         if (!mounted) return;
         
-        if (!session?.user) {
+        if (!result || !('data' in result) || !result.data.session?.user) {
           setUser(null);
           setLoading(false);
           return;
         }
         
+        const session = result.data.session;
         setUser(session.user);
 
-        // Check if this is first access
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_first_access')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
+        // Check if this is first access with timeout
+        try {
+          const profilePromise = supabase
+            .from('profiles')
+            .select('is_first_access')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          
+          const profileTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
+          const profileResult = await Promise.race([profilePromise, profileTimeout]);
 
-        if (mounted) {
-          setIsFirstAccess(profile?.is_first_access ?? false);
+          if (mounted && profileResult && 'data' in profileResult) {
+            setIsFirstAccess(profileResult.data?.is_first_access ?? false);
+          }
+        } catch (profileError) {
+          console.warn('Profile fetch failed, continuing anyway:', profileError);
         }
       } catch (error) {
         console.error('Erro ao verificar usuário:', error);
@@ -65,15 +85,22 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         
         if (session?.user) {
           // Re-check first access status
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('is_first_access')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
+          setTimeout(async () => {
+            if (!mounted) return;
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('is_first_access')
+                .eq('user_id', session.user.id)
+                .maybeSingle();
 
-          if (mounted) {
-            setIsFirstAccess(profile?.is_first_access ?? false);
-          }
+              if (mounted) {
+                setIsFirstAccess(profile?.is_first_access ?? false);
+              }
+            } catch (error) {
+              console.warn('Profile fetch in auth change failed:', error);
+            }
+          }, 0);
         } else {
           if (mounted) {
             setIsFirstAccess(false);
@@ -88,9 +115,10 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loading]);
 
   if (loading) {
     return (
