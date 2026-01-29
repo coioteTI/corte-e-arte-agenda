@@ -1,4 +1,4 @@
-const CACHE_NAME = 'corte-arte-v5';
+const CACHE_NAME = 'corte-arte-v7';
 
 // Only cache essential assets that we know exist
 const STATIC_ASSETS = [
@@ -6,47 +6,52 @@ const STATIC_ASSETS = [
   '/icon-512x512.png'
 ];
 
-// Install event - cache essential resources
+// Install event - cache essential resources and immediately activate
 self.addEventListener('install', (event) => {
+  console.log('[SW] Installing v7...');
   // Skip waiting to activate immediately
   self.skipWaiting();
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Cache opened');
+        console.log('[SW] Cache opened');
         // Cache static assets individually to avoid failures
         return Promise.allSettled(
           STATIC_ASSETS.map(url => 
             cache.add(new Request(url, { cache: 'reload' }))
-              .catch(err => console.log('Failed to cache:', url, err))
+              .catch(err => console.log('[SW] Failed to cache:', url, err))
           )
         );
       })
       .catch((error) => {
-        console.log('Cache open failed:', error);
+        console.log('[SW] Cache open failed:', error);
       })
   );
 });
 
-// Activate event - clean up old caches and take control
+// Activate event - AGGRESSIVELY clean up ALL old caches and take control
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating v7...');
   event.waitUntil(
     Promise.all([
-      // Take control of all pages
+      // Take control of all pages immediately
       self.clients.claim(),
-      // Clean up old caches
+      // Delete ALL old caches aggressively
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
+            // Delete any cache that isn't the current version
             if (cacheName !== CACHE_NAME) {
-              console.log('Deleting old cache:', cacheName);
+              console.log('[SW] Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             }
           })
         );
       })
-    ])
+    ]).then(() => {
+      console.log('[SW] v7 activated and controlling pages');
+    })
   );
 });
 

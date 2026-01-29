@@ -72,7 +72,7 @@ export const useUserRole = () => {
         .from('user_sessions')
         .select('current_branch_id, session_started_at')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (sessionData) {
         setSession({

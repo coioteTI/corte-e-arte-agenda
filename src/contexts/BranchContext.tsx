@@ -120,6 +120,15 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     const startTime = Date.now();
     
+    // Set a hard safety timeout to prevent infinite loading
+    const safetyTimeout = setTimeout(() => {
+      if (!initialized) {
+        console.warn('[BranchContext] Safety timeout reached, forcing initialization complete');
+        setLoading(false);
+        setInitialized(true);
+      }
+    }, 6000);
+    
     try {
       // Use getSession for faster initial check with timeout
       const sessionPromise = supabase.auth.getSession();
@@ -129,6 +138,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       if (!result || !('data' in result) || !result.data.session?.user) {
         // No user or timeout - don't block
+        clearTimeout(safetyTimeout);
         setLoading(false);
         setInitialized(true);
         return;
@@ -144,7 +154,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return { role, currentBranchIdResult, branchList, fetchedCompanyId };
       })();
 
-      const dataTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+      const dataTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
       const data = await Promise.race([dataPromise, dataTimeout]);
 
       if (data) {
@@ -162,6 +172,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       console.error('Error initializing branch context:', error);
     } finally {
+      clearTimeout(safetyTimeout);
       setLoading(false);
       setInitialized(true);
     }
