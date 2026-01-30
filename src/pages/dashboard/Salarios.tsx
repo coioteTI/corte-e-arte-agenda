@@ -129,15 +129,33 @@ export default function Salarios() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: companies } = await supabase
+        // First try to get company as owner (for CEOs)
+        let foundCompanyId: string | null = null;
+        
+        const { data: ownedCompany } = await supabase
           .from("companies")
           .select("id")
           .eq("user_id", user.id)
           .maybeSingle();
 
-        if (companies) {
-          setCompanyId(companies.id);
-          const passwordExists = await hasAdminPassword(companies.id);
+        if (ownedCompany) {
+          foundCompanyId = ownedCompany.id;
+        } else {
+          // For non-owners (Admins/Employees), get company via user_branches
+          const { data: userBranch } = await supabase
+            .from("user_branches")
+            .select("branches(company_id)")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (userBranch && (userBranch.branches as any)?.company_id) {
+            foundCompanyId = (userBranch.branches as any).company_id;
+          }
+        }
+
+        if (foundCompanyId) {
+          setCompanyId(foundCompanyId);
+          const passwordExists = await hasAdminPassword(foundCompanyId);
           setHasPassword(passwordExists);
           
           if (passwordExists) {
@@ -146,11 +164,15 @@ export default function Salarios() {
             setIsAuthenticated(true);
             loadData();
           }
+        } else {
+          // No company found - show error
+          setError('Empresa não encontrada. Verifique sua conta.');
+          setLoading(false);
         }
       } catch (error) {
         console.error("Error checking admin password:", error);
-        setIsAuthenticated(true);
-        loadData();
+        setError('Erro ao verificar autenticação. Tente novamente.');
+        setLoading(false);
       }
     };
 
@@ -189,24 +211,45 @@ export default function Salarios() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: companies } = await supabase
-        .from("companies")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      // Use existing companyId if already set, otherwise try to find it
+      let activeCompanyId = companyId;
+      
+      if (!activeCompanyId) {
+        // First try as owner
+        const { data: ownedCompany } = await supabase
+          .from("companies")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      if (!companies) {
+        if (ownedCompany) {
+          activeCompanyId = ownedCompany.id;
+        } else {
+          // For non-owners, get via user_branches
+          const { data: userBranch } = await supabase
+            .from("user_branches")
+            .select("branches(company_id)")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (userBranch && (userBranch.branches as any)?.company_id) {
+            activeCompanyId = (userBranch.branches as any).company_id;
+          }
+        }
+      }
+
+      if (!activeCompanyId) {
         setError('Empresa não encontrada');
         return;
       }
 
-      setCompanyId(companies.id);
+      setCompanyId(activeCompanyId);
 
       // Build queries with branch filtering
       let professionalsQuery = supabase
         .from("professionals")
         .select("id, name, specialty")
-        .eq("company_id", companies.id)
+        .eq("company_id", activeCompanyId)
         .eq("is_available", true);
 
       let appointmentsQuery = supabase
@@ -223,7 +266,7 @@ export default function Salarios() {
           services(name),
           clients(name)
         `)
-        .eq("company_id", companies.id)
+        .eq("company_id", activeCompanyId)
         .eq("payment_status", "paid")
         .neq("status", "cancelled")
         .order("appointment_date", { ascending: false });
@@ -241,7 +284,7 @@ export default function Salarios() {
           created_at,
           professionals(name)
         `)
-        .eq("company_id", companies.id)
+        .eq("company_id", activeCompanyId)
         .order("payment_date", { ascending: false });
 
       // Apply branch filter if not CEO
