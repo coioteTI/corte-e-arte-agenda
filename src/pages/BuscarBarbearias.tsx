@@ -131,6 +131,7 @@ const BuscarBarbearias = () => {
   };
   const fetchCompanies = async () => {
     try {
+      // Fetch companies using RPC
       const {
         data: companies,
         error
@@ -139,12 +140,62 @@ const BuscarBarbearias = () => {
       });
       if (error) throw error;
       
-      // Filter out companies without valid names
+      // Also fetch all active branches to include all locations
+      const { data: branches, error: branchesError } = await supabase
+        .from('branches')
+        .select('id, name, address, city, state, phone, company_id, is_active')
+        .eq('is_active', true);
+      
+      // Create a combined list: one entry per company OR branch
+      // Each branch represents a location that can receive appointments
+      let allLocations: Barbearia[] = [];
+      
+      // Add companies first (they are the parent entities)
       const validCompanies = (companies || []).filter(company => 
         company.name && company.name.trim().length > 0
       );
       
-      let companiesWithFavorites: Barbearia[] = [];
+      validCompanies.forEach(company => {
+        allLocations.push({
+          ...company,
+          slug: company.name.toLowerCase().replace(/\s+/g, '-'),
+          is_favorite: false
+        });
+      });
+
+      // Add branches that might have different names/locations
+      // This ensures all branches are visible even if the company appears once
+      if (!branchesError && branches) {
+        branches.forEach(branch => {
+          // Check if this branch is already represented by its company entry
+          // (same name or same id would be duplicate)
+          const parentCompany = validCompanies.find(c => c.id === branch.company_id);
+          if (parentCompany) {
+            // Only add if branch has a different name than the company
+            // or if we want to show all branches
+            const branchNameDifferent = branch.name !== parentCompany.name;
+            const alreadyExists = allLocations.some(loc => loc.id === branch.id);
+            
+            if (branchNameDifferent && !alreadyExists) {
+              allLocations.push({
+                id: branch.id,
+                name: branch.name,
+                city: branch.city || parentCompany.city,
+                state: branch.state || parentCompany.state,
+                likes_count: parentCompany.likes_count || 0,
+                slug: branch.name.toLowerCase().replace(/\s+/g, '-'),
+                is_favorite: false,
+                // Store parent company info for navigation
+                company_id: branch.company_id,
+                address: branch.address,
+                phone: branch.phone
+              });
+            }
+          }
+        });
+      }
+
+      let locationsWithFavorites: Barbearia[] = [];
 
       // If user is logged in, check favorites
       if (user) {
@@ -154,20 +205,21 @@ const BuscarBarbearias = () => {
         } = await supabase.from('favorites').select('company_id').eq('user_id', user.id);
         if (!favError && favorites) {
           const favoriteIds = favorites.map(f => f.company_id);
-          companiesWithFavorites = validCompanies.map(company => ({
-            ...company,
-            slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-            is_favorite: favoriteIds.includes(company.id)
-          })) as Barbearia[];
+          locationsWithFavorites = allLocations.map(location => ({
+            ...location,
+            is_favorite: favoriteIds.includes(location.id) || favoriteIds.includes(location.company_id)
+          }));
+        } else {
+          locationsWithFavorites = allLocations;
         }
       } else {
-        companiesWithFavorites = validCompanies.map(company => ({
-          ...company,
-          slug: company.name.toLowerCase().replace(/\s+/g, '-'),
-          is_favorite: false
-        })) as Barbearia[];
+        locationsWithFavorites = allLocations;
       }
-      setResultados(companiesWithFavorites);
+      
+      // Sort by likes count
+      locationsWithFavorites.sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
+      
+      setResultados(locationsWithFavorites);
     } catch (error) {
       console.error('Error fetching companies:', error);
       toast({

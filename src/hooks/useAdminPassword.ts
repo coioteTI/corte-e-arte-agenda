@@ -38,10 +38,32 @@ export const useAdminPassword = () => {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      const { error } = await supabase
+      // First check if company_settings exists
+      const { data: existingSettings } = await supabase
         .from('company_settings')
-        .update({ admin_password_hash: hashHex })
-        .eq('company_id', companyId);
+        .select('id')
+        .eq('company_id', companyId)
+        .maybeSingle();
+
+      let error;
+      
+      if (existingSettings) {
+        // Update existing settings
+        const result = await supabase
+          .from('company_settings')
+          .update({ admin_password_hash: hashHex })
+          .eq('company_id', companyId);
+        error = result.error;
+      } else {
+        // Create new settings with the password
+        const result = await supabase
+          .from('company_settings')
+          .insert({ 
+            company_id: companyId, 
+            admin_password_hash: hashHex 
+          });
+        error = result.error;
+      }
 
       if (error) throw error;
 
