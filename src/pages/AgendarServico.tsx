@@ -225,22 +225,24 @@ export default function AgendarServico() {
       console.log("✅ Empresa selecionada:", companyData.name);
       setCompany(companyData);
 
-      // Buscar filiais da empresa
-      console.log("🔍 Buscando filiais ativas...");
+      // Buscar filiais da empresa (filtrar pelo company_id)
+      console.log("🔍 Buscando filiais ativas da empresa:", companyData.id);
       const { data: branchesData, error: branchesError } = await supabase
         .from("branches")
         .select("*")
+        .eq("company_id", companyData.id)
         .eq("is_active", true)
         .order("name");
 
       if (branchesError) {
         console.error("❌ Erro ao buscar filiais:", branchesError);
       } else {
-        console.log("✅ Filiais encontradas:", branchesData?.length || 0);
+        console.log("✅ Filiais da empresa encontradas:", branchesData?.length || 0, branchesData?.map(b => b.name));
         setBranches(branchesData || []);
         
         // Auto-selecionar se só tiver uma filial
         if (branchesData && branchesData.length === 1) {
+          console.log("🏢 Auto-selecionando única filial:", branchesData[0].name);
           setSelectedBranchId(branchesData[0].id);
         }
       }
@@ -985,36 +987,51 @@ export default function AgendarServico() {
             <CardTitle className="text-foreground">Agendar Serviço</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Seleção de Filial */}
-            {branches.length > 1 && (
+            {/* Seleção de Filial - Mostrar sempre que houver filiais */}
+            {branches.length > 0 && (
               <div className="mb-4">
-                <Label className="text-foreground">Escolha a Filial *</Label>
-                <Select 
-                  value={selectedBranchId || ""} 
-                  onValueChange={(value) => setSelectedBranchId(value || null)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a filial para atendimento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>
-                        <div className="flex flex-col">
-                          <span>{branch.name}</span>
-                          {branch.city && branch.state && (
-                            <span className="text-xs text-muted-foreground">
-                              {branch.city}, {branch.state}
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {!selectedBranchId && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    ⚠️ Selecione uma filial para ver os serviços e profissionais disponíveis
-                  </p>
+                <Label className="text-foreground">
+                  {branches.length > 1 ? 'Escolha a Filial *' : 'Filial de Atendimento'}
+                </Label>
+                {branches.length === 1 ? (
+                  <div className="p-3 bg-muted/50 rounded-lg border mt-1">
+                    <div className="font-medium">{branches[0].name}</div>
+                    {(branches[0].address || branches[0].city) && (
+                      <div className="text-sm text-muted-foreground">
+                        📍 {[branches[0].address, branches[0].city, branches[0].state].filter(Boolean).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Select 
+                      value={selectedBranchId || ""} 
+                      onValueChange={(value) => setSelectedBranchId(value || null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a filial para atendimento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id}>
+                            <div className="flex flex-col items-start">
+                              <span className="font-medium">{branch.name}</span>
+                              {(branch.address || branch.city) && (
+                                <span className="text-xs text-muted-foreground">
+                                  📍 {[branch.address, branch.city, branch.state].filter(Boolean).join(', ')}
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!selectedBranchId && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        ⚠️ Selecione uma filial para ver os serviços e profissionais disponíveis
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             )}
