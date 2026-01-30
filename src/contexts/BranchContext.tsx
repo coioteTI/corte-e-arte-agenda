@@ -62,6 +62,7 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     try {
       if (role === 'ceo') {
+        // First get the company owned by this CEO
         const { data: ownedCompany } = await supabase
           .from('companies')
           .select('id')
@@ -70,14 +71,21 @@ export const BranchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         
         fetchedCompanyId = ownedCompany?.id || null;
         
-        const { data } = await supabase
-          .from('branches')
-          .select('*')
-          .eq('is_active', true)
-          .order('name');
-        
-        setBranches(data || []);
-        return { branches: data || [], companyId: fetchedCompanyId };
+        // Only fetch branches belonging to THIS company, not all branches
+        if (fetchedCompanyId) {
+          const { data } = await supabase
+            .from('branches')
+            .select('*')
+            .eq('company_id', fetchedCompanyId)
+            .eq('is_active', true)
+            .order('name');
+          
+          setBranches(data || []);
+          return { branches: data || [], companyId: fetchedCompanyId };
+        } else {
+          setBranches([]);
+          return { branches: [], companyId: null };
+        }
       } else {
         const { data } = await supabase
           .from('user_branches')

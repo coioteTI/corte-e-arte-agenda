@@ -1,4 +1,5 @@
-const CACHE_NAME = 'corte-arte-v8';
+// Service Worker v9 - Branch selector + Admin password fixes
+const CACHE_NAME = 'corte-arte-v9';
 
 // Only cache essential assets that we know exist
 const STATIC_ASSETS = [
@@ -8,7 +9,7 @@ const STATIC_ASSETS = [
 
 // Install event - cache essential resources and immediately activate
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing v8 - Emergency cache clear...');
+  console.log('[SW] Installing v9 - Branch selector + Admin password fixes...');
   // Skip waiting to activate immediately
   self.skipWaiting();
   
@@ -32,7 +33,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - AGGRESSIVELY clean up ALL old caches and take control
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating v8 - Clearing ALL old caches...');
+  console.log('[SW] Activating v9 - Clearing ALL old caches...');
   event.waitUntil(
     Promise.all([
       // Take control of all pages immediately
@@ -50,7 +51,7 @@ self.addEventListener('activate', (event) => {
         );
       })
     ]).then(() => {
-      console.log('[SW] v8 activated and controlling pages');
+      console.log('[SW] v9 activated and controlling pages');
     })
   );
 });
