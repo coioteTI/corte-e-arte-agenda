@@ -85,8 +85,8 @@ const Clientes = () => {
   const [addServiceIds, setAddServiceIds] = useState<string[]>([]);
   const [addServiceLoading, setAddServiceLoading] = useState(false);
 
-  // Should filter by branch - CEO sees all, others see only their branch
-  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+  // ALWAYS filter by branch when one is selected (even for CEOs)
+  const shouldFilterByBranch = !!currentBranchId;
 
   useEffect(() => {
     loadClientes();
@@ -152,11 +152,11 @@ const Clientes = () => {
         .eq('is_available', true)
         .order('name');
 
-      // Apply branch filter if not CEO
+      // Apply strict branch filter when a branch is selected
       if (shouldFilterByBranch) {
-        appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        appointmentsQuery = appointmentsQuery.eq('branch_id', currentBranchId);
+        servicesQuery = servicesQuery.eq('branch_id', currentBranchId);
+        professionalsQuery = professionalsQuery.eq('branch_id', currentBranchId);
       }
 
       // Load data in parallel

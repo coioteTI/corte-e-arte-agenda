@@ -71,8 +71,8 @@ const Relatorios = () => {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Should filter by branch - CEO sees all (consolidated), others see only their branch
-  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+  // ALWAYS filter by branch when one is selected (even for CEOs viewing branch-specific reports)
+  const shouldFilterByBranch = !!currentBranchId;
 
   useEffect(() => {
     fetchCompanyData();
@@ -114,11 +114,11 @@ const Relatorios = () => {
       let stockProductsQuery = supabase.from('stock_products').select('*').eq('company_id', company.id);
 
       if (shouldFilterByBranch) {
-        servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        stockSalesQuery = stockSalesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        stockProductsQuery = stockProductsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        servicesQuery = servicesQuery.eq('branch_id', currentBranchId);
+        appointmentsQuery = appointmentsQuery.eq('branch_id', currentBranchId);
+        professionalsQuery = professionalsQuery.eq('branch_id', currentBranchId);
+        stockSalesQuery = stockSalesQuery.eq('branch_id', currentBranchId);
+        stockProductsQuery = stockProductsQuery.eq('branch_id', currentBranchId);
       }
 
       const [servicesRes, appointmentsRes, professionalsRes, stockSalesRes, stockProductsRes, expensesRes, supplierProductsRes] = await Promise.all([
