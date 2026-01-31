@@ -1,48 +1,40 @@
-// Service Worker v9 - Branch selector + Admin password fixes
-const CACHE_NAME = 'corte-arte-v9';
+// Service Worker v10 - Auto-update without manual cache clearing
+const CACHE_NAME = 'corte-arte-v10';
+const VERSION = 'v10';
 
-// Only cache essential assets that we know exist
+// Only cache essential static assets
 const STATIC_ASSETS = [
   '/icon-192x192.png',
   '/icon-512x512.png'
 ];
 
-// Install event - cache essential resources and immediately activate
+// Install - skip waiting immediately to activate new version
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing v9 - Branch selector + Admin password fixes...');
-  // Skip waiting to activate immediately
+  console.log(`[SW] Installing ${VERSION}...`);
   self.skipWaiting();
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('[SW] Cache opened');
-        // Cache static assets individually to avoid failures
         return Promise.allSettled(
           STATIC_ASSETS.map(url => 
             cache.add(new Request(url, { cache: 'reload' }))
-              .catch(err => console.log('[SW] Failed to cache:', url, err))
+              .catch(err => console.log('[SW] Cache failed:', url))
           )
         );
-      })
-      .catch((error) => {
-        console.log('[SW] Cache open failed:', error);
       })
   );
 });
 
-// Activate event - AGGRESSIVELY clean up ALL old caches and take control
+// Activate - delete ALL old caches and claim clients immediately
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating v9 - Clearing ALL old caches...');
+  console.log(`[SW] Activating ${VERSION} - Clearing all old caches...`);
   event.waitUntil(
     Promise.all([
-      // Take control of all pages immediately
       self.clients.claim(),
-      // Delete ALL old caches aggressively
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            // Delete any cache that isn't the current version
             if (cacheName !== CACHE_NAME) {
               console.log('[SW] Deleting old cache:', cacheName);
               return caches.delete(cacheName);
@@ -51,178 +43,130 @@ self.addEventListener('activate', (event) => {
         );
       })
     ]).then(() => {
-      console.log('[SW] v9 activated and controlling pages');
+      // Notify all clients to reload for the new version
+      self.clients.matchAll({ type: 'window' }).then(clients => {
+        clients.forEach(client => {
+          client.postMessage({ type: 'SW_UPDATED', version: VERSION });
+        });
+      });
+      console.log(`[SW] ${VERSION} activated and controlling pages`);
     })
   );
 });
 
-// Fetch event - network first, fallback to cache
+// Fetch - Network first, NO caching for HTML/JS/CSS to always get fresh content
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
-    return;
-  }
+  if (request.method !== 'GET') return;
+  if (!request.url.startsWith('http')) return;
   
-  // Skip chrome-extension and other non-http(s) requests
-  if (!request.url.startsWith('http')) {
-    return;
-  }
-  
-  // Skip API requests (supabase, etc.)
+  // Skip API requests
   if (request.url.includes('supabase.co') || 
       request.url.includes('/api/') ||
       request.url.includes('/auth/')) {
     return;
   }
 
+  const url = new URL(request.url);
+  
+  // For HTML, JS, CSS - ALWAYS fetch from network, never cache
+  if (request.mode === 'navigate' || 
+      url.pathname.endsWith('.html') ||
+      url.pathname.endsWith('.js') ||
+      url.pathname.endsWith('.css') ||
+      url.pathname.endsWith('.tsx') ||
+      url.pathname.endsWith('.ts')) {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // For static assets (images, icons) - network first with cache fallback
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Don't cache non-successful responses
-        if (!response || response.status !== 200) {
+        if (!response || response.status !== 200 || response.type === 'opaque') {
           return response;
         }
         
-        // Don't cache opaque responses
-        if (response.type === 'opaque') {
-          return response;
+        // Only cache same-origin static assets
+        if (url.origin === location.origin) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
         }
-
-        // Clone the response before caching
-        const responseToCache = response.clone();
-
-        caches.open(CACHE_NAME)
-          .then((cache) => {
-            // Only cache same-origin requests
-            if (new URL(request.url).origin === location.origin) {
-              cache.put(request, responseToCache);
-            }
-          })
-          .catch((err) => console.log('Cache put error:', err));
-
+        
         return response;
       })
-      .catch(() => {
-        // Network failed, try cache
-        return caches.match(request)
-          .then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            
-            // Return offline page for navigation requests
-            if (request.mode === 'navigate') {
-              return caches.match('/');
-            }
-            
-            return new Response('Offline', { status: 503 });
-          });
-      })
+      .catch(() => caches.match(request).then(r => r || new Response('Offline', { status: 503 })))
   );
 });
 
-// Background sync for offline functionality
+// Background sync
 self.addEventListener('sync', (event) => {
   if (event.tag === 'background-sync') {
     console.log('Background sync triggered');
   }
 });
 
-// Push notifications handler - enhanced for mobile
+// Push notifications
 self.addEventListener('push', (event) => {
-  console.log('Push event received:', event);
-  
   let notificationData = {
     title: '🔔 Corte & Arte',
     body: 'Nova notificação',
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
     url: '/dashboard/agenda',
-    tag: 'default',
-    data: {}
+    tag: 'default'
   };
 
-  // Parse the push data
   if (event.data) {
     try {
-      const pushData = event.data.json();
-      notificationData = {
-        ...notificationData,
-        ...pushData
-      };
+      notificationData = { ...notificationData, ...event.data.json() };
     } catch (e) {
-      // If JSON parsing fails, use text
       notificationData.body = event.data.text();
     }
   }
 
-  const options = {
-    body: notificationData.body,
-    icon: notificationData.icon,
-    badge: notificationData.badge,
-    vibrate: [200, 100, 200, 100, 200],
-    tag: notificationData.tag,
-    renotify: true,
-    requireInteraction: true, // Keep notification visible until user interacts
-    data: {
-      url: notificationData.url,
-      ...notificationData.data,
-      dateOfArrival: Date.now()
-    },
-    actions: [
-      {
-        action: 'view',
-        title: 'Ver agendamento',
-        icon: '/icon-192x192.png'
-      },
-      {
-        action: 'close',
-        title: 'Fechar',
-        icon: '/icon-192x192.png'
-      }
-    ]
-  };
-
   event.waitUntil(
-    self.registration.showNotification(notificationData.title, options)
-      .then(() => {
-        console.log('Notification shown successfully');
-        // Update badge count if supported
-        if ('setAppBadge' in navigator) {
-          // Get current unread count and update badge
-          return updateBadgeCount();
-        }
-      })
-      .catch(err => console.error('Error showing notification:', err))
+    self.registration.showNotification(notificationData.title, {
+      body: notificationData.body,
+      icon: notificationData.icon,
+      badge: notificationData.badge,
+      vibrate: [200, 100, 200],
+      tag: notificationData.tag,
+      renotify: true,
+      requireInteraction: true,
+      data: { url: notificationData.url },
+      actions: [
+        { action: 'view', title: 'Ver agendamento' },
+        { action: 'close', title: 'Fechar' }
+      ]
+    })
   );
 });
 
-// Handle notification click
+// Notification click
 self.addEventListener('notificationclick', (event) => {
-  console.log('Notification clicked:', event);
-  
   event.notification.close();
   
-  const targetUrl = event.notification.data?.url || '/dashboard/agenda';
+  if (event.action === 'close') return;
   
-  // Handle different actions
-  if (event.action === 'close') {
-    return; // Just close, don't open anything
-  }
+  const targetUrl = event.notification.data?.url || '/dashboard/agenda';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
-        // Check if there's already a window/tab open
         for (const client of windowClients) {
           if (client.url.includes(self.location.origin) && 'focus' in client) {
             client.navigate(targetUrl);
             return client.focus();
           }
         }
-        // Otherwise open a new window
         if (clients.openWindow) {
           return clients.openWindow(targetUrl);
         }
@@ -230,40 +174,24 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Handle notification close
-self.addEventListener('notificationclose', (event) => {
-  console.log('Notification closed:', event);
-});
-
-// Update badge count function
-async function updateBadgeCount() {
-  try {
-    // Request badge count from main thread
-    const allClients = await clients.matchAll({ type: 'window' });
-    for (const client of allClients) {
-      client.postMessage({ type: 'GET_BADGE_COUNT' });
-    }
-  } catch (error) {
-    console.error('Error updating badge:', error);
-  }
-}
-
-// Listen for messages from main thread
+// Message handler
 self.addEventListener('message', (event) => {
-  console.log('SW received message:', event.data);
-  
   if (event.data.type === 'SET_BADGE_COUNT') {
     const count = event.data.count || 0;
     if ('setAppBadge' in navigator) {
       if (count > 0) {
-        navigator.setAppBadge(count).catch(err => console.log('Badge error:', err));
+        navigator.setAppBadge(count).catch(() => {});
       } else {
-        navigator.clearAppBadge().catch(err => console.log('Clear badge error:', err));
+        navigator.clearAppBadge().catch(() => {});
       }
     }
   }
   
   if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  
+  if (event.data.type === 'CHECK_UPDATE') {
+    event.source.postMessage({ type: 'SW_VERSION', version: VERSION });
   }
 });
