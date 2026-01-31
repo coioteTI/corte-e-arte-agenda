@@ -40,8 +40,8 @@ const Profissionais = () => {
   });
   const { toast } = useToast();
 
-  // Should filter by branch - CEO sees all, others see only their branch
-  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+  // ALWAYS filter by branch when one is selected (even for CEOs)
+  const shouldFilterByBranch = !!currentBranchId;
 
   useEffect(() => {
     loadCompanyData();
@@ -70,7 +70,7 @@ const Profissionais = () => {
         .eq('company_id', company.id);
 
       if (shouldFilterByBranch) {
-        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        professionalsQuery = professionalsQuery.eq('branch_id', currentBranchId);
       }
 
       const { data: professionalsData } = await professionalsQuery;

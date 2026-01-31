@@ -107,8 +107,8 @@ const Estoque = () => {
   const [lastBranchId, setLastBranchId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("products");
 
-  // Should filter by branch - CEO sees all, others see only their branch
-  const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+  // ALWAYS filter by branch when one is selected (even for CEOs)
+  const shouldFilterByBranch = !!currentBranchId;
   // Category form state
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -186,9 +186,9 @@ const Estoque = () => {
       let salesQuery = supabase.from("stock_sales").select("*").eq("company_id", company.id).order("sold_at", { ascending: false }).limit(100);
 
       if (shouldFilterByBranch) {
-        categoriesQuery = categoriesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        productsQuery = productsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        salesQuery = salesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        categoriesQuery = categoriesQuery.eq('branch_id', currentBranchId);
+        productsQuery = productsQuery.eq('branch_id', currentBranchId);
+        salesQuery = salesQuery.eq('branch_id', currentBranchId);
       }
 
       // Timeout promise

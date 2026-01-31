@@ -84,7 +84,8 @@ interface Payment {
 export default function Salarios() {
   const navigate = useNavigate();
   const { currentBranchId, userRole, loading: branchLoading } = useBranch();
-  const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
+  // ALWAYS filter by branch when a branch is selected - even for CEOs
+  const shouldFilterByBranch = !!currentBranchId;
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -287,11 +288,11 @@ export default function Salarios() {
         .eq("company_id", activeCompanyId)
         .order("payment_date", { ascending: false });
 
-      // Apply branch filter if not CEO
+      // Apply strict branch filter when a branch is selected
       if (shouldFilterByBranch && currentBranchId) {
-        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
-        paymentsQuery = paymentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        professionalsQuery = professionalsQuery.eq('branch_id', currentBranchId);
+        appointmentsQuery = appointmentsQuery.eq('branch_id', currentBranchId);
+        paymentsQuery = paymentsQuery.eq('branch_id', currentBranchId);
       }
 
       // Execute queries with timeout

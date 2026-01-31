@@ -1,6 +1,6 @@
-// Service Worker v10 - Auto-update without manual cache clearing
-const CACHE_NAME = 'corte-arte-v10';
-const VERSION = 'v10';
+// Service Worker v11 - Fixed branch data isolation + admin password
+const CACHE_NAME = 'corte-arte-v11';
+const VERSION = 'v11';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [

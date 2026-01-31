@@ -146,8 +146,9 @@ const BuscarBarbearias = () => {
         .select('id, name, address, city, state, phone, company_id, is_active')
         .eq('is_active', true);
       
-      // Create a combined list: one entry per company OR branch
-      // Each branch represents a location that can receive appointments
+      // Create a combined list: show ONLY the company entry (parent)
+      // Branches with " - Matriz" or same name as company are NOT shown separately
+      // Only branches with truly different names/locations are shown as separate entries
       let allLocations: Barbearia[] = [];
       
       // Add companies first (they are the parent entities)
@@ -163,20 +164,28 @@ const BuscarBarbearias = () => {
         });
       });
 
-      // Add branches that might have different names/locations
-      // This ensures all branches are visible even if the company appears once
+      // Add branches ONLY if they have a genuinely different name
+      // Exclude branches that are "Matriz" (main location) since the company entry represents it
       if (!branchesError && branches) {
         branches.forEach(branch => {
-          // Check if this branch is already represented by its company entry
-          // (same name or same id would be duplicate)
           const parentCompany = validCompanies.find(c => c.id === branch.company_id);
           if (parentCompany) {
-            // Only add if branch has a different name than the company
-            // or if we want to show all branches
-            const branchNameDifferent = branch.name !== parentCompany.name;
+            // Normalize names for comparison
+            const branchNameLower = branch.name.toLowerCase().trim();
+            const companyNameLower = parentCompany.name.toLowerCase().trim();
+            
+            // Check if this is a "Matriz" branch (main location)
+            const isMatrizBranch = branchNameLower.includes('matriz') || 
+                                   branchNameLower.includes('- matriz') ||
+                                   branchNameLower === companyNameLower ||
+                                   branchNameLower.startsWith(companyNameLower + ' -') ||
+                                   companyNameLower.startsWith(branchNameLower);
+            
+            // Check if already exists in the list
             const alreadyExists = allLocations.some(loc => loc.id === branch.id);
             
-            if (branchNameDifferent && !alreadyExists) {
+            // Only add if NOT a matriz branch and not already in list
+            if (!isMatrizBranch && !alreadyExists) {
               allLocations.push({
                 id: branch.id,
                 name: branch.name,

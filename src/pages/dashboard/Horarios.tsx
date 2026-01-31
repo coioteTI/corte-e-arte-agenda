@@ -24,8 +24,8 @@ const Horarios = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { currentBranchId, userRole, loading: branchLoading } = useBranch();
-  const shouldFilterByBranch = userRole !== 'ceo' && !!currentBranchId;
-  
+  // ALWAYS filter by branch when one is selected (even for CEOs)
+  const shouldFilterByBranch = !!currentBranchId;
   const dataHoje = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
     year: "numeric",
@@ -41,7 +41,7 @@ const Horarios = () => {
       .order('name');
     
     if (shouldFilterByBranch && currentBranchId) {
-      query = query.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      query = query.eq('branch_id', currentBranchId);
     }
 
     const { data } = await query;
@@ -59,7 +59,7 @@ const Horarios = () => {
       .order('appointment_time');
     
     if (shouldFilterByBranch && currentBranchId) {
-      query = query.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+      query = query.eq('branch_id', currentBranchId);
     }
 
     const { data } = await query;

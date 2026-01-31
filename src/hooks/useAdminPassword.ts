@@ -2,11 +2,22 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// Helper function to generate SHA-256 hash
+const generateHash = async (password: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 export const useAdminPassword = () => {
   const [loading, setLoading] = useState(false);
 
   // Verificar se a empresa tem senha de admin configurada
   const hasAdminPassword = useCallback(async (companyId: string): Promise<boolean> => {
+    if (!companyId) return false;
+    
     try {
       const { data, error } = await supabase
         .from('company_settings')
@@ -19,53 +30,62 @@ export const useAdminPassword = () => {
         return false;
       }
 
-      return !!(data?.admin_password_hash);
+      return !!(data?.admin_password_hash && data.admin_password_hash.trim().length > 0);
     } catch (error) {
       console.error('Error checking admin password:', error);
       return false;
     }
   }, []);
 
-  // Definir ou atualizar senha de admin (usando hash simples no cliente)
+  // Definir ou atualizar senha de admin
   const setAdminPassword = useCallback(async (companyId: string, password: string): Promise<boolean> => {
+    if (!companyId || !password) {
+      toast.error('Dados inválidos');
+      return false;
+    }
+    
     setLoading(true);
     try {
-      // Usar hash simples para armazenar a senha
-      // Nota: Em produção, isso deveria ser feito no servidor com bcrypt
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      // Generate password hash
+      const hashHex = await generateHash(password);
 
-      // First check if company_settings exists
-      const { data: existingSettings } = await supabase
+      // Check if company_settings exists
+      const { data: existingSettings, error: checkError } = await supabase
         .from('company_settings')
         .select('id')
         .eq('company_id', companyId)
         .maybeSingle();
 
-      let error;
+      if (checkError) {
+        console.error('Error checking settings:', checkError);
+        throw checkError;
+      }
+
+      let result;
       
-      if (existingSettings) {
-        // Update existing settings
-        const result = await supabase
+      if (existingSettings?.id) {
+        // Update existing settings using the id
+        result = await supabase
           .from('company_settings')
-          .update({ admin_password_hash: hashHex })
-          .eq('company_id', companyId);
-        error = result.error;
+          .update({ 
+            admin_password_hash: hashHex,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingSettings.id);
       } else {
-        // Create new settings with the password
-        const result = await supabase
+        // Create new settings
+        result = await supabase
           .from('company_settings')
           .insert({ 
             company_id: companyId, 
             admin_password_hash: hashHex 
           });
-        error = result.error;
       }
 
-      if (error) throw error;
+      if (result.error) {
+        console.error('Error saving password:', result.error);
+        throw result.error;
+      }
 
       toast.success('Senha de administrador definida com sucesso!');
       return true;
@@ -80,23 +100,27 @@ export const useAdminPassword = () => {
 
   // Validar senha de admin
   const validateAdminPassword = useCallback(async (companyId: string, password: string): Promise<boolean> => {
+    if (!companyId || !password) {
+      toast.error('Dados inválidos');
+      return false;
+    }
+    
     setLoading(true);
     try {
-      // Gerar hash da senha informada
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      // Generate hash of the provided password
+      const hashHex = await generateHash(password);
 
-      // Buscar hash armazenado
+      // Fetch stored hash
       const { data: settings, error } = await supabase
         .from('company_settings')
         .select('admin_password_hash')
         .eq('company_id', companyId)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching settings:', error);
+        throw error;
+      }
 
       if (!settings?.admin_password_hash) {
         toast.error('Senha de administrador não configurada');
@@ -121,11 +145,16 @@ export const useAdminPassword = () => {
 
   // Remover senha de admin
   const removeAdminPassword = useCallback(async (companyId: string): Promise<boolean> => {
+    if (!companyId) return false;
+    
     setLoading(true);
     try {
       const { error } = await supabase
         .from('company_settings')
-        .update({ admin_password_hash: null })
+        .update({ 
+          admin_password_hash: null,
+          updated_at: new Date().toISOString()
+        })
         .eq('company_id', companyId);
 
       if (error) throw error;

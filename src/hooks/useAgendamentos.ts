@@ -89,26 +89,26 @@ export const useAgendamentos = () => {
         return;
       }
 
-      // Build queries with optional branch filtering
-      // CEO sees all branches, others see only their current branch
-      const shouldFilterByBranch = userRole !== 'ceo' && currentBranchId;
+      // Build queries with STRICT branch filtering
+      // ALWAYS filter by branch when one is selected (even for CEOs)
+      const shouldFilterByBranch = !!currentBranchId;
 
       // Services query
       let servicesQuery = supabase.from('services').select('*').eq('company_id', companyId);
       if (shouldFilterByBranch) {
-        servicesQuery = servicesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        servicesQuery = servicesQuery.eq('branch_id', currentBranchId);
       }
 
       // Professionals query
       let professionalsQuery = supabase.from('professionals').select('*').eq('company_id', companyId);
       if (shouldFilterByBranch) {
-        professionalsQuery = professionalsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        professionalsQuery = professionalsQuery.eq('branch_id', currentBranchId);
       }
 
       // Clients query - filter by branch
       let clientsQuery = supabase.from('clients').select('*');
       if (shouldFilterByBranch) {
-        clientsQuery = clientsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        clientsQuery = clientsQuery.eq('branch_id', currentBranchId);
       }
 
       // Appointments query
@@ -120,7 +120,7 @@ export const useAgendamentos = () => {
         .order('appointment_time', { ascending: true });
       
       if (shouldFilterByBranch) {
-        appointmentsQuery = appointmentsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        appointmentsQuery = appointmentsQuery.eq('branch_id', currentBranchId);
       }
 
       // Timeout promise
