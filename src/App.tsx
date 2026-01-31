@@ -56,12 +56,53 @@ const queryClient = new QueryClient({
   },
 });
 
-// Initialize PWA - with error handling
+// Initialize PWA with auto-update detection
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(registration => console.log('SW registered:', registration))
-      .catch(error => console.log('SW registration failed:', error));
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        updateViaCache: 'none' // Always check for updates
+      });
+      
+      console.log('SW registered:', registration);
+      
+      // Check for updates every 30 seconds
+      setInterval(() => {
+        registration.update().catch(() => {});
+      }, 30000);
+      
+      // Listen for new service worker
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('New version available - reloading...');
+              // Force reload to get new version
+              window.location.reload();
+            }
+          });
+        }
+      });
+      
+      // Listen for SW messages
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'SW_UPDATED') {
+          console.log('SW updated to:', event.data.version);
+          window.location.reload();
+        }
+      });
+      
+      // Force update check on page visibility
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          registration.update().catch(() => {});
+        }
+      });
+      
+    } catch (error) {
+      console.log('SW registration failed:', error);
+    }
   });
 }
 
