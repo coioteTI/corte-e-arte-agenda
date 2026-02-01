@@ -1,6 +1,6 @@
-// Service Worker v13 - Removed toast close button
-const CACHE_NAME = 'corte-arte-v13';
-const VERSION = 'v13';
+// Service Worker v14 - Fixed branch display + toast position + hidden close button
+const CACHE_NAME = 'corte-arte-v14';
+const VERSION = 'v14';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [
