@@ -185,19 +185,22 @@ const BuscarBarbearias = () => {
             const alreadyExists = allLocations.some(loc => loc.id === branch.id);
             
             // Only add if NOT a matriz branch and not already in list
+            // Use parent company city/state as fallback if branch doesn't have them
             if (!isMatrizBranch && !alreadyExists) {
               allLocations.push({
                 id: branch.id,
                 name: branch.name,
-                city: branch.city || parentCompany.city,
-                state: branch.state || parentCompany.state,
+                city: branch.city || parentCompany.city || '',
+                state: branch.state || parentCompany.state || '',
                 likes_count: parentCompany.likes_count || 0,
                 slug: branch.name.toLowerCase().replace(/\s+/g, '-'),
                 is_favorite: false,
                 // Store parent company info for navigation
                 company_id: branch.company_id,
-                address: branch.address,
-                phone: branch.phone
+                address: branch.address || parentCompany.address,
+                phone: branch.phone,
+                // Inherit logo from parent company
+                logo_url: parentCompany.logo_url
               });
             }
           }
