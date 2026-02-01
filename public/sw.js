@@ -1,6 +1,6 @@
-// Service Worker v12 - Fixed stock branch filter + admin password upsert
-const CACHE_NAME = 'corte-arte-v12';
-const VERSION = 'v12';
+// Service Worker v13 - Removed toast close button
+const CACHE_NAME = 'corte-arte-v13';
+const VERSION = 'v13';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [
