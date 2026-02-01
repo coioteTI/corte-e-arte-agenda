@@ -180,15 +180,16 @@ const Estoque = () => {
       const hasPass = await hasAdminPassword(company.id);
       setHasAdminPasswordConfigured(hasPass);
 
-      // Build queries with branch filtering
+      // Build queries with branch filtering - include items with no branch (legacy data) OR current branch
       let categoriesQuery = supabase.from("stock_categories").select("*").eq("company_id", company.id).order("name");
       let productsQuery = supabase.from("stock_products").select("*").eq("company_id", company.id).order("name");
       let salesQuery = supabase.from("stock_sales").select("*").eq("company_id", company.id).order("sold_at", { ascending: false }).limit(100);
 
       if (shouldFilterByBranch) {
-        categoriesQuery = categoriesQuery.eq('branch_id', currentBranchId);
-        productsQuery = productsQuery.eq('branch_id', currentBranchId);
-        salesQuery = salesQuery.eq('branch_id', currentBranchId);
+        // Include items with branch_id = currentBranchId OR branch_id is null (legacy data)
+        categoriesQuery = categoriesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        productsQuery = productsQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
+        salesQuery = salesQuery.or(`branch_id.eq.${currentBranchId},branch_id.is.null`);
       }
 
       // Timeout promise

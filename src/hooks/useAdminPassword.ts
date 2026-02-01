@@ -49,42 +49,21 @@ export const useAdminPassword = () => {
       // Generate password hash
       const hashHex = await generateHash(password);
 
-      // Check if company_settings exists
-      const { data: existingSettings, error: checkError } = await supabase
+      // Use upsert to avoid race conditions - this handles both insert and update
+      const { error: upsertError } = await supabase
         .from('company_settings')
-        .select('id')
-        .eq('company_id', companyId)
-        .maybeSingle();
+        .upsert({ 
+          company_id: companyId, 
+          admin_password_hash: hashHex,
+          updated_at: new Date().toISOString()
+        }, { 
+          onConflict: 'company_id',
+          ignoreDuplicates: false 
+        });
 
-      if (checkError) {
-        console.error('Error checking settings:', checkError);
-        throw checkError;
-      }
-
-      let result;
-      
-      if (existingSettings?.id) {
-        // Update existing settings using the id
-        result = await supabase
-          .from('company_settings')
-          .update({ 
-            admin_password_hash: hashHex,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingSettings.id);
-      } else {
-        // Create new settings
-        result = await supabase
-          .from('company_settings')
-          .insert({ 
-            company_id: companyId, 
-            admin_password_hash: hashHex 
-          });
-      }
-
-      if (result.error) {
-        console.error('Error saving password:', result.error);
-        throw result.error;
+      if (upsertError) {
+        console.error('Error saving password:', upsertError);
+        throw upsertError;
       }
 
       toast.success('Senha de administrador definida com sucesso!');
@@ -110,19 +89,26 @@ export const useAdminPassword = () => {
       // Generate hash of the provided password
       const hashHex = await generateHash(password);
 
-      // Fetch stored hash
+      // Fetch stored hash - use single() to ensure we get exactly one result
       const { data: settings, error } = await supabase
         .from('company_settings')
-        .select('admin_password_hash')
+        .select('id, admin_password_hash')
         .eq('company_id', companyId)
+        .limit(1)
         .maybeSingle();
 
       if (error) {
         console.error('Error fetching settings:', error);
-        throw error;
+        toast.error('Erro ao buscar configurações');
+        return false;
       }
 
-      if (!settings?.admin_password_hash) {
+      if (!settings) {
+        toast.error('Configurações da empresa não encontradas');
+        return false;
+      }
+
+      if (!settings.admin_password_hash) {
         toast.error('Senha de administrador não configurada');
         return false;
       }

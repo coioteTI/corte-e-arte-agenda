@@ -1,6 +1,6 @@
-// Service Worker v11 - Fixed branch data isolation + admin password
-const CACHE_NAME = 'corte-arte-v11';
-const VERSION = 'v11';
+// Service Worker v12 - Fixed stock branch filter + admin password upsert
+const CACHE_NAME = 'corte-arte-v12';
+const VERSION = 'v12';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [
