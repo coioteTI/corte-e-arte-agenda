@@ -47,7 +47,7 @@ const WhatsAppWidget = ({ companyPhone, companyName = "empresa" }: WhatsAppWidge
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="max-w-4xl h-[80vh] p-0">
+        <DialogContent className="max-w-4xl h-[80vh] p-0" hideCloseButton>
           <DialogHeader className="p-4 border-b">
             <DialogTitle className="flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-green-600" />

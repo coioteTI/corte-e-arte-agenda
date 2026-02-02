@@ -50,7 +50,7 @@ const CookieConsent = () => {
       </div>
 
       <Dialog open={showTerms} onOpenChange={setShowTerms}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto" hideCloseButton>
           <DialogHeader>
             <DialogTitle>Termos de Uso e Política de Privacidade</DialogTitle>
           </DialogHeader>

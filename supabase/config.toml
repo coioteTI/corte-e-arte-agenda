@@ -49,6 +49,18 @@ verify_jwt = false
 [functions.trigger-appointment-push]
 verify_jwt = false
 
+[functions.ceo-login]
+verify_jwt = false
+
+[functions.generate-super-admin-password]
+verify_jwt = false
+
+[functions.super-admin-login]
+verify_jwt = false
+
+[functions.super-admin-data]
+verify_jwt = false
+
 [edge-runtime]
 ip_version = "IPv4Only"
 
