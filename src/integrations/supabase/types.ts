@@ -1306,6 +1306,63 @@ export type Database = {
           },
         ]
       }
+      super_admin_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          ip_address: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      super_admin_passwords: {
+        Row: {
+          created_at: string
+          id: string
+          is_used: boolean | null
+          password_hash: string
+          used_at: string | null
+          valid_from: string
+          valid_until: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_used?: boolean | null
+          password_hash: string
+          used_at?: string | null
+          valid_from?: string
+          valid_until?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_used?: boolean | null
+          password_hash?: string
+          used_at?: string | null
+          valid_from?: string
+          valid_until?: string
+        }
+        Relationships: []
+      }
       supplier_products: {
         Row: {
           branch_id: string | null
@@ -1763,9 +1820,14 @@ export type Database = {
         Returns: boolean
       }
       increment_likes: { Args: { company_id: string }; Returns: undefined }
+      is_super_admin: { Args: { email: string }; Returns: boolean }
+      validate_super_admin_password: {
+        Args: { password_input: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      app_role: "employee" | "admin" | "ceo"
+      app_role: "employee" | "admin" | "ceo" | "super_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1893,7 +1955,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["employee", "admin", "ceo"],
+      app_role: ["employee", "admin", "ceo", "super_admin"],
     },
   },
 } as const

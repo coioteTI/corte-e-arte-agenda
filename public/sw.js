@@ -1,6 +1,6 @@
-// Service Worker v14 - Fixed branch display + toast position + hidden close button
-const CACHE_NAME = 'corte-arte-v14';
-const VERSION = 'v14';
+// Service Worker v15 - Super Admin + fixed dialogs close buttons
+const CACHE_NAME = 'corte-arte-v15';
+const VERSION = 'v15';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [
