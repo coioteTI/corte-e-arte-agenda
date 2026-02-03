@@ -59,11 +59,20 @@ Deno.serve(async (req) => {
     const validUntil = new Date(validFrom)
     validUntil.setDate(validUntil.getDate() + 1) // Midnight tomorrow
 
-    // Invalidate any existing passwords
-    await supabase
+    // Delete passwords older than 2 days for security and storage optimization
+    const twoDaysAgo = new Date()
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+    
+    const { error: deleteError } = await supabase
       .from('super_admin_passwords')
       .delete()
-      .lt('valid_until', now.toISOString())
+      .lt('valid_until', twoDaysAgo.toISOString())
+    
+    if (deleteError) {
+      console.log('Warning: Could not delete old passwords:', deleteError.message)
+    } else {
+      console.log('Old passwords (2+ days) cleaned up successfully')
+    }
 
     // Insert new password
     const { error: insertError } = await supabase
