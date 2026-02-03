@@ -1,17 +1,35 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSuperAdmin } from '@/contexts/SuperAdminContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Shield, LogOut, Building2, Users, Calendar, GitBranch, 
   Loader2, RefreshCw, Lock, Unlock, Eye, TrendingUp,
-  Clock, AlertTriangle, CheckCircle
+  Clock, AlertTriangle, CheckCircle, Crown, Ban, Settings,
+  ChevronRight, Search, Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface DashboardStats {
@@ -19,6 +37,11 @@ interface DashboardStats {
   total_branches: number;
   total_appointments: number;
   total_users: number;
+  premium_companies: number;
+  trial_companies: number;
+  blocked_companies: number;
+  expiring_companies: number;
+  monthly_appointments: number;
 }
 
 interface Company {
@@ -32,6 +55,11 @@ interface Company {
   subscription_end_date: string | null;
   trial_appointments_used: number;
   trial_appointments_limit: number;
+  branch_limit: number;
+  branch_count: number;
+  is_blocked: boolean;
+  blocked_at: string | null;
+  blocked_reason: string | null;
   created_at: string;
 }
 
@@ -49,9 +77,27 @@ const SuperAdminDashboard = () => {
   
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [planFilter, setPlanFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  // Dialogs
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showBranchLimitDialog, setShowBranchLimitDialog] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showPlanDialog, setShowPlanDialog] = useState(false);
+  
+  // Form states
+  const [newBranchLimit, setNewBranchLimit] = useState<number>(5);
+  const [blockReason, setBlockReason] = useState('');
+  const [newPlan, setNewPlan] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -60,6 +106,37 @@ const SuperAdminDashboard = () => {
     }
     loadData();
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    let filtered = companies;
+    
+    if (searchTerm) {
+      filtered = filtered.filter(c => 
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    if (planFilter !== 'all') {
+      filtered = filtered.filter(c => c.plan === planFilter);
+    }
+    
+    if (statusFilter === 'blocked') {
+      filtered = filtered.filter(c => c.is_blocked);
+    } else if (statusFilter === 'active') {
+      filtered = filtered.filter(c => !c.is_blocked && c.subscription_status === 'active');
+    } else if (statusFilter === 'expiring') {
+      const sevenDaysFromNow = new Date();
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+      filtered = filtered.filter(c => 
+        c.subscription_end_date && 
+        new Date(c.subscription_end_date) <= sevenDaysFromNow &&
+        new Date(c.subscription_end_date) >= new Date()
+      );
+    }
+    
+    setFilteredCompanies(filtered);
+  }, [companies, searchTerm, planFilter, statusFilter]);
 
   const fetchData = async (action: string, params?: Record<string, any>) => {
     if (!session?.token) return null;
@@ -104,33 +181,80 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  const handleBlockCompany = async (companyId: string, block: boolean) => {
-    setActionLoading(companyId);
+  const handleBlockCompany = async () => {
+    if (!selectedCompany) return;
+    
+    setActionLoading(selectedCompany.id);
     try {
-      const action = block ? 'block_company' : 'unblock_company';
-      const result = await fetchData(action, { company_id: companyId });
+      const result = await fetchData('block_company', { 
+        company_id: selectedCompany.id,
+        reason: blockReason || 'Bloqueado pelo administrador'
+      });
       
       if (result?.success) {
-        toast.success(block ? 'Empresa bloqueada' : 'Empresa desbloqueada');
+        toast.success('Empresa bloqueada com sucesso');
+        setShowBlockDialog(false);
+        setBlockReason('');
         loadData();
       } else {
-        toast.error('Erro ao atualizar empresa');
+        toast.error('Erro ao bloquear empresa');
       }
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleUpdatePlan = async (companyId: string, plan: string) => {
+  const handleUnblockCompany = async (companyId: string) => {
     setActionLoading(companyId);
     try {
+      const result = await fetchData('unblock_company', { company_id: companyId });
+      
+      if (result?.success) {
+        toast.success('Empresa desbloqueada com sucesso');
+        loadData();
+      } else {
+        toast.error('Erro ao desbloquear empresa');
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdateBranchLimit = async () => {
+    if (!selectedCompany) return;
+    
+    setActionLoading(selectedCompany.id);
+    try {
+      const result = await fetchData('update_branch_limit', { 
+        company_id: selectedCompany.id, 
+        limit: newBranchLimit 
+      });
+      
+      if (result?.success) {
+        toast.success('Limite de filiais atualizado');
+        setShowBranchLimitDialog(false);
+        loadData();
+      } else {
+        toast.error('Erro ao atualizar limite');
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUpdatePlan = async () => {
+    if (!selectedCompany || !newPlan) return;
+    
+    setActionLoading(selectedCompany.id);
+    try {
       const result = await fetchData('update_company_plan', { 
-        company_id: companyId, 
-        plan 
+        company_id: selectedCompany.id, 
+        plan: newPlan 
       });
       
       if (result?.success) {
         toast.success('Plano atualizado com sucesso');
+        setShowPlanDialog(false);
         loadData();
       } else {
         toast.error('Erro ao atualizar plano');
@@ -149,27 +273,40 @@ const SuperAdminDashboard = () => {
   const getPlanBadge = (plan: string) => {
     switch (plan) {
       case 'premium_mensal':
-        return <Badge className="bg-green-500">Premium Mensal</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600"><Crown className="w-3 h-3 mr-1" />Premium Mensal</Badge>;
       case 'premium_anual':
-        return <Badge className="bg-blue-500">Premium Anual</Badge>;
+        return <Badge className="bg-blue-500 hover:bg-blue-600"><Crown className="w-3 h-3 mr-1" />Premium Anual</Badge>;
       case 'trial':
         return <Badge variant="secondary">Trial</Badge>;
+      case 'pro':
+        return <Badge variant="secondary">Pro</Badge>;
       default:
         return <Badge variant="outline">{plan}</Badge>;
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" />Ativo</Badge>;
-      case 'blocked':
-        return <Badge variant="destructive"><Lock className="w-3 h-3 mr-1" />Bloqueado</Badge>;
-      case 'inactive':
-        return <Badge variant="secondary"><AlertTriangle className="w-3 h-3 mr-1" />Inativo</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+  const getStatusBadge = (company: Company) => {
+    if (company.is_blocked) {
+      return <Badge variant="destructive"><Ban className="w-3 h-3 mr-1" />Bloqueado</Badge>;
     }
+    
+    if (company.subscription_end_date) {
+      const endDate = new Date(company.subscription_end_date);
+      const now = new Date();
+      const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysLeft < 0) {
+        return <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" />Expirado</Badge>;
+      } else if (daysLeft <= 7) {
+        return <Badge className="bg-orange-500"><AlertTriangle className="w-3 h-3 mr-1" />Expira em {daysLeft}d</Badge>;
+      }
+    }
+    
+    if (company.subscription_status === 'active') {
+      return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" />Ativo</Badge>;
+    }
+    
+    return <Badge variant="secondary">Inativo</Badge>;
   };
 
   if (loading) {
@@ -210,7 +347,7 @@ const SuperAdminDashboard = () => {
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -229,7 +366,21 @@ const SuperAdminDashboard = () => {
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <GitBranch className="w-5 h-5 text-green-600" />
+                  <Crown className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats?.premium_companies || 0}</p>
+                  <p className="text-xs text-muted-foreground">Premium</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <GitBranch className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats?.total_branches || 0}</p>
@@ -242,26 +393,26 @@ const SuperAdminDashboard = () => {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                  <Users className="w-5 h-5 text-purple-600" />
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <Calendar className="w-5 h-5 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats?.total_users || 0}</p>
-                  <p className="text-xs text-muted-foreground">Usuários</p>
+                  <p className="text-2xl font-bold">{stats?.monthly_appointments || 0}</p>
+                  <p className="text-xs text-muted-foreground">Agend. mês</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className="border-red-200 dark:border-red-900">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                  <Calendar className="w-5 h-5 text-orange-600" />
+                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats?.total_appointments || 0}</p>
-                  <p className="text-xs text-muted-foreground">Agendamentos</p>
+                  <p className="text-2xl font-bold">{stats?.expiring_companies || 0}</p>
+                  <p className="text-xs text-muted-foreground">Vencendo</p>
                 </div>
               </div>
             </CardContent>
@@ -282,54 +433,132 @@ const SuperAdminDashboard = () => {
           </TabsList>
 
           <TabsContent value="companies" className="space-y-4">
+            {/* Filters */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar por nome ou e-mail..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  
+                  <Select value={planFilter} onValueChange={setPlanFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Filtrar plano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os planos</SelectItem>
+                      <SelectItem value="premium_mensal">Premium Mensal</SelectItem>
+                      <SelectItem value="premium_anual">Premium Anual</SelectItem>
+                      <SelectItem value="trial">Trial</SelectItem>
+                      <SelectItem value="pro">Pro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Filtrar status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos os status</SelectItem>
+                      <SelectItem value="active">Ativos</SelectItem>
+                      <SelectItem value="blocked">Bloqueados</SelectItem>
+                      <SelectItem value="expiring">Vencendo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Companies List */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
-                  Empresas Cadastradas ({companies.length})
+                  Empresas ({filteredCompanies.length})
                 </CardTitle>
+                <CardDescription>
+                  Gerencie todas as empresas da plataforma
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {companies.map((company) => (
+                  {filteredCompanies.map((company) => (
                     <div
                       key={company.id}
                       className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold">{company.name}</h3>
                             {getPlanBadge(company.plan)}
-                            {getStatusBadge(company.subscription_status || 'inactive')}
+                            {getStatusBadge(company)}
                           </div>
-                          <p className="text-sm text-muted-foreground">{company.email}</p>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground">
+                            <div>
+                              <span className="font-medium">E-mail:</span> {company.email}
+                            </div>
+                            <div>
+                              <span className="font-medium">Filiais:</span> {company.branch_count}/{company.branch_limit || 5}
+                            </div>
+                            {company.plan === 'trial' && (
+                              <div>
+                                <span className="font-medium">Trial:</span> {company.trial_appointments_used}/{company.trial_appointments_limit}
+                              </div>
+                            )}
+                            {company.subscription_end_date && (
+                              <div>
+                                <span className="font-medium">Vence:</span> {format(new Date(company.subscription_end_date), 'dd/MM/yyyy')}
+                              </div>
+                            )}
+                          </div>
+                          
                           <p className="text-xs text-muted-foreground">
-                            Criada em: {format(new Date(company.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            Criada {formatDistanceToNow(new Date(company.created_at), { addSuffix: true, locale: ptBR })}
                           </p>
-                          {company.plan === 'trial' && (
-                            <p className="text-xs text-muted-foreground">
-                              Trial: {company.trial_appointments_used}/{company.trial_appointments_limit} agendamentos
-                            </p>
-                          )}
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleUpdatePlan(company.id, 'premium_mensal')}
-                            disabled={actionLoading === company.id}
+                            onClick={() => {
+                              setSelectedCompany(company);
+                              setNewBranchLimit(company.branch_limit || 5);
+                              setShowBranchLimitDialog(true);
+                            }}
                           >
-                            <TrendingUp className="w-3 h-3 mr-1" />
-                            Premium
+                            <GitBranch className="w-3 h-3 mr-1" />
+                            Limite
                           </Button>
                           
-                          {company.subscription_status === 'blocked' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedCompany(company);
+                              setNewPlan(company.plan);
+                              setShowPlanDialog(true);
+                            }}
+                          >
+                            <TrendingUp className="w-3 h-3 mr-1" />
+                            Plano
+                          </Button>
+                          
+                          {company.is_blocked ? (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleBlockCompany(company.id, false)}
+                              onClick={() => handleUnblockCompany(company.id)}
                               disabled={actionLoading === company.id}
                             >
                               {actionLoading === company.id ? (
@@ -343,25 +572,30 @@ const SuperAdminDashboard = () => {
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleBlockCompany(company.id, true)}
+                              onClick={() => {
+                                setSelectedCompany(company);
+                                setShowBlockDialog(true);
+                              }}
                               disabled={actionLoading === company.id}
                             >
-                              {actionLoading === company.id ? (
-                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                              ) : (
-                                <Lock className="w-3 h-3 mr-1" />
-                              )}
+                              <Ban className="w-3 h-3 mr-1" />
                               Bloquear
                             </Button>
                           )}
                         </div>
                       </div>
+                      
+                      {company.is_blocked && company.blocked_reason && (
+                        <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 rounded text-sm text-red-700 dark:text-red-300">
+                          <strong>Motivo:</strong> {company.blocked_reason}
+                        </div>
+                      )}
                     </div>
                   ))}
                   
-                  {companies.length === 0 && (
+                  {filteredCompanies.length === 0 && (
                     <p className="text-center text-muted-foreground py-8">
-                      Nenhuma empresa cadastrada
+                      Nenhuma empresa encontrada
                     </p>
                   )}
                 </div>
@@ -376,6 +610,9 @@ const SuperAdminDashboard = () => {
                   <Clock className="w-5 h-5" />
                   Log de Auditoria
                 </CardTitle>
+                <CardDescription>
+                  Histórico de todas as ações administrativas
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -386,13 +623,13 @@ const SuperAdminDashboard = () => {
                     >
                       <div className="flex items-center justify-between">
                         <Badge variant={log.action.includes('success') ? 'default' : 'secondary'}>
-                          {log.action}
+                          {log.action.replace('data_access_', '')}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
                           {format(new Date(log.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
                         </span>
                       </div>
-                      {log.ip_address && (
+                      {log.ip_address && log.ip_address !== 'unknown' && (
                         <p className="text-xs text-muted-foreground mt-1">
                           IP: {log.ip_address}
                         </p>
@@ -411,6 +648,137 @@ const SuperAdminDashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Branch Limit Dialog */}
+      <Dialog open={showBranchLimitDialog} onOpenChange={setShowBranchLimitDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Definir Limite de Filiais</DialogTitle>
+            <DialogDescription>
+              Defina o número máximo de filiais para {selectedCompany?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="branchLimit">Limite de Filiais</Label>
+              <Input
+                id="branchLimit"
+                type="number"
+                min={1}
+                max={100}
+                value={newBranchLimit}
+                onChange={(e) => setNewBranchLimit(Number(e.target.value))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Atual: {selectedCompany?.branch_count || 0} filiais ativas
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBranchLimitDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleUpdateBranchLimit}
+              disabled={actionLoading === selectedCompany?.id}
+            >
+              {actionLoading === selectedCompany?.id && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block Dialog */}
+      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Bloquear Empresa</DialogTitle>
+            <DialogDescription>
+              Esta ação irá impedir o acesso de {selectedCompany?.name} à plataforma
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="blockReason">Motivo do Bloqueio</Label>
+              <Input
+                id="blockReason"
+                placeholder="Ex: Inadimplência, violação de termos..."
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBlockDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleBlockCompany}
+              disabled={actionLoading === selectedCompany?.id}
+            >
+              {actionLoading === selectedCompany?.id && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Bloquear
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Plan Dialog */}
+      <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alterar Plano</DialogTitle>
+            <DialogDescription>
+              Altere o plano de {selectedCompany?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Novo Plano</Label>
+              <Select value={newPlan} onValueChange={setNewPlan}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o plano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="pro">Pro</SelectItem>
+                  <SelectItem value="premium_mensal">Premium Mensal</SelectItem>
+                  <SelectItem value="premium_anual">Premium Anual</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Planos Premium terão data de vencimento definida automaticamente
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPlanDialog(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleUpdatePlan}
+              disabled={actionLoading === selectedCompany?.id || !newPlan}
+            >
+              {actionLoading === selectedCompany?.id && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

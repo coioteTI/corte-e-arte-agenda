@@ -49,16 +49,60 @@ Deno.serve(async (req) => {
         // Get overall platform statistics
         const [companies, branches, appointments, users] = await Promise.all([
           supabase.from('companies').select('id, name, plan, subscription_status, created_at', { count: 'exact' }),
-          supabase.from('branches').select('id', { count: 'exact' }),
+          supabase.from('branches').select('id', { count: 'exact' }).eq('is_active', true),
           supabase.from('appointments').select('id', { count: 'exact' }),
           supabase.from('profiles').select('id', { count: 'exact' })
         ])
+
+        // Premium companies
+        const { count: premiumCount } = await supabase
+          .from('companies')
+          .select('*', { count: 'exact', head: true })
+          .in('plan', ['premium_mensal', 'premium_anual'])
+
+        // Trial companies
+        const { count: trialCount } = await supabase
+          .from('companies')
+          .select('*', { count: 'exact', head: true })
+          .in('plan', ['trial', 'pro', 'free'])
+
+        // Blocked companies
+        const { count: blockedCount } = await supabase
+          .from('companies')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_blocked', true)
+
+        // Companies expiring soon (within 7 days)
+        const sevenDaysFromNow = new Date()
+        sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7)
+
+        const { count: expiringCount } = await supabase
+          .from('companies')
+          .select('*', { count: 'exact', head: true })
+          .in('plan', ['premium_mensal', 'premium_anual'])
+          .lte('subscription_end_date', sevenDaysFromNow.toISOString())
+          .gte('subscription_end_date', new Date().toISOString())
+
+        // Monthly appointments
+        const startOfMonth = new Date()
+        startOfMonth.setDate(1)
+        startOfMonth.setHours(0, 0, 0, 0)
+
+        const { count: monthlyAppointments } = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', startOfMonth.toISOString())
 
         result = {
           total_companies: companies.count || 0,
           total_branches: branches.count || 0,
           total_appointments: appointments.count || 0,
-          total_users: users.count || 0
+          total_users: users.count || 0,
+          premium_companies: premiumCount || 0,
+          trial_companies: trialCount || 0,
+          blocked_companies: blockedCount || 0,
+          expiring_companies: expiringCount || 0,
+          monthly_appointments: monthlyAppointments || 0
         }
         break
 
@@ -69,11 +113,28 @@ Deno.serve(async (req) => {
             id, name, email, phone, plan, subscription_status, 
             subscription_start_date, subscription_end_date,
             trial_appointments_used, trial_appointments_limit,
+            branch_limit, is_blocked, blocked_at, blocked_reason,
             created_at, updated_at
           `)
           .order('created_at', { ascending: false })
 
-        result = companiesData || []
+        // Get branch counts for each company
+        const companiesWithBranches = await Promise.all(
+          (companiesData || []).map(async (company) => {
+            const { count } = await supabase
+              .from('branches')
+              .select('*', { count: 'exact', head: true })
+              .eq('company_id', company.id)
+              .eq('is_active', true)
+
+            return {
+              ...company,
+              branch_count: count || 0
+            }
+          })
+        )
+
+        result = companiesWithBranches
         break
 
       case 'get_company_details':
@@ -105,13 +166,30 @@ Deno.serve(async (req) => {
           )
         }
 
+        const updateData: Record<string, any> = { 
+          plan: params.plan,
+          updated_at: new Date().toISOString()
+        }
+
+        // If setting to premium, update subscription dates
+        if (params.plan === 'premium_mensal' || params.plan === 'premium_anual') {
+          updateData.subscription_status = 'active'
+          updateData.subscription_start_date = new Date().toISOString()
+          
+          const endDate = new Date()
+          if (params.plan === 'premium_mensal') {
+            endDate.setMonth(endDate.getMonth() + 1)
+          } else {
+            endDate.setFullYear(endDate.getFullYear() + 1)
+          }
+          updateData.subscription_end_date = endDate.toISOString()
+        } else {
+          updateData.subscription_status = 'inactive'
+        }
+
         const { error: updateError } = await supabase
           .from('companies')
-          .update({ 
-            plan: params.plan,
-            subscription_status: params.plan === 'trial' ? 'inactive' : 'active',
-            updated_at: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('id', params.company_id)
 
         if (updateError) throw updateError
@@ -129,7 +207,9 @@ Deno.serve(async (req) => {
         const { error: blockError } = await supabase
           .from('companies')
           .update({ 
-            subscription_status: 'blocked',
+            is_blocked: true,
+            blocked_at: new Date().toISOString(),
+            blocked_reason: params.reason || 'Bloqueado pelo administrador',
             updated_at: new Date().toISOString()
           })
           .eq('id', params.company_id)
@@ -149,13 +229,42 @@ Deno.serve(async (req) => {
         const { error: unblockError } = await supabase
           .from('companies')
           .update({ 
-            subscription_status: 'active',
+            is_blocked: false,
+            blocked_at: null,
+            blocked_reason: null,
             updated_at: new Date().toISOString()
           })
           .eq('id', params.company_id)
 
         if (unblockError) throw unblockError
         result = { success: true, message: 'Empresa desbloqueada com sucesso' }
+        break
+
+      case 'update_branch_limit':
+        if (!params?.company_id || params?.limit === undefined) {
+          return new Response(
+            JSON.stringify({ error: 'company_id e limit são obrigatórios' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        if (params.limit < 1 || params.limit > 100) {
+          return new Response(
+            JSON.stringify({ error: 'Limite deve estar entre 1 e 100' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error: limitError } = await supabase
+          .from('companies')
+          .update({ 
+            branch_limit: params.limit,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', params.company_id)
+
+        if (limitError) throw limitError
+        result = { success: true, message: 'Limite de filiais atualizado' }
         break
 
       case 'get_audit_log':
