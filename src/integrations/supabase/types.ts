@@ -220,12 +220,16 @@ export type Database = {
       companies: {
         Row: {
           address: string
+          blocked_at: string | null
+          blocked_reason: string | null
+          branch_limit: number | null
           business_hours: Json | null
           city: string
           created_at: string
           email: string
           id: string
           instagram: string | null
+          is_blocked: boolean | null
           likes_count: number | null
           logo_url: string | null
           name: string
@@ -246,12 +250,16 @@ export type Database = {
         }
         Insert: {
           address: string
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          branch_limit?: number | null
           business_hours?: Json | null
           city: string
           created_at?: string
           email: string
           id?: string
           instagram?: string | null
+          is_blocked?: boolean | null
           likes_count?: number | null
           logo_url?: string | null
           name: string
@@ -272,12 +280,16 @@ export type Database = {
         }
         Update: {
           address?: string
+          blocked_at?: string | null
+          blocked_reason?: string | null
+          branch_limit?: number | null
           business_hours?: Json | null
           city?: string
           created_at?: string
           email?: string
           id?: string
           instagram?: string | null
+          is_blocked?: boolean | null
           likes_count?: number | null
           logo_url?: string | null
           name?: string
@@ -1721,6 +1733,7 @@ export type Database = {
         Args: { company_uuid: string }
         Returns: boolean
       }
+      can_create_branch: { Args: { company_uuid: string }; Returns: boolean }
       delete_user_account: { Args: { company_uuid: string }; Returns: boolean }
       get_company_rankings: {
         Args: never
@@ -1820,6 +1833,7 @@ export type Database = {
         Returns: boolean
       }
       increment_likes: { Args: { company_id: string }; Returns: undefined }
+      is_company_blocked: { Args: { company_uuid: string }; Returns: boolean }
       is_super_admin: { Args: { email: string }; Returns: boolean }
       validate_super_admin_password: {
         Args: { password_input: string }
