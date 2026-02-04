@@ -1,6 +1,6 @@
-// Service Worker v15 - Super Admin + fixed dialogs close buttons
-const CACHE_NAME = 'corte-arte-v16';
-const VERSION = 'v15';
+// Service Worker v17 - Support ticket system
+const CACHE_NAME = 'corte-arte-v17';
+const VERSION = 'v17';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [

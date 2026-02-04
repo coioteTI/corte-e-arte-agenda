@@ -12,7 +12,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, UserCheck, History, Package, Wallet, Loader2, Lock, Shield, User, UsersRound } from "lucide-react";
+import { Calendar, Users, Settings, FileText, Clock, BarChart, Crown, Trophy, UserCheck, History, Package, Wallet, Loader2, Lock, Shield, User, UsersRound, HelpCircle } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +50,7 @@ const roleLabels: Record<AppRole, { label: string; icon: React.ComponentType<any
 
 // Static menu items (always visible)
 const staticMenuItems = [
+  { title: "Suporte", url: "/dashboard/suporte", icon: HelpCircle, key: "suporte" },
   { title: "Configurações", url: "/dashboard/configuracoes", icon: Settings, key: "configuracoes" },
 ];
 
