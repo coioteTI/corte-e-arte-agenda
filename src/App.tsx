@@ -25,6 +25,7 @@ import Relatorios from "./pages/dashboard/Relatorios";
 import Horarios from "./pages/dashboard/Horarios";
 
 import Configuracoes from "./pages/dashboard/Configuracoes";
+import Suporte from "./pages/dashboard/Suporte";
 import WebhookLogs from "./pages/dashboard/WebhookLogs";
 import KirvanoWebhooks from "./pages/dashboard/KirvanoWebhooks";
 import Planos from "./pages/dashboard/Planos";
@@ -168,6 +169,7 @@ const App = () => {
                   <Route path="/dashboard/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
                   <Route path="/dashboard/salarios" element={<ProtectedRoute><Salarios /></ProtectedRoute>} />
                   <Route path="/dashboard/funcionarios" element={<ProtectedRoute><Funcionarios /></ProtectedRoute>} />
+                  <Route path="/dashboard/suporte" element={<ProtectedRoute><Suporte /></ProtectedRoute>} />
                   
                   <Route path="*" element={<NotFound />} />
                 </Routes>

@@ -295,6 +295,155 @@ Deno.serve(async (req) => {
         result = rolesData || []
         break
 
+      // ========== SUPPORT TICKET ACTIONS ==========
+      case 'get_tickets':
+        const ticketsQuery = supabase
+          .from('support_tickets')
+          .select(`
+            *,
+            companies:company_id (name, email)
+          `)
+          .order('created_at', { ascending: false })
+
+        if (params?.status) {
+          ticketsQuery.eq('status', params.status)
+        }
+        if (params?.priority) {
+          ticketsQuery.eq('priority', params.priority)
+        }
+
+        const { data: ticketsData, error: ticketsError } = await ticketsQuery
+
+        if (ticketsError) throw ticketsError
+
+        // Get unread message counts for each ticket
+        const ticketsWithCounts = await Promise.all(
+          (ticketsData || []).map(async (ticket) => {
+            const { count } = await supabase
+              .from('support_messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('ticket_id', ticket.id)
+              .eq('sender_type', 'company')
+              .eq('is_read', false)
+
+            return {
+              ...ticket,
+              unread_count: count || 0
+            }
+          })
+        )
+
+        result = ticketsWithCounts
+        break
+
+      case 'get_ticket_details':
+        if (!params?.ticket_id) {
+          return new Response(
+            JSON.stringify({ error: 'ticket_id é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const [ticketDetail, ticketMessages] = await Promise.all([
+          supabase
+            .from('support_tickets')
+            .select(`*, companies:company_id (name, email, phone)`)
+            .eq('id', params.ticket_id)
+            .single(),
+          supabase
+            .from('support_messages')
+            .select('*')
+            .eq('ticket_id', params.ticket_id)
+            .order('created_at', { ascending: true })
+        ])
+
+        // Mark company messages as read
+        await supabase
+          .from('support_messages')
+          .update({ is_read: true })
+          .eq('ticket_id', params.ticket_id)
+          .eq('sender_type', 'company')
+
+        result = {
+          ticket: ticketDetail.data,
+          messages: ticketMessages.data || []
+        }
+        break
+
+      case 'send_ticket_message':
+        if (!params?.ticket_id || !params?.message) {
+          return new Response(
+            JSON.stringify({ error: 'ticket_id e message são obrigatórios' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error: messageError } = await supabase
+          .from('support_messages')
+          .insert({
+            ticket_id: params.ticket_id,
+            sender_type: 'admin',
+            message: params.message
+          })
+
+        if (messageError) throw messageError
+
+        // Update ticket status if it was open
+        await supabase
+          .from('support_tickets')
+          .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+          .eq('id', params.ticket_id)
+          .eq('status', 'open')
+
+        result = { success: true, message: 'Mensagem enviada com sucesso' }
+        break
+
+      case 'update_ticket_status':
+        if (!params?.ticket_id || !params?.status) {
+          return new Response(
+            JSON.stringify({ error: 'ticket_id e status são obrigatórios' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const ticketUpdateData: Record<string, any> = { 
+          status: params.status,
+          updated_at: new Date().toISOString()
+        }
+
+        if (params.status === 'resolved') {
+          ticketUpdateData.resolved_at = new Date().toISOString()
+        }
+
+        if (params.assigned_to) {
+          ticketUpdateData.assigned_to = params.assigned_to
+        }
+
+        const { error: statusError } = await supabase
+          .from('support_tickets')
+          .update(ticketUpdateData)
+          .eq('id', params.ticket_id)
+
+        if (statusError) throw statusError
+        result = { success: true, message: 'Status atualizado com sucesso' }
+        break
+
+      case 'get_ticket_stats':
+        const [openTickets, inProgressTickets, resolvedTickets, totalTickets] = await Promise.all([
+          supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+          supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+          supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
+          supabase.from('support_tickets').select('*', { count: 'exact', head: true })
+        ])
+
+        result = {
+          open: openTickets.count || 0,
+          in_progress: inProgressTickets.count || 0,
+          resolved: resolvedTickets.count || 0,
+          total: totalTickets.count || 0
+        }
+        break
+
       default:
         return new Response(
           JSON.stringify({ error: 'Ação não reconhecida' }),

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SupportTicketsTab } from '@/components/super-admin/SupportTicketsTab';
 import { 
   Dialog,
   DialogContent,
@@ -26,7 +27,7 @@ import {
   Shield, LogOut, Building2, Users, Calendar, GitBranch, 
   Loader2, RefreshCw, Lock, Unlock, Eye, TrendingUp,
   Clock, AlertTriangle, CheckCircle, Crown, Ban, Settings,
-  ChevronRight, Search, Filter
+  ChevronRight, Search, Filter, MessageSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -426,6 +427,10 @@ const SuperAdminDashboard = () => {
               <Building2 className="w-4 h-4" />
               Empresas
             </TabsTrigger>
+            <TabsTrigger value="support" className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Suporte
+            </TabsTrigger>
             <TabsTrigger value="audit" className="gap-2">
               <Clock className="w-4 h-4" />
               Auditoria
@@ -601,6 +606,10 @@ const SuperAdminDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="support" className="space-y-4">
+            <SupportTicketsTab />
           </TabsContent>
 
           <TabsContent value="audit" className="space-y-4">
