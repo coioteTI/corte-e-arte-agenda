@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import CookieConsent from "@/components/CookieConsent";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ContactChatWidget from "@/components/ContactChatWidget";
 import { ModuleSettingsProvider } from "@/contexts/ModuleSettingsContext";
 import { BranchProvider } from "@/contexts/BranchContext";
 import { SuperAdminProvider } from "@/contexts/SuperAdminContext";
@@ -124,6 +125,7 @@ const App = () => {
                 <Sonner />
                 <CookieConsent />
                 <OfflineIndicator />
+                <ContactChatWidget />
                 <Routes>
                   <Route path="/" element={<Index />} />
                   
