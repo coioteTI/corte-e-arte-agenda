@@ -1,27 +1,67 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSuperAdmin } from '@/contexts/SuperAdminContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Shield, Mail, Lock, AlertTriangle, Loader2 } from 'lucide-react';
+import { Shield, Mail, Lock, AlertTriangle, Loader2, Key, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const SuperAdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [generatingPassword, setGeneratingPassword] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   const { login, isAuthenticated } = useSuperAdmin();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Redirect if already authenticated
   if (isAuthenticated) {
     navigate('/super-admin/dashboard');
     return null;
   }
+
+  const handleGeneratePassword = async () => {
+    setGeneratingPassword(true);
+    setGeneratedPassword('');
+    setError('');
+    
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('generate-super-admin-password');
+      
+      if (fnError) throw fnError;
+      
+      if (data?.password) {
+        setGeneratedPassword(data.password);
+        toast.success('Nova senha gerada com sucesso!');
+      } else if (data?.success) {
+        toast.info('Senha gerada! Verifique seu email ou tente novamente.');
+        // Se não retornou password, pode ser porque está usando o modo seguro
+      }
+    } catch (err: any) {
+      console.error('Error generating password:', err);
+      setError('Erro ao gerar senha. Tente novamente.');
+    } finally {
+      setGeneratingPassword(false);
+    }
+  };
+
+  const handleCopyPassword = async () => {
+    if (generatedPassword) {
+      await navigator.clipboard.writeText(generatedPassword);
+      setCopied(true);
+      toast.success('Senha copiada!');
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,6 +175,70 @@ const SuperAdminLogin = () => {
               <li>• Validade de 24 horas por senha</li>
               <li>• Auditoria de todos os acessos</li>
             </ul>
+          </div>
+
+          <div className="mt-4 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowPasswordReset(!showPasswordReset)}
+            >
+              <Key className="w-4 h-4 mr-2" />
+              {showPasswordReset ? 'Fechar' : 'Gerar Nova Senha'}
+            </Button>
+
+            {showPasswordReset && (
+              <div className="mt-4 p-4 bg-muted rounded-lg space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Gere uma nova senha de acesso instantaneamente:
+                </p>
+                
+                <Button
+                  type="button"
+                  onClick={handleGeneratePassword}
+                  disabled={generatingPassword}
+                  className="w-full"
+                >
+                  {generatingPassword ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4 mr-2" />
+                      Gerar Senha Agora
+                    </>
+                  )}
+                </Button>
+
+                {generatedPassword && (
+                  <div className="p-3 bg-background border rounded-lg">
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="text-lg font-mono font-bold text-primary">
+                        {generatedPassword}
+                      </code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleCopyPassword}
+                      >
+                        {copied ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Use esta senha para fazer login. Válida por 24h.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

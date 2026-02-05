@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SupportTicketsTab } from '@/components/super-admin/SupportTicketsTab';
  import { GlobalReportsTab } from '@/components/super-admin/GlobalReportsTab';
+import ContactMessagesTab from '@/components/super-admin/ContactMessagesTab';
 import { 
   Dialog,
   DialogContent,
@@ -28,7 +29,7 @@ import {
   Shield, LogOut, Building2, Users, Calendar, GitBranch, 
   Loader2, RefreshCw, Lock, Unlock, Eye, TrendingUp,
   Clock, AlertTriangle, CheckCircle, Crown, Ban, Settings,
-   ChevronRight, Search, Filter, MessageSquare, BarChart3
+   ChevronRight, Search, Filter, MessageSquare, BarChart3, Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -436,6 +437,10 @@ const SuperAdminDashboard = () => {
                <BarChart3 className="w-4 h-4" />
                Relatórios
              </TabsTrigger>
+            <TabsTrigger value="contacts" className="gap-2">
+              <Mail className="w-4 h-4" />
+              Contatos
+            </TabsTrigger>
             <TabsTrigger value="audit" className="gap-2">
               <Clock className="w-4 h-4" />
               Auditoria
@@ -619,6 +624,10 @@ const SuperAdminDashboard = () => {
  
            <TabsContent value="reports">
              <GlobalReportsTab sessionToken={session?.token || ''} />
+          </TabsContent>
+
+          <TabsContent value="contacts" className="space-y-4">
+            <ContactMessagesTab />
           </TabsContent>
 
           <TabsContent value="audit" className="space-y-4">

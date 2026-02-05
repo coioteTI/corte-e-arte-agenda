@@ -178,7 +178,8 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: 'Password generated and sent',
-        email_sent: !emailError
+        email_sent: !emailError,
+        password: plainPassword // Return password for immediate use
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

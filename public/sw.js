@@ -1,6 +1,6 @@
-// Service Worker v17 - Support ticket system
- const CACHE_NAME = 'corte-arte-v18';
- const VERSION = 'v18';
+// Service Worker v19 - Contact chat widget
+const CACHE_NAME = 'corte-arte-v19';
+const VERSION = 'v19';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [
