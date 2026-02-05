@@ -626,6 +626,10 @@ const SuperAdminDashboard = () => {
              <GlobalReportsTab sessionToken={session?.token || ''} />
           </TabsContent>
 
+          <TabsContent value="contacts" className="space-y-4">
+            <ContactMessagesTab />
+          </TabsContent>
+
           <TabsContent value="audit" className="space-y-4">
             <Card>
               <CardHeader>
