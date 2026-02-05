@@ -570,6 +570,37 @@ Deno.serve(async (req) => {
          }
          break
  
+      // ========== CONTACT MESSAGES ACTIONS ==========
+      case 'get_contact_messages':
+        const { data: contactMessages } = await supabase
+          .from('contact_messages')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(params?.limit || 100)
+
+        result = { messages: contactMessages || [] }
+        break
+
+      case 'mark_contact_read':
+        if (!params?.message_id) {
+          return new Response(
+            JSON.stringify({ error: 'message_id é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { error: readError } = await supabase
+          .from('contact_messages')
+          .update({ 
+            is_read: true, 
+            read_at: new Date().toISOString() 
+          })
+          .eq('id', params.message_id)
+
+        if (readError) throw readError
+        result = { success: true }
+        break
+
       default:
         return new Response(
           JSON.stringify({ error: 'Ação não reconhecida' }),
