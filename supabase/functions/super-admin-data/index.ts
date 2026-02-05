@@ -444,6 +444,132 @@ Deno.serve(async (req) => {
         }
         break
 
+       // ========== GLOBAL REPORTS ACTIONS ==========
+       case 'get_global_reports':
+         // Get date range from params (default: last 12 months)
+         const monthsBack = params?.months || 12
+         const reportStartDate = new Date()
+         reportStartDate.setMonth(reportStartDate.getMonth() - monthsBack)
+ 
+         // Get all appointments with company and payment info
+         const { data: allAppointments } = await supabase
+           .from('appointments')
+           .select('id, total_price, payment_status, appointment_date, created_at, company_id, status')
+           .gte('created_at', reportStartDate.toISOString())
+ 
+         // Get all stock sales
+         const { data: allStockSales } = await supabase
+           .from('stock_sales')
+           .select('id, total_price, payment_status, sold_at, company_id')
+           .gte('sold_at', reportStartDate.toISOString())
+ 
+         // Get all subscriptions
+         const { data: allSubscriptions } = await supabase
+           .from('subscriptions')
+           .select('id, amount, plan, status, created_at, company_id')
+ 
+         // Get companies by creation month for growth tracking
+         const { data: allCompaniesForGrowth } = await supabase
+           .from('companies')
+           .select('id, name, plan, created_at, subscription_status')
+           .order('created_at', { ascending: true })
+ 
+         // Calculate monthly revenue from appointments (confirmed/completed with paid status)
+         const monthlyAppointmentRevenue: Record<string, number> = {}
+         const monthlyStockRevenue: Record<string, number> = {}
+         const monthlyNewCompanies: Record<string, number> = {}
+         const monthlyAppointmentCount: Record<string, number> = {}
+ 
+         // Process appointments
+         (allAppointments || []).forEach(apt => {
+           if (apt.payment_status === 'paid' && apt.total_price && ['confirmed', 'completed'].includes(apt.status)) {
+             const month = apt.appointment_date.substring(0, 7) // YYYY-MM
+             monthlyAppointmentRevenue[month] = (monthlyAppointmentRevenue[month] || 0) + Number(apt.total_price)
+           }
+           const month = apt.created_at.substring(0, 7)
+           monthlyAppointmentCount[month] = (monthlyAppointmentCount[month] || 0) + 1
+         })
+ 
+         // Process stock sales
+         (allStockSales || []).forEach(sale => {
+           if (sale.payment_status === 'paid' && sale.total_price) {
+             const month = sale.sold_at.substring(0, 7)
+             monthlyStockRevenue[month] = (monthlyStockRevenue[month] || 0) + Number(sale.total_price)
+           }
+         })
+ 
+         // Process company growth
+         (allCompaniesForGrowth || []).forEach(company => {
+           const month = company.created_at.substring(0, 7)
+           monthlyNewCompanies[month] = (monthlyNewCompanies[month] || 0) + 1
+         })
+ 
+         // Calculate totals
+         const totalAppointmentRevenue = Object.values(monthlyAppointmentRevenue).reduce((a, b) => a + b, 0)
+         const totalStockRevenue = Object.values(monthlyStockRevenue).reduce((a, b) => a + b, 0)
+         const totalRevenue = totalAppointmentRevenue + totalStockRevenue
+ 
+         // Plan distribution
+         const planDistribution: Record<string, number> = {}
+         ;(allCompaniesForGrowth || []).forEach(company => {
+           planDistribution[company.plan] = (planDistribution[company.plan] || 0) + 1
+         })
+ 
+         // Prepare monthly data for charts
+         const months: string[] = []
+         for (let i = monthsBack - 1; i >= 0; i--) {
+           const d = new Date()
+           d.setMonth(d.getMonth() - i)
+           months.push(d.toISOString().substring(0, 7))
+         }
+ 
+         const chartData = months.map(month => ({
+           month,
+           label: new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+           appointmentRevenue: monthlyAppointmentRevenue[month] || 0,
+           stockRevenue: monthlyStockRevenue[month] || 0,
+           totalRevenue: (monthlyAppointmentRevenue[month] || 0) + (monthlyStockRevenue[month] || 0),
+           newCompanies: monthlyNewCompanies[month] || 0,
+           appointments: monthlyAppointmentCount[month] || 0,
+         }))
+ 
+         // Top companies by revenue
+         const companyRevenue: Record<string, { name: string; revenue: number; appointments: number }> = {}
+         ;(allAppointments || []).forEach(apt => {
+           if (apt.payment_status === 'paid' && apt.total_price && ['confirmed', 'completed'].includes(apt.status)) {
+             if (!companyRevenue[apt.company_id]) {
+               const company = (allCompaniesForGrowth || []).find(c => c.id === apt.company_id)
+               companyRevenue[apt.company_id] = { 
+                 name: company?.name || 'Desconhecida', 
+                 revenue: 0, 
+                 appointments: 0 
+               }
+             }
+             companyRevenue[apt.company_id].revenue += Number(apt.total_price)
+             companyRevenue[apt.company_id].appointments += 1
+           }
+         })
+ 
+         const topCompanies = Object.entries(companyRevenue)
+           .map(([id, data]) => ({ id, ...data }))
+           .sort((a, b) => b.revenue - a.revenue)
+           .slice(0, 10)
+ 
+         result = {
+           totals: {
+             totalRevenue,
+             totalAppointmentRevenue,
+             totalStockRevenue,
+             totalCompanies: (allCompaniesForGrowth || []).length,
+             totalAppointments: (allAppointments || []).length,
+             totalStockSales: (allStockSales || []).length,
+           },
+           planDistribution,
+           chartData,
+           topCompanies,
+         }
+         break
+ 
       default:
         return new Response(
           JSON.stringify({ error: 'Ação não reconhecida' }),
