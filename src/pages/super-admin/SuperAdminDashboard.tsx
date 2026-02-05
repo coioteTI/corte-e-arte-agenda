@@ -614,7 +614,7 @@ const SuperAdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="support" className="space-y-4">
-             <SupportTicketsTab sessionToken={session?.token || ''} />
+             <SupportTicketsTab />
            </TabsContent>
  
            <TabsContent value="reports">
