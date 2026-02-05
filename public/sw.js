@@ -1,6 +1,6 @@
 // Service Worker v17 - Support ticket system
-const CACHE_NAME = 'corte-arte-v17';
-const VERSION = 'v17';
+ const CACHE_NAME = 'corte-arte-v18';
+ const VERSION = 'v18';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [
