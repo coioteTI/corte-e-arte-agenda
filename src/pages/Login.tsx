@@ -52,6 +52,17 @@ const Login = () => {
       return;
     }
 
+    // Check if this is the Super Admin email - redirect to dedicated login
+    const SUPER_ADMIN_EMAIL = 'corteearte.suporte@gmail.com';
+    if (email.toLowerCase().trim() === SUPER_ADMIN_EMAIL) {
+      toast({
+        title: "Acesso Super Admin",
+        description: "Redirecionando para o painel administrativo...",
+      });
+      navigate('/super-admin/login');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
