@@ -105,6 +105,9 @@ const SuperAdminDashboard = () => {
   const [newBranchLimit, setNewBranchLimit] = useState<number>(5);
   const [blockReason, setBlockReason] = useState('');
   const [newPlan, setNewPlan] = useState('');
+  const [newPlanEndDate, setNewPlanEndDate] = useState('');
+  const [newTrialLimit, setNewTrialLimit] = useState(50);
+  const [resetTrial, setResetTrial] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
