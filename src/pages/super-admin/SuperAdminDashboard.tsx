@@ -833,7 +833,7 @@ const SuperAdminDashboard = () => {
 
       {/* Plan Dialog */}
       <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Alterar Plano</DialogTitle>
             <DialogDescription>
@@ -849,16 +849,60 @@ const SuperAdminDashboard = () => {
                   <SelectValue placeholder="Selecione o plano" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="trial">Trial</SelectItem>
-                  <SelectItem value="pro">Pro</SelectItem>
-                  <SelectItem value="premium_mensal">Premium Mensal</SelectItem>
-                  <SelectItem value="premium_anual">Premium Anual</SelectItem>
+                  <SelectItem value="trial">Trial (Limite de agendamentos)</SelectItem>
+                  <SelectItem value="pro">Pro (Limite de agendamentos)</SelectItem>
+                  <SelectItem value="premium_mensal">Premium Mensal (R$ 79,90/mês)</SelectItem>
+                  <SelectItem value="premium_anual">Premium Anual (R$ 599,00/ano)</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Planos Premium terão data de vencimento definida automaticamente
-              </p>
             </div>
+
+            {/* Premium Plan Options */}
+            {(newPlan === 'premium_mensal' || newPlan === 'premium_anual') && (
+              <div className="space-y-2">
+                <Label>Data de Vencimento</Label>
+                <Input
+                  type="date"
+                  value={newPlanEndDate}
+                  onChange={(e) => setNewPlanEndDate(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Deixe em branco para usar a data padrão ({newPlan === 'premium_mensal' ? '30 dias' : '1 ano'})
+                </p>
+              </div>
+            )}
+
+            {/* Trial Plan Options */}
+            {(newPlan === 'trial' || newPlan === 'pro') && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Limite de Agendamentos do Trial</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    value={newTrialLimit}
+                    onChange={(e) => setNewTrialLimit(Number(e.target.value))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Atual: {selectedCompany?.trial_appointments_used || 0} usados de {selectedCompany?.trial_appointments_limit || 50}
+                  </p>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="resetTrial"
+                    checked={resetTrial}
+                    onChange={(e) => setResetTrial(e.target.checked)}
+                    className="rounded border-border"
+                  />
+                  <Label htmlFor="resetTrial" className="text-sm font-normal cursor-pointer">
+                    Resetar contador de agendamentos usados para 0
+                  </Label>
+                </div>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
