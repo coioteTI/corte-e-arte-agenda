@@ -78,12 +78,13 @@ Deno.serve(async (req) => {
     // Hash the provided password
     const hashedPassword = await hashPassword(password)
 
-    // Check if password is valid
+    // Check if password is valid - look for any valid password (not expired)
+    const now = new Date().toISOString()
     const { data: passwordData, error: passwordError } = await supabase
       .from('super_admin_passwords')
       .select('id, password_hash, valid_from, valid_until')
-      .gte('valid_until', new Date().toISOString())
-      .lte('valid_from', new Date().toISOString())
+      .lte('valid_from', now)
+      .gte('valid_until', now)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
