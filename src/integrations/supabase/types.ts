@@ -224,6 +224,7 @@ export type Database = {
           blocked_reason: string | null
           branch_limit: number | null
           business_hours: Json | null
+          can_create_branches: boolean
           city: string
           created_at: string
           email: string
@@ -254,6 +255,7 @@ export type Database = {
           blocked_reason?: string | null
           branch_limit?: number | null
           business_hours?: Json | null
+          can_create_branches?: boolean
           city: string
           created_at?: string
           email: string
@@ -284,6 +286,7 @@ export type Database = {
           blocked_reason?: string | null
           branch_limit?: number | null
           business_hours?: Json | null
+          can_create_branches?: boolean
           city?: string
           created_at?: string
           email?: string

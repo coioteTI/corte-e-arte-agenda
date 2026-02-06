@@ -45,6 +45,8 @@ interface DashboardStats {
   blocked_companies: number;
   expiring_companies: number;
   monthly_appointments: number;
+  monthly_stock_sales: number;
+  branch_creation_enabled_count: number;
 }
 
 interface Company {
@@ -60,9 +62,11 @@ interface Company {
   trial_appointments_limit: number;
   branch_limit: number;
   branch_count: number;
+  appointments_count: number;
   is_blocked: boolean;
   blocked_at: string | null;
   blocked_reason: string | null;
+  can_create_branches: boolean;
   created_at: string;
 }
 
@@ -101,6 +105,9 @@ const SuperAdminDashboard = () => {
   const [newBranchLimit, setNewBranchLimit] = useState<number>(5);
   const [blockReason, setBlockReason] = useState('');
   const [newPlan, setNewPlan] = useState('');
+  const [newPlanEndDate, setNewPlanEndDate] = useState('');
+  const [newTrialLimit, setNewTrialLimit] = useState(50);
+  const [resetTrial, setResetTrial] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -250,17 +257,51 @@ const SuperAdminDashboard = () => {
     
     setActionLoading(selectedCompany.id);
     try {
-      const result = await fetchData('update_company_plan', { 
+      const planParams: Record<string, any> = { 
         company_id: selectedCompany.id, 
         plan: newPlan 
-      });
+      };
+
+      // Add end date for premium plans if provided
+      if ((newPlan === 'premium_mensal' || newPlan === 'premium_anual') && newPlanEndDate) {
+        planParams.end_date = newPlanEndDate;
+      }
+
+      // Add trial settings
+      if (newPlan === 'trial') {
+        planParams.trial_limit = newTrialLimit;
+        planParams.reset_trial = resetTrial;
+      }
+
+      const result = await fetchData('update_company_plan', planParams);
       
       if (result?.success) {
         toast.success('Plano atualizado com sucesso');
         setShowPlanDialog(false);
+        setNewPlanEndDate('');
+        setResetTrial(false);
         loadData();
       } else {
         toast.error('Erro ao atualizar plano');
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleBranchCreation = async (companyId: string, currentValue: boolean) => {
+    setActionLoading(companyId);
+    try {
+      const result = await fetchData('toggle_branch_creation', { 
+        company_id: companyId,
+        enabled: !currentValue
+      });
+      
+      if (result?.success) {
+        toast.success(result.message || 'Permissão de filiais atualizada');
+        loadData();
+      } else {
+        toast.error('Erro ao atualizar permissão');
       }
     } finally {
       setActionLoading(null);
@@ -518,14 +559,17 @@ const SuperAdminDashboard = () => {
                             {getStatusBadge(company)}
                           </div>
                           
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm text-muted-foreground">
                             <div>
                               <span className="font-medium">E-mail:</span> {company.email}
                             </div>
                             <div>
                               <span className="font-medium">Filiais:</span> {company.branch_count}/{company.branch_limit || 5}
                             </div>
-                            {company.plan === 'trial' && (
+                            <div>
+                              <span className="font-medium">Agendamentos:</span> {company.appointments_count || 0}
+                            </div>
+                            {(company.plan === 'trial' || company.plan === 'pro') && (
                               <div>
                                 <span className="font-medium">Trial:</span> {company.trial_appointments_used}/{company.trial_appointments_limit}
                               </div>
@@ -537,12 +581,33 @@ const SuperAdminDashboard = () => {
                             )}
                           </div>
                           
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <Badge variant={company.can_create_branches ? "default" : "secondary"} className="text-xs">
+                              <GitBranch className="w-3 h-3 mr-1" />
+                              {company.can_create_branches ? 'Pode criar filiais' : 'Criação bloqueada'}
+                            </Badge>
+                          </div>
+                          
                           <p className="text-xs text-muted-foreground">
                             Criada {formatDistanceToNow(new Date(company.created_at), { addSuffix: true, locale: ptBR })}
                           </p>
                         </div>
                         
                         <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            variant={company.can_create_branches ? "secondary" : "default"}
+                            size="sm"
+                            onClick={() => handleToggleBranchCreation(company.id, company.can_create_branches)}
+                            disabled={actionLoading === company.id}
+                          >
+                            {actionLoading === company.id ? (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <GitBranch className="w-3 h-3 mr-1" />
+                            )}
+                            {company.can_create_branches ? 'Bloquear Filiais' : 'Liberar Filiais'}
+                          </Button>
+
                           <Button
                             variant="outline"
                             size="sm"
@@ -552,7 +617,7 @@ const SuperAdminDashboard = () => {
                               setShowBranchLimitDialog(true);
                             }}
                           >
-                            <GitBranch className="w-3 h-3 mr-1" />
+                            <Settings className="w-3 h-3 mr-1" />
                             Limite
                           </Button>
                           
@@ -562,6 +627,12 @@ const SuperAdminDashboard = () => {
                             onClick={() => {
                               setSelectedCompany(company);
                               setNewPlan(company.plan);
+                              setNewTrialLimit(company.trial_appointments_limit || 50);
+                              if (company.subscription_end_date) {
+                                setNewPlanEndDate(company.subscription_end_date.split('T')[0]);
+                              } else {
+                                setNewPlanEndDate('');
+                              }
                               setShowPlanDialog(true);
                             }}
                           >
@@ -762,7 +833,7 @@ const SuperAdminDashboard = () => {
 
       {/* Plan Dialog */}
       <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Alterar Plano</DialogTitle>
             <DialogDescription>
@@ -778,16 +849,60 @@ const SuperAdminDashboard = () => {
                   <SelectValue placeholder="Selecione o plano" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="trial">Trial</SelectItem>
-                  <SelectItem value="pro">Pro</SelectItem>
-                  <SelectItem value="premium_mensal">Premium Mensal</SelectItem>
-                  <SelectItem value="premium_anual">Premium Anual</SelectItem>
+                  <SelectItem value="trial">Trial (Limite de agendamentos)</SelectItem>
+                  <SelectItem value="pro">Pro (Limite de agendamentos)</SelectItem>
+                  <SelectItem value="premium_mensal">Premium Mensal (R$ 79,90/mês)</SelectItem>
+                  <SelectItem value="premium_anual">Premium Anual (R$ 599,00/ano)</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Planos Premium terão data de vencimento definida automaticamente
-              </p>
             </div>
+
+            {/* Premium Plan Options */}
+            {(newPlan === 'premium_mensal' || newPlan === 'premium_anual') && (
+              <div className="space-y-2">
+                <Label>Data de Vencimento</Label>
+                <Input
+                  type="date"
+                  value={newPlanEndDate}
+                  onChange={(e) => setNewPlanEndDate(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Deixe em branco para usar a data padrão ({newPlan === 'premium_mensal' ? '30 dias' : '1 ano'})
+                </p>
+              </div>
+            )}
+
+            {/* Trial Plan Options */}
+            {(newPlan === 'trial' || newPlan === 'pro') && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Limite de Agendamentos do Trial</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    value={newTrialLimit}
+                    onChange={(e) => setNewTrialLimit(Number(e.target.value))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Atual: {selectedCompany?.trial_appointments_used || 0} usados de {selectedCompany?.trial_appointments_limit || 50}
+                  </p>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="resetTrial"
+                    checked={resetTrial}
+                    onChange={(e) => setResetTrial(e.target.checked)}
+                    className="rounded border-border"
+                  />
+                  <Label htmlFor="resetTrial" className="text-sm font-normal cursor-pointer">
+                    Resetar contador de agendamentos usados para 0
+                  </Label>
+                </div>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
