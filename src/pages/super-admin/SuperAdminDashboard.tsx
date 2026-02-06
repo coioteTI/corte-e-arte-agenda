@@ -45,6 +45,8 @@ interface DashboardStats {
   blocked_companies: number;
   expiring_companies: number;
   monthly_appointments: number;
+  monthly_stock_sales: number;
+  branch_creation_enabled_count: number;
 }
 
 interface Company {
@@ -60,9 +62,11 @@ interface Company {
   trial_appointments_limit: number;
   branch_limit: number;
   branch_count: number;
+  appointments_count: number;
   is_blocked: boolean;
   blocked_at: string | null;
   blocked_reason: string | null;
+  can_create_branches: boolean;
   created_at: string;
 }
 
