@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
             subscription_start_date, subscription_end_date,
             trial_appointments_used, trial_appointments_limit,
             branch_limit, is_blocked, blocked_at, blocked_reason,
-            created_at, updated_at
+            can_create_branches, created_at, updated_at
           `)
           .order('created_at', { ascending: false })
 
@@ -141,9 +141,16 @@ Deno.serve(async (req) => {
               .eq('company_id', company.id)
               .eq('is_active', true)
 
+            // Get appointments count for this company
+            const { count: appointmentsCount } = await supabase
+              .from('appointments')
+              .select('*', { count: 'exact', head: true })
+              .eq('company_id', company.id)
+
             return {
               ...company,
-              branch_count: count || 0
+              branch_count: count || 0,
+              appointments_count: appointmentsCount || 0
             }
           })
         )
