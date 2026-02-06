@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       case 'get_dashboard_stats':
         // Get overall platform statistics
         const [companies, branches, appointments, users] = await Promise.all([
-          supabase.from('companies').select('id, name, plan, subscription_status, created_at', { count: 'exact' }),
+          supabase.from('companies').select('id, name, plan, subscription_status, subscription_end_date, can_create_branches, created_at', { count: 'exact' }),
           supabase.from('branches').select('id', { count: 'exact' }).eq('is_active', true),
           supabase.from('appointments').select('id', { count: 'exact' }),
           supabase.from('profiles').select('id', { count: 'exact' })
@@ -93,6 +93,18 @@ Deno.serve(async (req) => {
           .select('*', { count: 'exact', head: true })
           .gte('created_at', startOfMonth.toISOString())
 
+        // Stock sales this month
+        const { count: monthlyStockSales } = await supabase
+          .from('stock_sales')
+          .select('*', { count: 'exact', head: true })
+          .gte('sold_at', startOfMonth.toISOString())
+
+        // Companies with branch creation enabled
+        const { count: branchCreationEnabledCount } = await supabase
+          .from('companies')
+          .select('*', { count: 'exact', head: true })
+          .eq('can_create_branches', true)
+
         result = {
           total_companies: companies.count || 0,
           total_branches: branches.count || 0,
@@ -102,7 +114,9 @@ Deno.serve(async (req) => {
           trial_companies: trialCount || 0,
           blocked_companies: blockedCount || 0,
           expiring_companies: expiringCount || 0,
-          monthly_appointments: monthlyAppointments || 0
+          monthly_appointments: monthlyAppointments || 0,
+          monthly_stock_sales: monthlyStockSales || 0,
+          branch_creation_enabled_count: branchCreationEnabledCount || 0
         }
         break
 
