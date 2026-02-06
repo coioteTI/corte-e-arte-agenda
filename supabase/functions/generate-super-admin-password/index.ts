@@ -51,13 +51,14 @@ Deno.serve(async (req) => {
     const plainPassword = generateSecurePassword(16)
     const hashedPassword = await hashPassword(plainPassword)
 
-    // Set validity period (24 hours from now, starting at midnight BRT)
+    // Set validity period - valid from now until end of day tomorrow (local time)
     const now = new Date()
     const validFrom = new Date(now)
-    validFrom.setHours(0, 0, 0, 0) // Midnight today
     
-    const validUntil = new Date(validFrom)
-    validUntil.setDate(validUntil.getDate() + 1) // Midnight tomorrow
+    // Valid until end of tomorrow (23:59:59)
+    const validUntil = new Date(now)
+    validUntil.setDate(validUntil.getDate() + 1)
+    validUntil.setHours(23, 59, 59, 999)
 
     // Delete passwords older than 2 days for security and storage optimization
     const twoDaysAgo = new Date()
