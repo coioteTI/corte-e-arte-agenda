@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     // Check if user owns a company (must be a CEO)
     const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
-      .select('id, name, address, city, state, zip_code, phone, email')
+      .select('id, name, address, city, state, zip_code, phone, email, can_create_branches, branch_limit')
       .eq('user_id', user.id)
       .single();
 
