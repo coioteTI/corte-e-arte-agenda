@@ -257,17 +257,51 @@ const SuperAdminDashboard = () => {
     
     setActionLoading(selectedCompany.id);
     try {
-      const result = await fetchData('update_company_plan', { 
+      const planParams: Record<string, any> = { 
         company_id: selectedCompany.id, 
         plan: newPlan 
-      });
+      };
+
+      // Add end date for premium plans if provided
+      if ((newPlan === 'premium_mensal' || newPlan === 'premium_anual') && newPlanEndDate) {
+        planParams.end_date = newPlanEndDate;
+      }
+
+      // Add trial settings
+      if (newPlan === 'trial') {
+        planParams.trial_limit = newTrialLimit;
+        planParams.reset_trial = resetTrial;
+      }
+
+      const result = await fetchData('update_company_plan', planParams);
       
       if (result?.success) {
         toast.success('Plano atualizado com sucesso');
         setShowPlanDialog(false);
+        setNewPlanEndDate('');
+        setResetTrial(false);
         loadData();
       } else {
         toast.error('Erro ao atualizar plano');
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleBranchCreation = async (companyId: string, currentValue: boolean) => {
+    setActionLoading(companyId);
+    try {
+      const result = await fetchData('toggle_branch_creation', { 
+        company_id: companyId,
+        enabled: !currentValue
+      });
+      
+      if (result?.success) {
+        toast.success(result.message || 'Permissão de filiais atualizada');
+        loadData();
+      } else {
+        toast.error('Erro ao atualizar permissão');
       }
     } finally {
       setActionLoading(null);
