@@ -1,6 +1,6 @@
-// Service Worker v19 - Contact chat widget
-const CACHE_NAME = 'corte-arte-v19';
-const VERSION = 'v19';
+// Service Worker v20 - Super Admin login fix
+const CACHE_NAME = 'corte-arte-v20';
+const VERSION = 'v20';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [
