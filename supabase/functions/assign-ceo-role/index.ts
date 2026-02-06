@@ -104,11 +104,45 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check if user already has a branch assigned (existing branch scenario)
+    const { data: existingUserBranchesCount } = await supabaseAdmin
+      .from('branches')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', company.id);
+
+    const currentBranchCount = existingUserBranchesCount || 0;
+
+    // If this is NOT the first branch (Matriz), check permissions
+    if (currentBranchCount > 0) {
+      // Check if company is allowed to create more branches
+      if (!company.can_create_branches) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Sua empresa não tem permissão para criar novas filiais. Entre em contato com o suporte para liberar essa funcionalidade.',
+            requiresApproval: true 
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check branch limit
+      const branchLimit = company.branch_limit || 5;
+      if (currentBranchCount >= branchLimit) {
+        return new Response(
+          JSON.stringify({ 
+            error: `Limite de filiais atingido (${currentBranchCount}/${branchLimit}). Solicite aumento de limite ao suporte.`,
+            limitReached: true 
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Create first branch from company data
     const { data: newBranch, error: branchError } = await supabaseAdmin
       .from('branches')
       .insert({
-        name: company.name + " - Matriz",
+        name: currentBranchCount === 0 ? company.name + " - Matriz" : company.name + " - Filial " + (currentBranchCount + 1),
         address: company.address,
         city: company.city,
         state: company.state,
