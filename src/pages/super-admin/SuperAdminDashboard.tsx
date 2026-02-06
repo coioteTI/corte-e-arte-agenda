@@ -559,14 +559,17 @@ const SuperAdminDashboard = () => {
                             {getStatusBadge(company)}
                           </div>
                           
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground">
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm text-muted-foreground">
                             <div>
                               <span className="font-medium">E-mail:</span> {company.email}
                             </div>
                             <div>
                               <span className="font-medium">Filiais:</span> {company.branch_count}/{company.branch_limit || 5}
                             </div>
-                            {company.plan === 'trial' && (
+                            <div>
+                              <span className="font-medium">Agendamentos:</span> {company.appointments_count || 0}
+                            </div>
+                            {(company.plan === 'trial' || company.plan === 'pro') && (
                               <div>
                                 <span className="font-medium">Trial:</span> {company.trial_appointments_used}/{company.trial_appointments_limit}
                               </div>
@@ -578,12 +581,33 @@ const SuperAdminDashboard = () => {
                             )}
                           </div>
                           
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <Badge variant={company.can_create_branches ? "default" : "secondary"} className="text-xs">
+                              <GitBranch className="w-3 h-3 mr-1" />
+                              {company.can_create_branches ? 'Pode criar filiais' : 'Criação bloqueada'}
+                            </Badge>
+                          </div>
+                          
                           <p className="text-xs text-muted-foreground">
                             Criada {formatDistanceToNow(new Date(company.created_at), { addSuffix: true, locale: ptBR })}
                           </p>
                         </div>
                         
                         <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            variant={company.can_create_branches ? "secondary" : "default"}
+                            size="sm"
+                            onClick={() => handleToggleBranchCreation(company.id, company.can_create_branches)}
+                            disabled={actionLoading === company.id}
+                          >
+                            {actionLoading === company.id ? (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <GitBranch className="w-3 h-3 mr-1" />
+                            )}
+                            {company.can_create_branches ? 'Bloquear Filiais' : 'Liberar Filiais'}
+                          </Button>
+
                           <Button
                             variant="outline"
                             size="sm"
@@ -593,7 +617,7 @@ const SuperAdminDashboard = () => {
                               setShowBranchLimitDialog(true);
                             }}
                           >
-                            <GitBranch className="w-3 h-3 mr-1" />
+                            <Settings className="w-3 h-3 mr-1" />
                             Limite
                           </Button>
                           
@@ -603,6 +627,12 @@ const SuperAdminDashboard = () => {
                             onClick={() => {
                               setSelectedCompany(company);
                               setNewPlan(company.plan);
+                              setNewTrialLimit(company.trial_appointments_limit || 50);
+                              if (company.subscription_end_date) {
+                                setNewPlanEndDate(company.subscription_end_date.split('T')[0]);
+                              } else {
+                                setNewPlanEndDate('');
+                              }
                               setShowPlanDialog(true);
                             }}
                           >
