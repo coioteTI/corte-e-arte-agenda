@@ -195,17 +195,34 @@ Deno.serve(async (req) => {
         // If setting to premium, update subscription dates
         if (params.plan === 'premium_mensal' || params.plan === 'premium_anual') {
           updateData.subscription_status = 'active'
-          updateData.subscription_start_date = new Date().toISOString()
           
-          const endDate = new Date()
-          if (params.plan === 'premium_mensal') {
-            endDate.setMonth(endDate.getMonth() + 1)
+          // Use custom dates if provided, otherwise use defaults
+          if (params.start_date) {
+            updateData.subscription_start_date = new Date(params.start_date).toISOString()
           } else {
-            endDate.setFullYear(endDate.getFullYear() + 1)
+            updateData.subscription_start_date = new Date().toISOString()
           }
-          updateData.subscription_end_date = endDate.toISOString()
+          
+          if (params.end_date) {
+            updateData.subscription_end_date = new Date(params.end_date).toISOString()
+          } else {
+            const endDate = new Date()
+            if (params.plan === 'premium_mensal') {
+              endDate.setMonth(endDate.getMonth() + 1)
+            } else {
+              endDate.setFullYear(endDate.getFullYear() + 1)
+            }
+            updateData.subscription_end_date = endDate.toISOString()
+          }
         } else {
           updateData.subscription_status = 'inactive'
+          // Reset trial if switching to trial
+          if (params.plan === 'trial') {
+            if (params.reset_trial) {
+              updateData.trial_appointments_used = 0
+            }
+            updateData.trial_appointments_limit = params.trial_limit || 50
+          }
         }
 
         const { error: updateError } = await supabase
@@ -215,6 +232,39 @@ Deno.serve(async (req) => {
 
         if (updateError) throw updateError
         result = { success: true, message: 'Plano atualizado com sucesso' }
+        break
+
+      // Toggle branch creation permission
+      case 'toggle_branch_creation':
+        if (!params?.company_id) {
+          return new Response(
+            JSON.stringify({ error: 'company_id é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const { data: currentCompany } = await supabase
+          .from('companies')
+          .select('can_create_branches')
+          .eq('id', params.company_id)
+          .single()
+
+        const newValue = params.enabled !== undefined ? params.enabled : !(currentCompany?.can_create_branches)
+
+        const { error: toggleError } = await supabase
+          .from('companies')
+          .update({ 
+            can_create_branches: newValue,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', params.company_id)
+
+        if (toggleError) throw toggleError
+        result = { 
+          success: true, 
+          message: newValue ? 'Criação de filiais liberada' : 'Criação de filiais bloqueada',
+          can_create_branches: newValue
+        }
         break
 
       case 'block_company':
