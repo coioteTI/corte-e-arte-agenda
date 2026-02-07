@@ -1,6 +1,6 @@
-// Service Worker v21 - Super Admin enhanced controls
-const CACHE_NAME = 'corte-arte-v21';
-const VERSION = 'v21';
+// Service Worker v22 - Branch management + Chat persistence
+const CACHE_NAME = 'corte-arte-v22';
+const VERSION = 'v22';
 
 // Only cache essential static assets
 const STATIC_ASSETS = [
