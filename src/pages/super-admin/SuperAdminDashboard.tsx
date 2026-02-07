@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SupportTicketsTab } from '@/components/super-admin/SupportTicketsTab';
- import { GlobalReportsTab } from '@/components/super-admin/GlobalReportsTab';
+import { GlobalReportsTab } from '@/components/super-admin/GlobalReportsTab';
 import ContactMessagesTab from '@/components/super-admin/ContactMessagesTab';
+import BranchManagementTab from '@/components/super-admin/BranchManagementTab';
 import { 
   Dialog,
   DialogContent,
@@ -482,6 +483,10 @@ const SuperAdminDashboard = () => {
               <Mail className="w-4 h-4" />
               Contatos
             </TabsTrigger>
+            <TabsTrigger value="branches" className="gap-2">
+              <GitBranch className="w-4 h-4" />
+              Filiais
+            </TabsTrigger>
             <TabsTrigger value="audit" className="gap-2">
               <Clock className="w-4 h-4" />
               Auditoria
@@ -701,6 +706,10 @@ const SuperAdminDashboard = () => {
             <ContactMessagesTab />
           </TabsContent>
 
+          <TabsContent value="branches" className="space-y-4">
+            <BranchManagementTab />
+          </TabsContent>
+
           <TabsContent value="audit" className="space-y-4">
             <Card>
               <CardHeader>
@@ -853,6 +862,7 @@ const SuperAdminDashboard = () => {
                   <SelectItem value="pro">Pro (Limite de agendamentos)</SelectItem>
                   <SelectItem value="premium_mensal">Premium Mensal (R$ 79,90/mês)</SelectItem>
                   <SelectItem value="premium_anual">Premium Anual (R$ 599,00/ano)</SelectItem>
+                  <SelectItem value="cancelled">❌ Cancelar Plano</SelectItem>
                 </SelectContent>
               </Select>
             </div>

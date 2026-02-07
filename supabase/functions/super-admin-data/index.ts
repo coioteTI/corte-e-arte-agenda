@@ -158,6 +158,21 @@ Deno.serve(async (req) => {
         result = companiesWithBranches
         break
 
+      case 'get_all_branches':
+        const { data: allBranches } = await supabase
+          .from('branches')
+          .select(`
+            id, name, company_id, address, city, state, is_active, created_at,
+            companies:company_id (name)
+          `)
+          .order('created_at', { ascending: false })
+
+        result = (allBranches || []).map(branch => ({
+          ...branch,
+          company_name: (branch as any).companies?.name || 'Desconhecida'
+        }))
+        break
+
       case 'get_company_details':
         if (!params?.company_id) {
           return new Response(
@@ -214,6 +229,11 @@ Deno.serve(async (req) => {
             }
             updateData.subscription_end_date = endDate.toISOString()
           }
+        } else if (params.plan === 'cancelled' || params.plan === 'inactive') {
+          // Cancel plan
+          updateData.plan = 'trial'
+          updateData.subscription_status = 'cancelled'
+          updateData.subscription_end_date = new Date().toISOString()
         } else {
           updateData.subscription_status = 'inactive'
           // Reset trial if switching to trial
@@ -336,6 +356,64 @@ Deno.serve(async (req) => {
 
         if (limitError) throw limitError
         result = { success: true, message: 'Limite de filiais atualizado' }
+        break
+
+      // ========== DELETE OPERATIONS ==========
+      case 'delete_branches':
+        if (!params?.ids || !Array.isArray(params.ids) || params.ids.length === 0) {
+          return new Response(
+            JSON.stringify({ error: 'ids array é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Delete branches
+        const { error: deleteBranchesError } = await supabase
+          .from('branches')
+          .delete()
+          .in('id', params.ids)
+
+        if (deleteBranchesError) throw deleteBranchesError
+        result = { success: true, message: `${params.ids.length} filial(is) excluída(s)` }
+        break
+
+      case 'delete_companies':
+        if (!params?.ids || !Array.isArray(params.ids) || params.ids.length === 0) {
+          return new Response(
+            JSON.stringify({ error: 'ids array é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Delete in order to avoid FK constraints
+        for (const companyId of params.ids) {
+          // Delete all related data
+          await supabase.from('appointments').delete().eq('company_id', companyId)
+          await supabase.from('services').delete().eq('company_id', companyId)
+          await supabase.from('professionals').delete().eq('company_id', companyId)
+          await supabase.from('branches').delete().eq('company_id', companyId)
+          await supabase.from('company_settings').delete().eq('company_id', companyId)
+          await supabase.from('subscriptions').delete().eq('company_id', companyId)
+          await supabase.from('notifications').delete().eq('company_id', companyId)
+          await supabase.from('notification_templates').delete().eq('company_id', companyId)
+          await supabase.from('module_settings').delete().eq('company_id', companyId)
+          await supabase.from('gallery').delete().eq('company_id', companyId)
+          await supabase.from('stock_categories').delete().eq('company_id', companyId)
+          await supabase.from('stock_products').delete().eq('company_id', companyId)
+          await supabase.from('stock_sales').delete().eq('company_id', companyId)
+          await supabase.from('suppliers').delete().eq('company_id', companyId)
+          await supabase.from('supplier_products').delete().eq('company_id', companyId)
+          await supabase.from('expenses').delete().eq('company_id', companyId)
+          await supabase.from('professional_payments').delete().eq('company_id', companyId)
+          await supabase.from('support_tickets').delete().eq('company_id', companyId)
+          await supabase.from('reviews').delete().eq('company_id', companyId)
+          await supabase.from('favorites').delete().eq('company_id', companyId)
+          
+          // Finally delete the company
+          await supabase.from('companies').delete().eq('id', companyId)
+        }
+
+        result = { success: true, message: `${params.ids.length} empresa(s) excluída(s)` }
         break
 
       case 'get_audit_log':
