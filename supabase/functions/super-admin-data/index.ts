@@ -951,6 +951,67 @@ Deno.serve(async (req) => {
         result = { success: true }
         break
 
+      case 'reply_to_contact':
+        if (!params?.contact_id || !params?.message) {
+          return new Response(
+            JSON.stringify({ error: 'contact_id e message são obrigatórios' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Check if contact already has an associated ticket
+        const { data: existingContact } = await supabase
+          .from('contact_messages')
+          .select('*')
+          .eq('id', params.contact_id)
+          .single()
+
+        if (!existingContact) {
+          return new Response(
+            JSON.stringify({ error: 'Contato não encontrado' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Create a support ticket for this contact if one doesn't exist
+        const { data: newTicket, error: ticketCreateError } = await supabase
+          .from('support_tickets')
+          .insert({
+            company_id: null, // Contact messages may not have company_id
+            created_by: 'admin',
+            subject: `Resposta ao contato: ${params.contact_name || existingContact.name}`,
+            description: existingContact.message,
+            category: 'contact_reply',
+            status: 'in_progress'
+          })
+          .select('id')
+          .single()
+
+        if (ticketCreateError) throw ticketCreateError
+
+        // Insert original message as first message in the thread
+        await supabase.from('support_messages').insert({
+          ticket_id: newTicket.id,
+          sender_type: 'company',
+          message: existingContact.message
+        })
+
+        // Insert admin reply
+        await supabase.from('support_messages').insert({
+          ticket_id: newTicket.id,
+          sender_type: 'admin',
+          message: params.message
+        })
+
+        // Mark contact as read
+        await supabase
+          .from('contact_messages')
+          .update({ is_read: true, read_at: new Date().toISOString() })
+          .eq('id', params.contact_id)
+
+        result = { success: true, ticket_id: newTicket.id }
+        break
+
       default:
         return new Response(
           JSON.stringify({ error: 'Ação não reconhecida' }),
