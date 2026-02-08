@@ -651,7 +651,7 @@ Deno.serve(async (req) => {
           .from('support_tickets')
           .select(`
             *,
-            companies:company_id (name, email)
+            companies:company_id (name, email, phone, address, city, state)
           `)
           .order('created_at', { ascending: false })
 
@@ -697,7 +697,7 @@ Deno.serve(async (req) => {
         const [ticketDetail, ticketMessages] = await Promise.all([
           supabase
             .from('support_tickets')
-            .select(`*, companies:company_id (name, email, phone)`)
+            .select(`*, companies:company_id (name, email, phone, address, city, state)`)
             .eq('id', params.ticket_id)
             .single(),
           supabase

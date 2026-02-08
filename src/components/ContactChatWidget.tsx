@@ -166,6 +166,24 @@ const ContactChatWidget = () => {
     setSending(true);
 
     try {
+      // Try to get company_id if user is logged in
+      let companyId: string | undefined;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: company } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+          if (company) {
+            companyId = company.id;
+          }
+        }
+      } catch (e) {
+        // User not logged in, that's ok
+      }
+
       // Prepare the message body
       let attachmentInfo = '';
       if (currentAttachment) {
@@ -179,7 +197,8 @@ const ContactChatWidget = () => {
           email,
           phone,
           message: currentMessage + attachmentInfo,
-          source: 'chat_widget'
+          source: 'chat_widget',
+          company_id: companyId
         }
       });
 

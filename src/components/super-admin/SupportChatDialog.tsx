@@ -11,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Send, Loader2, CheckCircle, Building2, User, X,
-  MessageSquare
+  Send, Loader2, CheckCircle, Building2, User, 
+  MessageSquare, Phone, Mail, MapPin
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -27,6 +27,15 @@ interface Message {
   is_read: boolean;
 }
 
+interface TicketCompany {
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+}
+
 interface Ticket {
   id: string;
   subject: string;
@@ -35,10 +44,7 @@ interface Ticket {
   priority: string;
   category: string;
   created_at: string;
-  companies: {
-    name: string;
-    email: string;
-  } | null;
+  companies: TicketCompany | null;
 }
 
 interface SupportChatDialogProps {
@@ -66,7 +72,6 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
   }, [open, ticket]);
 
   useEffect(() => {
-    // Auto-scroll to bottom when messages update
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
@@ -173,19 +178,29 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
     }
   };
 
+  const handleCall = (phone: string) => {
+    window.location.href = `tel:${phone}`;
+  };
+
+  const handleEmail = (email: string) => {
+    window.location.href = `mailto:${email}`;
+  };
+
   if (!ticket) return null;
+
+  const company = ticket.companies;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg h-[80vh] flex flex-col p-0">
+      <DialogContent className="max-w-lg h-[85vh] flex flex-col p-0">
         {/* Header */}
         <DialogHeader className="p-4 border-b flex-shrink-0">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <DialogTitle className="text-lg truncate">{ticket.subject}</DialogTitle>
               <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                 <Building2 className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{ticket.companies?.name}</span>
+                <span className="truncate">{company?.name || 'Cliente'}</span>
               </div>
             </div>
             {ticket.status !== 'resolved' && (
@@ -194,7 +209,7 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
                 size="sm"
                 onClick={handleResolveTicket}
                 disabled={resolving}
-                className="bg-green-600 hover:bg-green-700 ml-2 flex-shrink-0"
+                className="bg-green-600 hover:bg-green-700 flex-shrink-0"
               >
                 {resolving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -208,9 +223,43 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
             )}
           </div>
           
+          {/* Contact Buttons */}
+          {company && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {company.phone && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleCall(company.phone!)}
+                  className="text-xs"
+                >
+                  <Phone className="w-3 h-3 mr-1" />
+                  Ligar Loja
+                </Button>
+              )}
+              {company.email && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleEmail(company.email)}
+                  className="text-xs"
+                >
+                  <Mail className="w-3 h-3 mr-1" />
+                  Email
+                </Button>
+              )}
+              {company.city && company.state && (
+                <Badge variant="secondary" className="text-xs">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {company.city}/{company.state}
+                </Badge>
+              )}
+            </div>
+          )}
+          
           {/* Description */}
-          <div className="mt-2 p-2 bg-muted/50 rounded text-sm">
-            <p className="text-muted-foreground">{ticket.description}</p>
+          <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
+            <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
           </div>
         </DialogHeader>
 
@@ -225,6 +274,7 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
               <div className="text-center py-8">
                 <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">Nenhuma mensagem ainda</p>
+                <p className="text-xs text-muted-foreground mt-1">Envie uma mensagem para iniciar o atendimento</p>
               </div>
             ) : (
               <div className="space-y-4">
