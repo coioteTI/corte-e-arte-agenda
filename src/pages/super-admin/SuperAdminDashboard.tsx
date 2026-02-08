@@ -7,11 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { SupportTicketsTab } from '@/components/super-admin/SupportTicketsTab';
 import { GlobalReportsTab } from '@/components/super-admin/GlobalReportsTab';
 import ContactMessagesTab from '@/components/super-admin/ContactMessagesTab';
 import BranchManagementTab from '@/components/super-admin/BranchManagementTab';
-import { 
+import CompanyManagementTab from '@/components/super-admin/CompanyManagementTab';
+import UserAccessManagementTab from '@/components/super-admin/UserAccessManagementTab';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -466,32 +469,51 @@ const SuperAdminDashboard = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="companies" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="companies" className="gap-2">
-              <Building2 className="w-4 h-4" />
-              Empresas
-            </TabsTrigger>
-            <TabsTrigger value="support" className="gap-2">
-              <MessageSquare className="w-4 h-4" />
-              Suporte
-            </TabsTrigger>
-             <TabsTrigger value="reports" className="gap-2">
-               <BarChart3 className="w-4 h-4" />
-               Relatórios
-             </TabsTrigger>
-            <TabsTrigger value="contacts" className="gap-2">
-              <Mail className="w-4 h-4" />
-              Contatos
-            </TabsTrigger>
-            <TabsTrigger value="branches" className="gap-2">
-              <GitBranch className="w-4 h-4" />
-              Filiais
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="gap-2">
-              <Clock className="w-4 h-4" />
-              Auditoria
-            </TabsTrigger>
-          </TabsList>
+          <ScrollArea className="w-full">
+            <TabsList className="inline-flex w-max">
+              <TabsTrigger value="companies" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Building2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Empresas</span>
+                <span className="sm:hidden">Emp.</span>
+              </TabsTrigger>
+              <TabsTrigger value="access" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Users className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Acessos</span>
+                <span className="sm:hidden">Acess.</span>
+              </TabsTrigger>
+              <TabsTrigger value="support" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Suporte</span>
+                <span className="sm:hidden">Sup.</span>
+              </TabsTrigger>
+              <TabsTrigger value="branches" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <GitBranch className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Filiais</span>
+                <span className="sm:hidden">Fil.</span>
+              </TabsTrigger>
+              <TabsTrigger value="company-mgmt" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Building2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Ger. Empresas</span>
+                <span className="sm:hidden">Ger.</span>
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Relatórios</span>
+                <span className="sm:hidden">Rel.</span>
+              </TabsTrigger>
+              <TabsTrigger value="contacts" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Contatos</span>
+                <span className="sm:hidden">Cont.</span>
+              </TabsTrigger>
+              <TabsTrigger value="audit" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Auditoria</span>
+                <span className="sm:hidden">Aud.</span>
+              </TabsTrigger>
+            </TabsList>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
           <TabsContent value="companies" className="space-y-4">
             {/* Filters */}
@@ -694,20 +716,28 @@ const SuperAdminDashboard = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="support" className="space-y-4">
-             <SupportTicketsTab />
-           </TabsContent>
- 
-           <TabsContent value="reports">
-             <GlobalReportsTab sessionToken={session?.token || ''} />
+          <TabsContent value="access" className="space-y-4">
+            <UserAccessManagementTab />
           </TabsContent>
 
-          <TabsContent value="contacts" className="space-y-4">
-            <ContactMessagesTab />
+          <TabsContent value="support" className="space-y-4">
+            <SupportTicketsTab />
           </TabsContent>
 
           <TabsContent value="branches" className="space-y-4">
             <BranchManagementTab />
+          </TabsContent>
+
+          <TabsContent value="company-mgmt" className="space-y-4">
+            <CompanyManagementTab />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <GlobalReportsTab sessionToken={session?.token || ''} />
+          </TabsContent>
+
+          <TabsContent value="contacts" className="space-y-4">
+            <ContactMessagesTab />
           </TabsContent>
 
           <TabsContent value="audit" className="space-y-4">
