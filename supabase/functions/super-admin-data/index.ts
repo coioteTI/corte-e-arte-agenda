@@ -158,6 +158,46 @@ Deno.serve(async (req) => {
         result = companiesWithBranches
         break
 
+      // Get only companies (matrices) - for dedicated company management tab
+      case 'get_companies_only':
+        const { data: companiesOnlyData } = await supabase
+          .from('companies')
+          .select('id, name, email, plan, is_blocked, created_at')
+          .order('created_at', { ascending: false })
+
+        const companiesWithCounts = await Promise.all(
+          (companiesOnlyData || []).map(async (company) => {
+            const { count: branchCount } = await supabase
+              .from('branches')
+              .select('*', { count: 'exact', head: true })
+              .eq('company_id', company.id)
+
+            const { count: appointmentsCount } = await supabase
+              .from('appointments')
+              .select('*', { count: 'exact', head: true })
+              .eq('company_id', company.id)
+
+            return {
+              ...company,
+              branch_count: branchCount || 0,
+              appointments_count: appointmentsCount || 0
+            }
+          })
+        )
+
+        result = companiesWithCounts
+        break
+
+      // Simple list of companies for dropdowns
+      case 'get_companies_list':
+        const { data: companiesList } = await supabase
+          .from('companies')
+          .select('id, name')
+          .order('name', { ascending: true })
+
+        result = companiesList || []
+        break
+
       case 'get_all_branches':
         const { data: allBranches } = await supabase
           .from('branches')
@@ -171,6 +211,167 @@ Deno.serve(async (req) => {
           ...branch,
           company_name: (branch as any).companies?.name || 'Desconhecida'
         }))
+        break
+
+      // ========== USER ACCESS MANAGEMENT ==========
+      case 'get_all_user_access':
+        // Get all users with their roles and company info
+        const { data: allRoles } = await supabase
+          .from('user_roles')
+          .select('user_id, role, created_at')
+          .order('created_at', { ascending: false })
+
+        // Get profiles
+        const { data: allProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, phone')
+
+        // Get user branches for company association
+        const { data: allUserBranches } = await supabase
+          .from('user_branches')
+          .select(`
+            user_id, branch_id, is_primary,
+            branches:branch_id (id, name, company_id)
+          `)
+
+        // Get all branches to map company info
+        const { data: allBranchesForUsers } = await supabase
+          .from('branches')
+          .select('id, name, company_id')
+
+        // Get all companies
+        const { data: allCompaniesForUsers } = await supabase
+          .from('companies')
+          .select('id, name, user_id, email')
+
+        // Build user access list
+        const userAccessList: any[] = []
+
+        for (const role of (allRoles || [])) {
+          const profile = (allProfiles || []).find(p => p.user_id === role.user_id)
+          const userBranch = (allUserBranches || []).find(ub => ub.user_id === role.user_id)
+          
+          // Find company - either owned by user or through branch
+          let company = (allCompaniesForUsers || []).find(c => c.user_id === role.user_id)
+          let branch = null
+
+          if (!company && userBranch) {
+            const branchData = (userBranch as any).branches
+            if (branchData) {
+              branch = branchData
+              company = (allCompaniesForUsers || []).find(c => c.id === branchData.company_id)
+            }
+          }
+
+          userAccessList.push({
+            id: role.user_id,
+            user_id: role.user_id,
+            email: company?.email || 'N/A',
+            full_name: profile?.full_name,
+            phone: profile?.phone,
+            role: role.role,
+            company_id: company?.id,
+            company_name: company?.name,
+            branch_id: branch?.id,
+            branch_name: branch?.name,
+            is_blocked: false, // We'd need a separate blocked users table for this
+            created_at: role.created_at
+          })
+        }
+
+        result = userAccessList
+        break
+
+      case 'update_user_access':
+        if (!params?.user_id) {
+          return new Response(
+            JSON.stringify({ error: 'user_id é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Update profile
+        if (params.full_name || params.phone) {
+          await supabase
+            .from('profiles')
+            .update({
+              full_name: params.full_name,
+              phone: params.phone
+            })
+            .eq('user_id', params.user_id)
+        }
+
+        // Update role
+        if (params.role) {
+          await supabase
+            .from('user_roles')
+            .update({ role: params.role })
+            .eq('user_id', params.user_id)
+        }
+
+        // Update password if provided
+        if (params.new_password) {
+          const { error: passwordError } = await supabase.auth.admin.updateUserById(
+            params.user_id,
+            { password: params.new_password }
+          )
+          if (passwordError) {
+            console.error('Error updating password:', passwordError)
+          }
+        }
+
+        // Update email if provided
+        if (params.email) {
+          const { error: emailError } = await supabase.auth.admin.updateUserById(
+            params.user_id,
+            { email: params.email }
+          )
+          if (emailError) {
+            console.error('Error updating email:', emailError)
+          }
+        }
+
+        result = { success: true, message: 'Usuário atualizado com sucesso' }
+        break
+
+      case 'toggle_user_block':
+        if (!params?.user_id) {
+          return new Response(
+            JSON.stringify({ error: 'user_id é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Ban or unban user
+        if (params.is_blocked) {
+          await supabase.auth.admin.updateUserById(params.user_id, { ban_duration: '876000h' }) // ~100 years
+        } else {
+          await supabase.auth.admin.updateUserById(params.user_id, { ban_duration: 'none' })
+        }
+
+        result = { success: true, message: params.is_blocked ? 'Usuário bloqueado' : 'Usuário desbloqueado' }
+        break
+
+      case 'delete_users':
+        if (!params?.user_ids || !Array.isArray(params.user_ids)) {
+          return new Response(
+            JSON.stringify({ error: 'user_ids array é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        for (const userId of params.user_ids) {
+          // Delete related data
+          await supabase.from('user_roles').delete().eq('user_id', userId)
+          await supabase.from('user_branches').delete().eq('user_id', userId)
+          await supabase.from('user_sessions').delete().eq('user_id', userId)
+          await supabase.from('profiles').delete().eq('user_id', userId)
+          
+          // Delete auth user
+          await supabase.auth.admin.deleteUser(userId)
+        }
+
+        result = { success: true, message: `${params.user_ids.length} usuário(s) removido(s)` }
         break
 
       case 'get_company_details':

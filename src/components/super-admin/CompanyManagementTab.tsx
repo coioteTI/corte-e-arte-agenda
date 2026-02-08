@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSuperAdmin } from '@/contexts/SuperAdminContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,29 +19,28 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { 
-  GitBranch, Search, RefreshCw, Trash2, AlertTriangle, Loader2
+  Building2, Search, RefreshCw, Trash2, AlertTriangle, Loader2, Crown, Ban
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-interface Branch {
+interface Company {
   id: string;
   name: string;
-  company_id: string;
-  company_name: string;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  is_active: boolean;
+  email: string;
+  plan: string;
+  branch_count: number;
+  appointments_count: number;
+  is_blocked: boolean;
   created_at: string;
 }
 
-const BranchManagementTab = () => {
+const CompanyManagementTab = () => {
   const { session } = useSuperAdmin();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletingItems, setDeletingItems] = useState(false);
 
@@ -63,19 +62,19 @@ const BranchManagementTab = () => {
     return data.data || data;
   };
 
-  const { data: branches, isLoading, refetch } = useQuery({
-    queryKey: ['super-admin-branches', session?.token],
-    queryFn: () => fetchData('get_all_branches'),
+  const { data: companies, isLoading, refetch } = useQuery({
+    queryKey: ['super-admin-companies-management', session?.token],
+    queryFn: () => fetchData('get_companies_only'),
     enabled: !!session?.token,
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      return fetchData('delete_branches', { ids });
+      return fetchData('delete_companies', { ids });
     },
     onSuccess: (_, ids) => {
-      toast.success(`${ids.length} filial(is) excluída(s) com sucesso`);
-      setSelectedBranches([]);
+      toast.success(`${ids.length} empresa(s) excluída(s) com sucesso`);
+      setSelectedCompanies([]);
       refetch();
       queryClient.invalidateQueries({ queryKey: ['super-admin'] });
     },
@@ -84,33 +83,47 @@ const BranchManagementTab = () => {
     },
   });
 
-  const handleDeleteBranches = async () => {
+  const handleDeleteCompanies = async () => {
     setDeletingItems(true);
     try {
-      await deleteMutation.mutateAsync(selectedBranches);
+      await deleteMutation.mutateAsync(selectedCompanies);
     } finally {
       setDeletingItems(false);
       setShowDeleteDialog(false);
     }
   };
 
-  const toggleBranchSelection = (id: string) => {
-    setSelectedBranches(prev => 
-      prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]
+  const toggleCompanySelection = (id: string) => {
+    setSelectedCompanies(prev => 
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
   };
 
-  const selectAllBranches = () => {
-    const filteredIds = filteredBranches.map(b => b.id);
-    setSelectedBranches(prev => 
+  const selectAllCompanies = () => {
+    const filteredIds = filteredCompanies.map(c => c.id);
+    setSelectedCompanies(prev => 
       prev.length === filteredIds.length ? [] : filteredIds
     );
   };
 
-  const filteredBranches = (branches || []).filter((branch: Branch) =>
-    branch.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    branch.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    branch.city?.toLowerCase().includes(searchTerm.toLowerCase())
+  const getPlanBadge = (plan: string) => {
+    switch (plan) {
+      case 'premium_mensal':
+        return <Badge className="bg-green-500 hover:bg-green-600"><Crown className="w-3 h-3 mr-1" />Premium Mensal</Badge>;
+      case 'premium_anual':
+        return <Badge className="bg-blue-500 hover:bg-blue-600"><Crown className="w-3 h-3 mr-1" />Premium Anual</Badge>;
+      case 'trial':
+        return <Badge variant="secondary">Trial</Badge>;
+      case 'pro':
+        return <Badge variant="secondary">Pro</Badge>;
+      default:
+        return <Badge variant="outline">{plan}</Badge>;
+    }
+  };
+
+  const filteredCompanies = (companies || []).filter((company: Company) =>
+    company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    company.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (isLoading) {
@@ -128,11 +141,11 @@ const BranchManagementTab = () => {
       <div className="flex flex-col gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-            <GitBranch className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-            Gerenciamento de Filiais
+            <Building2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+            Gerenciamento de Empresas
           </h2>
           <p className="text-sm text-muted-foreground">
-            {branches?.length || 0} filiais cadastradas
+            {companies?.length || 0} empresas (matrizes) cadastradas
           </p>
         </div>
 
@@ -146,7 +159,7 @@ const BranchManagementTab = () => {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por nome, empresa ou cidade..."
+          placeholder="Buscar por nome ou e-mail..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
@@ -154,10 +167,10 @@ const BranchManagementTab = () => {
       </div>
 
       {/* Selection Actions */}
-      {selectedBranches.length > 0 && (
+      {selectedCompanies.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
           <span className="text-sm font-medium text-red-700 dark:text-red-300">
-            {selectedBranches.length} filial(is) selecionada(s)
+            {selectedCompanies.length} empresa(s) selecionada(s)
           </span>
           <Button
             variant="destructive"
@@ -170,15 +183,18 @@ const BranchManagementTab = () => {
         </div>
       )}
 
-      {/* Branches List */}
+      {/* Companies List */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <CardTitle className="text-lg">Lista de Filiais</CardTitle>
+            <div>
+              <CardTitle className="text-lg">Empresas Matriz</CardTitle>
+              <CardDescription>Apenas empresas principais (CEOs)</CardDescription>
+            </div>
             <div className="flex items-center gap-2">
               <Checkbox
-                checked={selectedBranches.length === filteredBranches.length && filteredBranches.length > 0}
-                onCheckedChange={selectAllBranches}
+                checked={selectedCompanies.length === filteredCompanies.length && filteredCompanies.length > 0}
+                onCheckedChange={selectAllCompanies}
               />
               <span className="text-sm text-muted-foreground">Selecionar todas</span>
             </div>
@@ -186,42 +202,41 @@ const BranchManagementTab = () => {
         </CardHeader>
         <CardContent className="p-0 sm:p-6 sm:pt-0">
           <ScrollArea className="h-[400px] sm:h-[500px]">
-            {filteredBranches.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">Nenhuma filial encontrada</p>
+            {filteredCompanies.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhuma empresa encontrada</p>
             ) : (
               <div className="space-y-2 p-4 sm:p-0">
-                {filteredBranches.map((branch: Branch) => (
+                {filteredCompanies.map((company: Company) => (
                   <div
-                    key={branch.id}
+                    key={company.id}
                     className={`p-3 border rounded-lg flex flex-col sm:flex-row sm:items-center gap-3 transition-colors ${
-                      selectedBranches.includes(branch.id) ? 'bg-red-50 dark:bg-red-900/20 border-red-200' : ''
+                      selectedCompanies.includes(company.id) ? 'bg-red-50 dark:bg-red-900/20 border-red-200' : ''
                     }`}
                   >
                     <Checkbox
-                      checked={selectedBranches.includes(branch.id)}
-                      onCheckedChange={() => toggleBranchSelection(branch.id)}
+                      checked={selectedCompanies.includes(company.id)}
+                      onCheckedChange={() => toggleCompanySelection(company.id)}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{branch.name}</span>
-                        <Badge variant={branch.is_active ? 'default' : 'secondary'} className="text-xs">
-                          {branch.is_active ? 'Ativa' : 'Inativa'}
-                        </Badge>
+                        <span className="font-medium">{company.name}</span>
+                        {getPlanBadge(company.plan)}
+                        {company.is_blocked && (
+                          <Badge variant="destructive"><Ban className="w-3 h-3 mr-1" />Bloqueada</Badge>
+                        )}
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        <span>{branch.company_name}</span>
-                        {branch.city && <span> • {branch.city}/{branch.state}</span>}
+                      <p className="text-sm text-muted-foreground truncate">{company.email}</p>
+                      <div className="text-xs text-muted-foreground">
+                        {company.branch_count} filiais • {company.appointments_count} agendamentos •
+                        Criada em {format(new Date(company.created_at), "dd/MM/yyyy", { locale: ptBR })}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Criada em {format(new Date(branch.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                      </p>
                     </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={() => {
-                        setSelectedBranches([branch.id]);
+                        setSelectedCompanies([company.id]);
                         setShowDeleteDialog(true);
                       }}
                     >
@@ -235,30 +250,37 @@ const BranchManagementTab = () => {
         </CardContent>
       </Card>
 
-      {/* Delete Dialog */}
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="w-5 h-5" />
-              Confirmar Exclusão de Filiais
+              Confirmar Exclusão de Empresas
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Você está prestes a excluir <strong>{selectedBranches.length}</strong> filial(is).
-              Esta ação não pode ser desfeita e todos os dados associados serão removidos.
+              Você está prestes a excluir <strong>{selectedCompanies.length}</strong> empresa(s).
+              <br /><br />
+              <strong className="text-red-600">ATENÇÃO:</strong> Esta ação irá remover permanentemente:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Todas as filiais da empresa</li>
+                <li>Todos os agendamentos</li>
+                <li>Todos os profissionais e serviços</li>
+                <li>Todas as configurações e dados</li>
+              </ul>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel disabled={deletingItems} className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteBranches}
+              onClick={handleDeleteCompanies}
               disabled={deletingItems}
               className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
             >
               {deletingItems ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Excluindo...</>
               ) : (
-                <>Excluir Filiais</>
+                <>Excluir Empresas</>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -268,4 +290,4 @@ const BranchManagementTab = () => {
   );
 };
 
-export default BranchManagementTab;
+export default CompanyManagementTab;
