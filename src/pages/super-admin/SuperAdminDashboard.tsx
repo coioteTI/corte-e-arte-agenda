@@ -8,9 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { SupportTicketsTab } from '@/components/super-admin/SupportTicketsTab';
 import { GlobalReportsTab } from '@/components/super-admin/GlobalReportsTab';
-import ContactMessagesTab from '@/components/super-admin/ContactMessagesTab';
+import UnifiedSupportTab from '@/components/super-admin/UnifiedSupportTab';
 import BranchManagementTab from '@/components/super-admin/BranchManagementTab';
 import CompanyManagementTab from '@/components/super-admin/CompanyManagementTab';
 import UserAccessManagementTab from '@/components/super-admin/UserAccessManagementTab';
@@ -501,11 +500,6 @@ const SuperAdminDashboard = () => {
                 <span className="hidden sm:inline">Relatórios</span>
                 <span className="sm:hidden">Rel.</span>
               </TabsTrigger>
-              <TabsTrigger value="contacts" className="gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Contatos</span>
-                <span className="sm:hidden">Cont.</span>
-              </TabsTrigger>
               <TabsTrigger value="audit" className="gap-1 sm:gap-2 text-xs sm:text-sm">
                 <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Auditoria</span>
@@ -721,7 +715,7 @@ const SuperAdminDashboard = () => {
           </TabsContent>
 
           <TabsContent value="support" className="space-y-4">
-            <SupportTicketsTab />
+            <UnifiedSupportTab />
           </TabsContent>
 
           <TabsContent value="branches" className="space-y-4">
@@ -734,10 +728,6 @@ const SuperAdminDashboard = () => {
 
           <TabsContent value="reports">
             <GlobalReportsTab sessionToken={session?.token || ''} />
-          </TabsContent>
-
-          <TabsContent value="contacts" className="space-y-4">
-            <ContactMessagesTab />
           </TabsContent>
 
           <TabsContent value="audit" className="space-y-4">
