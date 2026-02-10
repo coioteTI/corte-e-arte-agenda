@@ -894,7 +894,7 @@ const UnifiedSupportTab = () => {
                             : 'bg-muted'
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                        {renderMessageContent(msg.message)}
                         <p className={`text-xs mt-1 ${msg.sender_type === 'admin' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                           {format(new Date(msg.created_at), "HH:mm", { locale: ptBR })}
                         </p>
