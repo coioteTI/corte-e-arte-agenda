@@ -66,6 +66,16 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
   const [resolving, setResolving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Audio state
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [sendingAudio, setSendingAudio] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     if (open && ticket) {
       loadMessages();
