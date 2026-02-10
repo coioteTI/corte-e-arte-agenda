@@ -12,11 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Send, Loader2, CheckCircle, Building2, User, 
-  MessageSquare, Phone, Mail, MapPin
+  MessageSquare, Phone, Mail, MapPin, Mic, Square, Play, Pause
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -64,6 +65,16 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
   const [sending, setSending] = useState(false);
   const [resolving, setResolving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Audio state
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [sendingAudio, setSendingAudio] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (open && ticket) {
@@ -186,8 +197,67 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
     window.location.href = `mailto:${email}`;
   };
 
-  if (!ticket) return null;
+  // Audio functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch { toast.error('Não foi possível acessar o microfone'); }
+  };
 
+  const stopRecording = () => { mediaRecorderRef.current?.stop(); setIsRecording(false); };
+  const cancelAudio = () => { setAudioBlob(null); if (audioUrl) URL.revokeObjectURL(audioUrl); setAudioUrl(null); setIsPlayingAudio(false); };
+
+  const togglePlayAudio = () => {
+    if (!audioUrl) return;
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio(audioUrl);
+      audioPlayerRef.current.onended = () => setIsPlayingAudio(false);
+    }
+    if (isPlayingAudio) { audioPlayerRef.current.pause(); setIsPlayingAudio(false); }
+    else { audioPlayerRef.current.play(); setIsPlayingAudio(true); }
+  };
+
+  const sendAudioMessage = async () => {
+    if (!audioBlob || !ticket || !session?.token) return;
+    setSendingAudio(true);
+    try {
+      const fileName = `audio_${Date.now()}.webm`;
+      const { error: uploadError } = await supabase.storage.from('support-audio').upload(fileName, audioBlob, { contentType: 'audio/webm' });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('support-audio').getPublicUrl(fileName);
+
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/super-admin-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-super-admin-token': session.token },
+        body: JSON.stringify({ action: 'send_ticket_message', params: { ticket_id: ticket.id, message: `[AUDIO]${publicUrl}` } })
+      });
+      const data = await response.json();
+      if (data.success) { cancelAudio(); loadMessages(); toast.success('Áudio enviado'); }
+    } catch { toast.error('Erro ao enviar áudio'); }
+    finally { setSendingAudio(false); }
+  };
+
+  const renderMessageContent = (message: string) => {
+    if (message.startsWith('[AUDIO]')) {
+      const url = message.replace('[AUDIO]', '');
+      return <audio controls className="max-w-full" preload="metadata"><source src={url} type="audio/webm" /></audio>;
+    }
+    return <p className="text-sm whitespace-pre-wrap">{message}</p>;
+  };
+
+  if (!ticket) return null;
   const company = ticket.companies;
 
   return (
@@ -301,7 +371,7 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                      {renderMessageContent(msg.message)}
                       <p className={`text-xs mt-1 ${
                         msg.sender_type === 'admin' ? 'text-primary-foreground/70' : 'text-muted-foreground'
                       }`}>
@@ -317,31 +387,51 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
 
         {/* Input */}
         {ticket.status !== 'resolved' && (
-          <div className="p-4 border-t flex-shrink-0">
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Digite sua resposta..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={2}
-                className="resize-none"
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sending}
-                className="px-3"
-              >
-                {sending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+          <div className="p-3 border-t flex-shrink-0 space-y-2">
+            {audioBlob && (
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={togglePlayAudio}>
+                  {isPlayingAudio ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </Button>
+                <div className="flex-1 text-xs text-muted-foreground">Áudio gravado</div>
+                <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={cancelAudio}>Cancelar</Button>
+                <Button size="sm" onClick={sendAudioMessage} disabled={sendingAudio} className="text-xs">
+                  {sendingAudio ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                  <span className="ml-1">Enviar</span>
+                </Button>
+              </div>
+            )}
+
+            {!audioBlob && (
+              <div className="flex gap-2 items-end">
+                <Textarea
+                  placeholder="Digite sua resposta..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={2}
+                  className="resize-none"
+                />
+                {!newMessage.trim() ? (
+                  <Button
+                    variant={isRecording ? "destructive" : "outline"}
+                    size="icon"
+                    className="flex-shrink-0 h-10 w-10"
+                    onClick={isRecording ? stopRecording : startRecording}
+                  >
+                    {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </Button>
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Button onClick={handleSendMessage} disabled={sending} size="icon" className="flex-shrink-0 h-10 w-10">
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </Button>
                 )}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Pressione Enter para enviar
-            </p>
+              </div>
+            )}
+
+            {isRecording && (
+              <p className="text-xs text-destructive animate-pulse text-center">🔴 Gravando áudio...</p>
+            )}
           </div>
         )}
       </DialogContent>

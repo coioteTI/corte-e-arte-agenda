@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,13 @@ import {
 import { 
   MessageSquare, Clock, CheckCircle, AlertCircle,
   Loader2, Search, Filter, Building2, RefreshCw,
-  Mail, Phone, Calendar, Send, MessageCircle, ExternalLink
+  Mail, Phone, Calendar, Send, MessageCircle, ExternalLink,
+  Mic, Square, Play, Pause
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Ticket {
   id: string;
@@ -101,6 +103,17 @@ const UnifiedSupportTab = () => {
   const [newMessage, setNewMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
+
+  // Audio recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [sendingAudio, setSendingAudio] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch contact messages
   const { data: contactMessages, isLoading: loadingContacts, refetch: refetchContacts } = useQuery({
@@ -329,6 +342,162 @@ const UnifiedSupportTab = () => {
       e.preventDefault();
       handleSendContactMessage();
     }
+  };
+
+  // Audio recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch {
+      toast.error('Não foi possível acessar o microfone');
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+  const cancelAudio = () => {
+    setAudioBlob(null);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
+    setIsPlayingAudio(false);
+  };
+
+  const togglePlayAudio = () => {
+    if (!audioUrl) return;
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio(audioUrl);
+      audioPlayerRef.current.onended = () => setIsPlayingAudio(false);
+    }
+    if (isPlayingAudio) {
+      audioPlayerRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioPlayerRef.current.play();
+      setIsPlayingAudio(true);
+    }
+  };
+
+  const sendAudioMessage = async () => {
+    if (!audioBlob || !selectedContact) return;
+    setSendingAudio(true);
+
+    try {
+      const fileName = `audio_${Date.now()}.webm`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('support-audio')
+        .upload(fileName, audioBlob, { contentType: 'audio/webm' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('support-audio')
+        .getPublicUrl(fileName);
+
+      const audioMessage = `[AUDIO]${publicUrl}`;
+
+      if (selectedContact.ticket_id) {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/super-admin-data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-super-admin-token': session?.token || '',
+          },
+          body: JSON.stringify({
+            action: 'send_ticket_message',
+            params: { ticket_id: selectedContact.ticket_id, message: audioMessage },
+          }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          cancelAudio();
+          const detailsResponse = await fetch(`${SUPABASE_URL}/functions/v1/super-admin-data`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-super-admin-token': session?.token || '',
+            },
+            body: JSON.stringify({
+              action: 'get_ticket_details',
+              params: { ticket_id: selectedContact.ticket_id },
+            }),
+          });
+          const detailsData = await detailsResponse.json();
+          if (detailsData.success) setChatMessages(detailsData.data.messages || []);
+          toast.success('Áudio enviado');
+        }
+      } else {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/super-admin-data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-super-admin-token': session?.token || '',
+          },
+          body: JSON.stringify({
+            action: 'reply_to_contact',
+            params: {
+              contact_id: selectedContact.id,
+              message: audioMessage,
+              contact_email: selectedContact.email,
+              contact_name: selectedContact.name,
+            },
+          }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          cancelAudio();
+          setChatMessages(prev => [...prev, {
+            id: crypto.randomUUID(),
+            sender_type: 'admin',
+            message: audioMessage,
+            created_at: new Date().toISOString()
+          }]);
+          if (data.ticket_id) {
+            setSelectedContact(prev => prev ? { ...prev, ticket_id: data.ticket_id } : null);
+          }
+          toast.success('Áudio enviado');
+          refetchContacts();
+          loadTicketData();
+        }
+      }
+    } catch {
+      toast.error('Erro ao enviar áudio');
+    } finally {
+      setSendingAudio(false);
+    }
+  };
+
+  // Helper to render message content (text or audio)
+  const renderMessageContent = (message: string) => {
+    if (message.startsWith('[AUDIO]')) {
+      const url = message.replace('[AUDIO]', '');
+      return (
+        <audio controls className="max-w-full" preload="metadata">
+          <source src={url} type="audio/webm" />
+          Seu navegador não suporta áudio.
+        </audio>
+      );
+    }
+    return <p className="text-sm whitespace-pre-wrap">{message}</p>;
   };
 
   // Badges
@@ -725,7 +894,7 @@ const UnifiedSupportTab = () => {
                             : 'bg-muted'
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                        {renderMessageContent(msg.message)}
                         <p className={`text-xs mt-1 ${msg.sender_type === 'admin' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                           {format(new Date(msg.created_at), "HH:mm", { locale: ptBR })}
                         </p>
@@ -738,28 +907,69 @@ const UnifiedSupportTab = () => {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t flex-shrink-0">
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Digite sua resposta..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="min-h-[60px] resize-none"
-                rows={2}
-              />
-              <Button 
-                onClick={handleSendContactMessage} 
-                disabled={sendingMessage || !newMessage.trim()}
-                className="flex-shrink-0"
-              >
-                {sendingMessage ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+          <div className="p-3 border-t flex-shrink-0 space-y-2">
+            {/* Audio preview */}
+            {audioBlob && (
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={togglePlayAudio}>
+                  {isPlayingAudio ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </Button>
+                <div className="flex-1 text-xs text-muted-foreground">Áudio gravado</div>
+                <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={cancelAudio}>
+                  Cancelar
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={sendAudioMessage} 
+                  disabled={sendingAudio}
+                  className="text-xs"
+                >
+                  {sendingAudio ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                  <span className="ml-1">Enviar</span>
+                </Button>
+              </div>
+            )}
+
+            {/* Text input + mic */}
+            {!audioBlob && (
+              <div className="flex gap-2 items-end">
+                <Textarea
+                  placeholder="Digite sua resposta..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="min-h-[50px] resize-none"
+                  rows={2}
+                />
+                {!newMessage.trim() ? (
+                  <Button
+                    variant={isRecording ? "destructive" : "outline"}
+                    size="icon"
+                    className="flex-shrink-0 h-10 w-10"
+                    onClick={isRecording ? stopRecording : startRecording}
+                  >
+                    {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </Button>
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Button 
+                    onClick={handleSendContactMessage} 
+                    disabled={sendingMessage}
+                    size="icon"
+                    className="flex-shrink-0 h-10 w-10"
+                  >
+                    {sendingMessage ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
                 )}
-              </Button>
-            </div>
+              </div>
+            )}
+
+            {isRecording && (
+              <p className="text-xs text-destructive animate-pulse text-center">🔴 Gravando áudio...</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -1587,7 +1587,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           category: string
-          company_id: string
+          company_id: string | null
           created_at: string
           created_by: string
           description: string
@@ -1601,7 +1601,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           category?: string
-          company_id: string
+          company_id?: string | null
           created_at?: string
           created_by: string
           description: string
@@ -1615,7 +1615,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           category?: string
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           created_by?: string
           description?: string
