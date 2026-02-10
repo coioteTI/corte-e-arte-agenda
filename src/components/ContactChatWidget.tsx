@@ -502,7 +502,7 @@ const ContactChatWidget = () => {
                         : 'bg-muted rounded-bl-md'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                    {renderMsgContent(msg)}
                     {msg.attachment && (
                       <div className="mt-2 p-2 bg-black/10 rounded text-xs flex items-center gap-2">
                         <Paperclip className="w-3 h-3" />
