@@ -518,18 +518,32 @@ const ContactChatWidget = () => {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* Audio Preview */}
+            {audioBlob && (
+              <div className="px-3 py-2 border-t bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={togglePreview}>
+                    {isPlayingPreview ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  </Button>
+                  <span className="flex-1 text-xs text-muted-foreground">Áudio gravado</span>
+                  <Button variant="ghost" size="sm" className="text-xs text-destructive h-7" onClick={cancelAudio}>
+                    Cancelar
+                  </Button>
+                  <Button size="sm" className="text-xs h-7" onClick={sendAudio} disabled={sendingAudio}>
+                    {sendingAudio ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    <span className="ml-1">Enviar</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Attachment Preview */}
-            {attachment && (
+            {!audioBlob && attachment && (
               <div className="px-3 py-2 border-t bg-muted/30">
                 <div className="flex items-center gap-2 text-sm">
                   <Paperclip className="w-4 h-4" />
                   <span className="flex-1 truncate">{attachment.name}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={handleRemoveAttachment}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleRemoveAttachment}>
                     <X className="w-3 h-3" />
                   </Button>
                 </div>
@@ -537,42 +551,57 @@ const ContactChatWidget = () => {
             )}
 
             {/* Input */}
-            <div className="p-3 border-t bg-background">
-              <div className="flex gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.doc,.docx,.txt"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip className="w-4 h-4" />
-                </Button>
-                <Textarea
-                  placeholder="Digite sua mensagem..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  className="min-h-[40px] max-h-[100px] resize-none"
-                  rows={1}
-                />
-                <Button
-                  size="icon"
-                  onClick={handleSendMessage}
-                  disabled={(!message.trim() && !attachment) || sending}
-                >
-                  {sending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+            {!audioBlob && (
+              <div className="p-3 border-t bg-background">
+                <div className="flex gap-2 items-end">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    accept="image/*,.pdf,.doc,.docx,.txt"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-9 w-9"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </Button>
+                  <Textarea
+                    placeholder="Digite sua mensagem..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    className="min-h-[40px] max-h-[100px] resize-none"
+                    rows={1}
+                  />
+                  {!message.trim() && !attachment ? (
+                    <Button
+                      variant={isRecording ? "destructive" : "outline"}
+                      size="icon"
+                      className="shrink-0 h-9 w-9"
+                      onClick={isRecording ? stopRecording : startRecording}
+                    >
+                      {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </Button>
                   ) : (
-                    <Send className="w-4 h-4" />
+                    <Button
+                      size="icon"
+                      className="shrink-0 h-9 w-9"
+                      onClick={handleSendMessage}
+                      disabled={(!message.trim() && !attachment) || sending}
+                    >
+                      {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </Button>
                   )}
-                </Button>
+                </div>
+                {isRecording && (
+                  <p className="text-xs text-destructive animate-pulse text-center mt-1">🔴 Gravando...</p>
+                )}
+              </div>
+            )}
               </div>
             </div>
           </div>
