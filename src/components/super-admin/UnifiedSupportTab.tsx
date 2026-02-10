@@ -344,6 +344,162 @@ const UnifiedSupportTab = () => {
     }
   };
 
+  // Audio recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch {
+      toast.error('Não foi possível acessar o microfone');
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
+  };
+
+  const cancelAudio = () => {
+    setAudioBlob(null);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
+    setIsPlayingAudio(false);
+  };
+
+  const togglePlayAudio = () => {
+    if (!audioUrl) return;
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio(audioUrl);
+      audioPlayerRef.current.onended = () => setIsPlayingAudio(false);
+    }
+    if (isPlayingAudio) {
+      audioPlayerRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioPlayerRef.current.play();
+      setIsPlayingAudio(true);
+    }
+  };
+
+  const sendAudioMessage = async () => {
+    if (!audioBlob || !selectedContact) return;
+    setSendingAudio(true);
+
+    try {
+      const fileName = `audio_${Date.now()}.webm`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('support-audio')
+        .upload(fileName, audioBlob, { contentType: 'audio/webm' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('support-audio')
+        .getPublicUrl(fileName);
+
+      const audioMessage = `[AUDIO]${publicUrl}`;
+
+      if (selectedContact.ticket_id) {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/super-admin-data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-super-admin-token': session?.token || '',
+          },
+          body: JSON.stringify({
+            action: 'send_ticket_message',
+            params: { ticket_id: selectedContact.ticket_id, message: audioMessage },
+          }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          cancelAudio();
+          const detailsResponse = await fetch(`${SUPABASE_URL}/functions/v1/super-admin-data`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-super-admin-token': session?.token || '',
+            },
+            body: JSON.stringify({
+              action: 'get_ticket_details',
+              params: { ticket_id: selectedContact.ticket_id },
+            }),
+          });
+          const detailsData = await detailsResponse.json();
+          if (detailsData.success) setChatMessages(detailsData.data.messages || []);
+          toast.success('Áudio enviado');
+        }
+      } else {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/super-admin-data`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-super-admin-token': session?.token || '',
+          },
+          body: JSON.stringify({
+            action: 'reply_to_contact',
+            params: {
+              contact_id: selectedContact.id,
+              message: audioMessage,
+              contact_email: selectedContact.email,
+              contact_name: selectedContact.name,
+            },
+          }),
+        });
+        const data = await response.json();
+        if (data.success) {
+          cancelAudio();
+          setChatMessages(prev => [...prev, {
+            id: crypto.randomUUID(),
+            sender_type: 'admin',
+            message: audioMessage,
+            created_at: new Date().toISOString()
+          }]);
+          if (data.ticket_id) {
+            setSelectedContact(prev => prev ? { ...prev, ticket_id: data.ticket_id } : null);
+          }
+          toast.success('Áudio enviado');
+          refetchContacts();
+          loadTicketData();
+        }
+      }
+    } catch {
+      toast.error('Erro ao enviar áudio');
+    } finally {
+      setSendingAudio(false);
+    }
+  };
+
+  // Helper to render message content (text or audio)
+  const renderMessageContent = (message: string) => {
+    if (message.startsWith('[AUDIO]')) {
+      const url = message.replace('[AUDIO]', '');
+      return (
+        <audio controls className="max-w-full" preload="metadata">
+          <source src={url} type="audio/webm" />
+          Seu navegador não suporta áudio.
+        </audio>
+      );
+    }
+    return <p className="text-sm whitespace-pre-wrap">{message}</p>;
+  };
+
   // Badges
   const getStatusBadge = (status: string) => {
     switch (status) {
