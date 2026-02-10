@@ -601,10 +601,8 @@ const ContactChatWidget = () => {
                   <p className="text-xs text-destructive animate-pulse text-center mt-1">🔴 Gravando...</p>
                 )}
               </div>
-            )}
-              </div>
-            </div>
           </div>
+        )}
         )}
       </div>
     </>
