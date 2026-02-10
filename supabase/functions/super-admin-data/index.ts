@@ -974,11 +974,13 @@ Deno.serve(async (req) => {
         }
 
         // Create a support ticket for this contact if one doesn't exist
+        // Use a fixed system UUID for admin-created tickets
+        const systemAdminId = '00000000-0000-0000-0000-000000000000'
         const { data: newTicket, error: ticketCreateError } = await supabase
           .from('support_tickets')
           .insert({
-            company_id: null, // Contact messages may not have company_id
-            created_by: 'admin',
+            company_id: null,
+            created_by: systemAdminId,
             subject: `Resposta ao contato: ${params.contact_name || existingContact.name}`,
             description: existingContact.message,
             category: 'contact_reply',

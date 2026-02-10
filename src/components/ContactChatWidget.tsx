@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Loader2, User, Mail, Phone, Paperclip, Image } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, User, Mail, Phone, Paperclip, Image, Mic, Square, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
