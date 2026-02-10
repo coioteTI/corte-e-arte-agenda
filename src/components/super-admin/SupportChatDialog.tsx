@@ -12,11 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Send, Loader2, CheckCircle, Building2, User, 
-  MessageSquare, Phone, Mail, MapPin
+  MessageSquare, Phone, Mail, MapPin, Mic, Square, Play, Pause
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
