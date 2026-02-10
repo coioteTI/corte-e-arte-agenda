@@ -257,6 +257,9 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
     return <p className="text-sm whitespace-pre-wrap">{message}</p>;
   };
 
+  if (!ticket) return null;
+  const company = ticket.companies;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg h-[85vh] flex flex-col p-0">
