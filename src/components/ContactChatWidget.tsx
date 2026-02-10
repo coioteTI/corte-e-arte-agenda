@@ -267,6 +267,114 @@ const ContactChatWidget = () => {
     }]);
   };
 
+  // Audio functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true, noiseSuppression: true } 
+      });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+    } catch { toast.error('Não foi possível acessar o microfone. Verifique as permissões.'); }
+  };
+
+  const stopRecording = () => { mediaRecorderRef.current?.stop(); setIsRecording(false); };
+
+  const cancelAudio = () => {
+    setAudioBlob(null);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
+    setIsPlayingPreview(false);
+    audioPreviewRef.current = null;
+  };
+
+  const togglePreview = () => {
+    if (!audioUrl) return;
+    if (!audioPreviewRef.current) {
+      audioPreviewRef.current = new Audio(audioUrl);
+      audioPreviewRef.current.onended = () => setIsPlayingPreview(false);
+    }
+    if (isPlayingPreview) { audioPreviewRef.current.pause(); setIsPlayingPreview(false); }
+    else { audioPreviewRef.current.play(); setIsPlayingPreview(true); }
+  };
+
+  const sendAudio = async () => {
+    if (!audioBlob) return;
+    setSendingAudio(true);
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      text: '🎤 Mensagem de áudio',
+      sender: 'user',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    try {
+      const fileName = `client_audio_${Date.now()}.webm`;
+      const { error: uploadError } = await supabase.storage
+        .from('support-audio')
+        .upload(fileName, audioBlob, { contentType: 'audio/webm' });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('support-audio').getPublicUrl(fileName);
+
+      let companyId: string | undefined;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: company } = await supabase.from('companies').select('id').eq('user_id', user.id).maybeSingle();
+          if (company) companyId = company.id;
+        }
+      } catch {}
+
+      await supabase.functions.invoke('contact-message', {
+        body: { name, email, phone, message: `[AUDIO]${publicUrl}`, source: 'chat_widget', company_id: companyId }
+      });
+
+      cancelAudio();
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        text: 'Áudio enviado! ✅ Nossa equipe responderá em breve.',
+        sender: 'system',
+        timestamp: new Date()
+      }]);
+      toast.success('Áudio enviado!');
+    } catch {
+      toast.error('Erro ao enviar áudio');
+    } finally {
+      setSendingAudio(false);
+    }
+  };
+
+  // Render message content (text or audio)
+  const renderMsgContent = (msg: Message) => {
+    if (msg.text.startsWith('[AUDIO]')) {
+      const url = msg.text.replace('[AUDIO]', '');
+      return (
+        <div>
+          <p className="text-sm mb-1">🎤 Áudio</p>
+          <audio controls className="max-w-full h-8" preload="metadata">
+            <source src={url} type="audio/webm" />
+          </audio>
+        </div>
+      );
+    }
+    return <p className="text-sm whitespace-pre-wrap">{msg.text}</p>;
+  };
+
   return (
     <>
       {/* Chat Button */}
