@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Loader2, User, Mail, Phone, Paperclip, Image } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, User, Mail, Phone, Paperclip, Image, Mic, Square, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,8 +37,16 @@ const ContactChatWidget = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [sendingAudio, setSendingAudio] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
 
   // Load saved user data on mount
   useEffect(() => {
@@ -259,6 +267,114 @@ const ContactChatWidget = () => {
     }]);
   };
 
+  // Audio functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true, noiseSuppression: true } 
+      });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+    } catch { toast.error('Não foi possível acessar o microfone. Verifique as permissões.'); }
+  };
+
+  const stopRecording = () => { mediaRecorderRef.current?.stop(); setIsRecording(false); };
+
+  const cancelAudio = () => {
+    setAudioBlob(null);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
+    setIsPlayingPreview(false);
+    audioPreviewRef.current = null;
+  };
+
+  const togglePreview = () => {
+    if (!audioUrl) return;
+    if (!audioPreviewRef.current) {
+      audioPreviewRef.current = new Audio(audioUrl);
+      audioPreviewRef.current.onended = () => setIsPlayingPreview(false);
+    }
+    if (isPlayingPreview) { audioPreviewRef.current.pause(); setIsPlayingPreview(false); }
+    else { audioPreviewRef.current.play(); setIsPlayingPreview(true); }
+  };
+
+  const sendAudio = async () => {
+    if (!audioBlob) return;
+    setSendingAudio(true);
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      text: '🎤 Mensagem de áudio',
+      sender: 'user',
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    try {
+      const fileName = `client_audio_${Date.now()}.webm`;
+      const { error: uploadError } = await supabase.storage
+        .from('support-audio')
+        .upload(fileName, audioBlob, { contentType: 'audio/webm' });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('support-audio').getPublicUrl(fileName);
+
+      let companyId: string | undefined;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: company } = await supabase.from('companies').select('id').eq('user_id', user.id).maybeSingle();
+          if (company) companyId = company.id;
+        }
+      } catch {}
+
+      await supabase.functions.invoke('contact-message', {
+        body: { name, email, phone, message: `[AUDIO]${publicUrl}`, source: 'chat_widget', company_id: companyId }
+      });
+
+      cancelAudio();
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        text: 'Áudio enviado! ✅ Nossa equipe responderá em breve.',
+        sender: 'system',
+        timestamp: new Date()
+      }]);
+      toast.success('Áudio enviado!');
+    } catch {
+      toast.error('Erro ao enviar áudio');
+    } finally {
+      setSendingAudio(false);
+    }
+  };
+
+  // Render message content (text or audio)
+  const renderMsgContent = (msg: Message) => {
+    if (msg.text.startsWith('[AUDIO]')) {
+      const url = msg.text.replace('[AUDIO]', '');
+      return (
+        <div>
+          <p className="text-sm mb-1">🎤 Áudio</p>
+          <audio controls className="max-w-full h-8" preload="metadata">
+            <source src={url} type="audio/webm" />
+          </audio>
+        </div>
+      );
+    }
+    return <p className="text-sm whitespace-pre-wrap">{msg.text}</p>;
+  };
+
   return (
     <>
       {/* Chat Button */}
@@ -386,7 +502,7 @@ const ContactChatWidget = () => {
                         : 'bg-muted rounded-bl-md'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                    {renderMsgContent(msg)}
                     {msg.attachment && (
                       <div className="mt-2 p-2 bg-black/10 rounded text-xs flex items-center gap-2">
                         <Paperclip className="w-3 h-3" />
@@ -402,18 +518,32 @@ const ContactChatWidget = () => {
               <div ref={messagesEndRef} />
             </div>
 
+            {/* Audio Preview */}
+            {audioBlob && (
+              <div className="px-3 py-2 border-t bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={togglePreview}>
+                    {isPlayingPreview ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                  </Button>
+                  <span className="flex-1 text-xs text-muted-foreground">Áudio gravado</span>
+                  <Button variant="ghost" size="sm" className="text-xs text-destructive h-7" onClick={cancelAudio}>
+                    Cancelar
+                  </Button>
+                  <Button size="sm" className="text-xs h-7" onClick={sendAudio} disabled={sendingAudio}>
+                    {sendingAudio ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    <span className="ml-1">Enviar</span>
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Attachment Preview */}
-            {attachment && (
+            {!audioBlob && attachment && (
               <div className="px-3 py-2 border-t bg-muted/30">
                 <div className="flex items-center gap-2 text-sm">
                   <Paperclip className="w-4 h-4" />
                   <span className="flex-1 truncate">{attachment.name}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={handleRemoveAttachment}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleRemoveAttachment}>
                     <X className="w-3 h-3" />
                   </Button>
                 </div>
@@ -421,44 +551,57 @@ const ContactChatWidget = () => {
             )}
 
             {/* Input */}
-            <div className="p-3 border-t bg-background">
-              <div className="flex gap-2">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.doc,.docx,.txt"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip className="w-4 h-4" />
-                </Button>
-                <Textarea
-                  placeholder="Digite sua mensagem..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  className="min-h-[40px] max-h-[100px] resize-none"
-                  rows={1}
-                />
-                <Button
-                  size="icon"
-                  onClick={handleSendMessage}
-                  disabled={(!message.trim() && !attachment) || sending}
-                >
-                  {sending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+            {!audioBlob && (
+              <div className="p-3 border-t bg-background">
+                <div className="flex gap-2 items-end">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    accept="image/*,.pdf,.doc,.docx,.txt"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-9 w-9"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </Button>
+                  <Textarea
+                    placeholder="Digite sua mensagem..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    className="min-h-[40px] max-h-[100px] resize-none"
+                    rows={1}
+                  />
+                  {!message.trim() && !attachment ? (
+                    <Button
+                      variant={isRecording ? "destructive" : "outline"}
+                      size="icon"
+                      className="shrink-0 h-9 w-9"
+                      onClick={isRecording ? stopRecording : startRecording}
+                    >
+                      {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </Button>
                   ) : (
-                    <Send className="w-4 h-4" />
+                    <Button
+                      size="icon"
+                      className="shrink-0 h-9 w-9"
+                      onClick={handleSendMessage}
+                      disabled={(!message.trim() && !attachment) || sending}
+                    >
+                      {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </Button>
                   )}
-                </Button>
+                </div>
+                {isRecording && (
+                  <p className="text-xs text-destructive animate-pulse text-center mt-1">🔴 Gravando...</p>
+                )}
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
