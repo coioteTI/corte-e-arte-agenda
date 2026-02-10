@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,13 @@ import {
 import { 
   MessageSquare, Clock, CheckCircle, AlertCircle,
   Loader2, Search, Filter, Building2, RefreshCw,
-  Mail, Phone, Calendar, Send, MessageCircle, ExternalLink
+  Mail, Phone, Calendar, Send, MessageCircle, ExternalLink,
+  Mic, Square, Play, Pause
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Ticket {
   id: string;
