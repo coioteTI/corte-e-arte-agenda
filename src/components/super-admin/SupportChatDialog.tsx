@@ -387,31 +387,51 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
 
         {/* Input */}
         {ticket.status !== 'resolved' && (
-          <div className="p-4 border-t flex-shrink-0">
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Digite sua resposta..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={2}
-                className="resize-none"
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sending}
-                className="px-3"
-              >
-                {sending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+          <div className="p-3 border-t flex-shrink-0 space-y-2">
+            {audioBlob && (
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={togglePlayAudio}>
+                  {isPlayingAudio ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                </Button>
+                <div className="flex-1 text-xs text-muted-foreground">Áudio gravado</div>
+                <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={cancelAudio}>Cancelar</Button>
+                <Button size="sm" onClick={sendAudioMessage} disabled={sendingAudio} className="text-xs">
+                  {sendingAudio ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                  <span className="ml-1">Enviar</span>
+                </Button>
+              </div>
+            )}
+
+            {!audioBlob && (
+              <div className="flex gap-2 items-end">
+                <Textarea
+                  placeholder="Digite sua resposta..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={2}
+                  className="resize-none"
+                />
+                {!newMessage.trim() ? (
+                  <Button
+                    variant={isRecording ? "destructive" : "outline"}
+                    size="icon"
+                    className="flex-shrink-0 h-10 w-10"
+                    onClick={isRecording ? stopRecording : startRecording}
+                  >
+                    {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </Button>
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Button onClick={handleSendMessage} disabled={sending} size="icon" className="flex-shrink-0 h-10 w-10">
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </Button>
                 )}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Pressione Enter para enviar
-            </p>
+              </div>
+            )}
+
+            {isRecording && (
+              <p className="text-xs text-destructive animate-pulse text-center">🔴 Gravando áudio...</p>
+            )}
           </div>
         )}
       </DialogContent>
