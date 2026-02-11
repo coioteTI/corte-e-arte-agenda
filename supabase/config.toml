@@ -64,6 +64,9 @@ verify_jwt = false
 [functions.contact-message]
 verify_jwt = false
 
+[functions.get-chat-messages]
+verify_jwt = false
+
 [edge-runtime]
 ip_version = "IPv4Only"
 

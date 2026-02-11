@@ -404,6 +404,7 @@ export type Database = {
           phone: string | null
           read_at: string | null
           source: string | null
+          ticket_id: string | null
         }
         Insert: {
           created_at?: string
@@ -415,6 +416,7 @@ export type Database = {
           phone?: string | null
           read_at?: string | null
           source?: string | null
+          ticket_id?: string | null
         }
         Update: {
           created_at?: string
@@ -426,8 +428,17 @@ export type Database = {
           phone?: string | null
           read_at?: string | null
           source?: string | null
+          ticket_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contact_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expenses: {
         Row: {

@@ -973,34 +973,57 @@ Deno.serve(async (req) => {
           )
         }
 
-        // Create a support ticket for this contact if one doesn't exist
-        // Use a fixed system UUID for admin-created tickets
-        const systemAdminId = '00000000-0000-0000-0000-000000000000'
-        const { data: newTicket, error: ticketCreateError } = await supabase
-          .from('support_tickets')
-          .insert({
-            company_id: null,
-            created_by: systemAdminId,
-            subject: `Resposta ao contato: ${params.contact_name || existingContact.name}`,
-            description: existingContact.message,
-            category: 'contact_reply',
-            status: 'in_progress'
-          })
-          .select('id')
-          .single()
+        let replyTicketId = existingContact.ticket_id
 
-        if (ticketCreateError) throw ticketCreateError
+        if (!replyTicketId) {
+          // Check if there's already a ticket for this contact email
+          const { data: existingTicketByEmail } = await supabase
+            .from('contact_messages')
+            .select('ticket_id')
+            .eq('email', existingContact.email)
+            .not('ticket_id', 'is', null)
+            .limit(1)
+            .single()
 
-        // Insert original message as first message in the thread
-        await supabase.from('support_messages').insert({
-          ticket_id: newTicket.id,
-          sender_type: 'company',
-          message: existingContact.message
-        })
+          if (existingTicketByEmail?.ticket_id) {
+            replyTicketId = existingTicketByEmail.ticket_id
+          } else {
+            // Create a new support ticket
+            const systemAdminId = '00000000-0000-0000-0000-000000000000'
+            const { data: newTicket, error: ticketCreateError } = await supabase
+              .from('support_tickets')
+              .insert({
+                company_id: null,
+                created_by: systemAdminId,
+                subject: `Resposta ao contato: ${params.contact_name || existingContact.name}`,
+                description: existingContact.message,
+                category: 'contact_reply',
+                status: 'in_progress'
+              })
+              .select('id')
+              .single()
+
+            if (ticketCreateError) throw ticketCreateError
+            replyTicketId = newTicket.id
+
+            // Insert original message as first message in the thread
+            await supabase.from('support_messages').insert({
+              ticket_id: replyTicketId,
+              sender_type: 'company',
+              message: existingContact.message
+            })
+          }
+
+          // Link all contact_messages with this email to this ticket
+          await supabase
+            .from('contact_messages')
+            .update({ ticket_id: replyTicketId })
+            .eq('email', existingContact.email)
+        }
 
         // Insert admin reply
         await supabase.from('support_messages').insert({
-          ticket_id: newTicket.id,
+          ticket_id: replyTicketId,
           sender_type: 'admin',
           message: params.message
         })
@@ -1011,7 +1034,7 @@ Deno.serve(async (req) => {
           .update({ is_read: true, read_at: new Date().toISOString() })
           .eq('id', params.contact_id)
 
-        result = { success: true, ticket_id: newTicket.id }
+        result = { success: true, ticket_id: replyTicketId }
         break
 
       default:

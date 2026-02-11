@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageCircle, X, Send, Loader2, User, Mail, Phone, Paperclip, Image, Mic, Square, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface Message {
   id: string;
   text: string;
-  sender: 'user' | 'system';
+  sender: 'user' | 'system' | 'admin';
   timestamp: Date;
   attachment?: {
     name: string;
@@ -23,9 +23,11 @@ interface ChatUserData {
   name: string;
   email: string;
   phone: string;
+  ticket_id?: string;
 }
 
 const STORAGE_KEY = 'contact_chat_user';
+const MESSAGES_STORAGE_KEY = 'contact_chat_messages';
 
 const ContactChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -42,11 +44,13 @@ const ContactChatWidget = () => {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [sendingAudio, setSendingAudio] = useState(false);
+  const [ticketId, setTicketId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load saved user data on mount
   useEffect(() => {
@@ -57,11 +61,26 @@ const ContactChatWidget = () => {
         setName(userData.name || '');
         setEmail(userData.email || '');
         setPhone(userData.phone || '');
+        if (userData.ticket_id) setTicketId(userData.ticket_id);
       } catch (e) {
         console.error('Error loading saved chat data:', e);
       }
     }
   }, []);
+
+  // Save ticket_id whenever it changes
+  useEffect(() => {
+    if (ticketId) {
+      const savedData = localStorage.getItem(STORAGE_KEY);
+      if (savedData) {
+        try {
+          const userData: ChatUserData = JSON.parse(savedData);
+          userData.ticket_id = ticketId;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+        } catch (e) {}
+      }
+    }
+  }, [ticketId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -71,21 +90,86 @@ const ContactChatWidget = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Load messages from server
+  const loadMessagesFromServer = useCallback(async (userEmail: string, tId?: string | null) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-chat-messages', {
+        body: { email: userEmail, ticket_id: tId || undefined }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data.messages?.length > 0) {
+        if (data.ticket_id && !ticketId) {
+          setTicketId(data.ticket_id);
+        }
+
+        const serverMessages: Message[] = data.messages.map((msg: any) => ({
+          id: msg.id,
+          text: msg.message,
+          sender: msg.sender_type === 'admin' ? 'admin' as const : 'user' as const,
+          timestamp: new Date(msg.created_at)
+        }));
+
+        // Build full message list: welcome + server messages
+        setMessages(prev => {
+          const welcomeMsg = prev.find(m => m.id === 'welcome');
+          const result: Message[] = [];
+          if (welcomeMsg) result.push(welcomeMsg);
+          
+          // Add server messages, deduplicating by id
+          const existingIds = new Set(result.map(m => m.id));
+          for (const msg of serverMessages) {
+            if (!existingIds.has(msg.id)) {
+              result.push(msg);
+              existingIds.add(msg.id);
+            }
+          }
+          
+          return result;
+        });
+      }
+    } catch (error) {
+      console.error('Error loading messages from server:', error);
+    }
+  }, [ticketId]);
+
+  // Poll for new messages when chat is open
+  useEffect(() => {
+    if (!isOpen || step !== 'chat' || !email) return;
+
+    const poll = () => {
+      loadMessagesFromServer(email, ticketId);
+      pollIntervalRef.current = setTimeout(poll, 5000); // Poll every 5 seconds
+    };
+
+    // Initial load
+    loadMessagesFromServer(email, ticketId);
+    pollIntervalRef.current = setTimeout(poll, 5000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearTimeout(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [isOpen, step, email, ticketId, loadMessagesFromServer]);
+
   useEffect(() => {
     if (isOpen) {
-      // Check if we have saved user data
       const savedData = localStorage.getItem(STORAGE_KEY);
       if (savedData) {
         try {
           const userData: ChatUserData = JSON.parse(savedData);
           if (userData.name && userData.email) {
-            // User already registered, go straight to chat
             setName(userData.name);
             setEmail(userData.email);
             setPhone(userData.phone || '');
+            if (userData.ticket_id) setTicketId(userData.ticket_id);
             setStep('chat');
+            // Set welcome message
             setMessages([{
-              id: '1',
+              id: 'welcome',
               text: `Olá, ${userData.name}! 👋 Como posso ajudar você hoje?`,
               sender: 'system',
               timestamp: new Date()
@@ -97,10 +181,9 @@ const ContactChatWidget = () => {
         }
       }
 
-      // No saved data, show form
       if (step === 'form') {
         setMessages([{
-          id: '1',
+          id: 'welcome',
           text: 'Olá! 👋 Bem-vindo ao suporte Corte & Arte. Preencha seus dados para iniciar o atendimento.',
           sender: 'system',
           timestamp: new Date()
@@ -115,25 +198,21 @@ const ContactChatWidget = () => {
       return;
     }
     
-    // Save user data to localStorage
     const userData: ChatUserData = { name: name.trim(), email: email.trim(), phone: phone.trim() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
     
     setStep('chat');
-    setMessages([
-      {
-        id: '1',
-        text: `Olá, ${name}! 👋 Como posso ajudar você hoje?`,
-        sender: 'system',
-        timestamp: new Date()
-      }
-    ]);
+    setMessages([{
+      id: 'welcome',
+      text: `Olá, ${name}! 👋 Como posso ajudar você hoje?`,
+      sender: 'system',
+      timestamp: new Date()
+    }]);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Max 5MB
       if (file.size > 5 * 1024 * 1024) {
         toast.error('Arquivo muito grande. Máximo 5MB.');
         return;
@@ -144,23 +223,18 @@ const ContactChatWidget = () => {
 
   const handleRemoveAttachment = () => {
     setAttachment(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSendMessage = async () => {
     if ((!message.trim() && !attachment) || sending) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `local-${Date.now()}`,
       text: message || (attachment ? `📎 ${attachment.name}` : ''),
       sender: 'user',
       timestamp: new Date(),
-      attachment: attachment ? {
-        name: attachment.name,
-        type: attachment.type
-      } : undefined
+      attachment: attachment ? { name: attachment.name, type: attachment.type } : undefined
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -168,42 +242,27 @@ const ContactChatWidget = () => {
     setMessage('');
     const currentAttachment = attachment;
     setAttachment(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setSending(true);
 
     try {
-      // Try to get company_id if user is logged in
       let companyId: string | undefined;
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { data: company } = await supabase
-            .from('companies')
-            .select('id')
-            .eq('user_id', user.id)
-            .single();
-          if (company) {
-            companyId = company.id;
-          }
+          const { data: company } = await supabase.from('companies').select('id').eq('user_id', user.id).single();
+          if (company) companyId = company.id;
         }
-      } catch (e) {
-        // User not logged in, that's ok
-      }
+      } catch (e) {}
 
-      // Prepare the message body
       let attachmentInfo = '';
       if (currentAttachment) {
         attachmentInfo = `\n\n📎 Anexo: ${currentAttachment.name} (${currentAttachment.type})`;
       }
 
-      // Send message to edge function
-      const { error } = await supabase.functions.invoke('contact-message', {
+      const { data, error } = await supabase.functions.invoke('contact-message', {
         body: {
-          name,
-          email,
-          phone,
+          name, email, phone,
           message: currentMessage + attachmentInfo,
           source: 'chat_widget',
           company_id: companyId
@@ -212,27 +271,13 @@ const ContactChatWidget = () => {
 
       if (error) throw error;
 
-      // Add confirmation message
-      const systemMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Mensagem recebida! ✅ Nossa equipe responderá em breve pelo e-mail informado. Obrigado pelo contato!',
-        sender: 'system',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, systemMessage]);
-      
-      toast.success('Mensagem enviada com sucesso!');
+      // Save ticket_id if returned
+      if (data?.ticket_id) {
+        setTicketId(data.ticket_id);
+      }
+
     } catch (error: any) {
       console.error('Error sending message:', error);
-      
-      // Add error message but still confirm receipt
-      const systemMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Sua mensagem foi registrada! Entraremos em contato pelo e-mail informado. 📧',
-        sender: 'system',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, systemMessage]);
     } finally {
       setSending(false);
     }
@@ -247,10 +292,7 @@ const ContactChatWidget = () => {
 
   const handleClose = () => {
     setIsOpen(false);
-    // Keep user data saved - only reset messages
-    setTimeout(() => {
-      setMessages([]);
-    }, 300);
+    // Don't clear messages - they'll be reloaded from server on reopen
   };
 
   const handleClearData = () => {
@@ -258,9 +300,10 @@ const ContactChatWidget = () => {
     setName('');
     setEmail('');
     setPhone('');
+    setTicketId(null);
     setStep('form');
     setMessages([{
-      id: '1',
+      id: 'welcome',
       text: 'Olá! 👋 Bem-vindo ao suporte Corte & Arte. Preencha seus dados para iniciar o atendimento.',
       sender: 'system',
       timestamp: new Date()
@@ -315,7 +358,7 @@ const ContactChatWidget = () => {
     setSendingAudio(true);
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: `local-audio-${Date.now()}`,
       text: '🎤 Mensagem de áudio',
       sender: 'user',
       timestamp: new Date()
@@ -340,17 +383,14 @@ const ContactChatWidget = () => {
         }
       } catch {}
 
-      await supabase.functions.invoke('contact-message', {
+      const { data, error } = await supabase.functions.invoke('contact-message', {
         body: { name, email, phone, message: `[AUDIO]${publicUrl}`, source: 'chat_widget', company_id: companyId }
       });
 
+      if (error) throw error;
+      if (data?.ticket_id) setTicketId(data.ticket_id);
+
       cancelAudio();
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        text: 'Áudio enviado! ✅ Nossa equipe responderá em breve.',
-        sender: 'system',
-        timestamp: new Date()
-      }]);
       toast.success('Áudio enviado!');
     } catch {
       toast.error('Erro ao enviar áudio');
@@ -373,6 +413,12 @@ const ContactChatWidget = () => {
       );
     }
     return <p className="text-sm whitespace-pre-wrap">{msg.text}</p>;
+  };
+
+  const getSenderLabel = (sender: string) => {
+    if (sender === 'admin') return '🛡️ Suporte';
+    if (sender === 'user') return '👤 Você';
+    return '';
   };
 
   return (
@@ -413,7 +459,6 @@ const ContactChatWidget = () => {
         </div>
 
         {step === 'form' ? (
-          /* Contact Form */
           <div className="p-4 space-y-4 overflow-y-auto" style={{ height: 'calc(100% - 72px)' }}>
             <div className="bg-muted/50 p-3 rounded-lg text-sm">
               <p>Olá! 👋 Preencha seus dados para iniciar o atendimento.</p>
@@ -425,65 +470,39 @@ const ContactChatWidget = () => {
                   <User className="w-3.5 h-3.5" />
                   Nome *
                 </Label>
-                <Input
-                  id="chat-name"
-                  placeholder="Seu nome"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                <Input id="chat-name" placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="chat-email" className="text-sm flex items-center gap-2">
                   <Mail className="w-3.5 h-3.5" />
                   E-mail *
                 </Label>
-                <Input
-                  id="chat-email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+                <Input id="chat-email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
-
               <div className="space-y-1.5">
                 <Label htmlFor="chat-phone" className="text-sm flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5" />
                   Telefone (opcional)
                 </Label>
-                <Input
-                  id="chat-phone"
-                  type="tel"
-                  placeholder="(00) 00000-0000"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
+                <Input id="chat-phone" type="tel" placeholder="(00) 00000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
             </div>
 
             <Button onClick={handleStartChat} className="w-full">
               Iniciar Conversa
             </Button>
-
             <p className="text-xs text-muted-foreground text-center">
               Ao continuar, você concorda com nossa política de privacidade.
             </p>
           </div>
         ) : (
-          /* Chat Interface */
           <div className="flex flex-col" style={{ height: 'calc(100% - 72px)' }}>
             {/* User Info Bar */}
             <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between">
               <span className="text-xs text-muted-foreground truncate">
                 {name} • {email}
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-6 px-2"
-                onClick={handleClearData}
-              >
+              <Button variant="ghost" size="sm" className="text-xs h-6 px-2" onClick={handleClearData}>
                 Alterar dados
               </Button>
             </div>
@@ -499,9 +518,16 @@ const ContactChatWidget = () => {
                     className={`max-w-[80%] p-3 rounded-2xl ${
                       msg.sender === 'user'
                         ? 'bg-primary text-primary-foreground rounded-br-md'
+                        : msg.sender === 'admin'
+                        ? 'bg-green-100 dark:bg-green-900/30 rounded-bl-md'
                         : 'bg-muted rounded-bl-md'
                     }`}
                   >
+                    {msg.sender !== 'system' && (
+                      <p className={`text-[10px] font-medium mb-1 ${msg.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        {getSenderLabel(msg.sender)}
+                      </p>
+                    )}
                     {renderMsgContent(msg)}
                     {msg.attachment && (
                       <div className="mt-2 p-2 bg-black/10 rounded text-xs flex items-center gap-2">
@@ -561,12 +587,7 @@ const ContactChatWidget = () => {
                     onChange={handleFileSelect}
                     accept="image/*,.pdf,.doc,.docx,.txt"
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 h-9 w-9"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
+                  <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" onClick={() => fileInputRef.current?.click()}>
                     <Paperclip className="w-4 h-4" />
                   </Button>
                   <Textarea
