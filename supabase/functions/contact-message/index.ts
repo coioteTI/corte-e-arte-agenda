@@ -39,19 +39,52 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Log the contact message
-    const { error: logError } = await supabase
+    // Check if this email already has an existing ticket
+    let existingTicketId: string | null = null
+    const { data: existingContactWithTicket } = await supabase
+      .from('contact_messages')
+      .select('ticket_id')
+      .eq('email', email)
+      .not('ticket_id', 'is', null)
+      .limit(1)
+      .single()
+
+    if (existingContactWithTicket?.ticket_id) {
+      existingTicketId = existingContactWithTicket.ticket_id
+    }
+
+    // Log the contact message (linked to existing ticket if available)
+    const { data: contactData, error: logError } = await supabase
       .from('contact_messages')
       .insert({
         name,
         email,
         phone: phone || null,
         message,
-        source: source || 'chat_widget'
+        source: source || 'chat_widget',
+        ticket_id: existingTicketId
       })
+      .select('id')
+      .single()
 
     if (logError) {
       console.error('Error logging contact message:', logError)
+    }
+
+    // If there's an existing ticket, add this message to the thread
+    if (existingTicketId) {
+      await supabase.from('support_messages').insert({
+        ticket_id: existingTicketId,
+        sender_type: 'company',
+        message: message
+      })
+
+      // Update ticket status back to open if it was resolved
+      await supabase
+        .from('support_tickets')
+        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+        .eq('id', existingTicketId)
+        .eq('status', 'resolved')
     }
 
     // Create a support ticket for this contact (so admin can respond via chat)
@@ -73,16 +106,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If we have a company, create a ticket
-    if (associatedCompanyId || create_ticket) {
-      // If no company found, we need a placeholder - use the first company or create a pseudo entry
-      // For now, we'll only create tickets for identified companies
+    // If we have a company and no existing ticket, create a ticket
+    if ((associatedCompanyId || create_ticket) && !existingTicketId) {
       if (associatedCompanyId) {
         const { data: ticketData, error: ticketError } = await supabase
           .from('support_tickets')
           .insert({
             company_id: associatedCompanyId,
-            created_by: associatedCompanyId, // Use company_id as created_by since we don't have user_id
+            created_by: associatedCompanyId,
             subject: `Contato via Chat: ${name}`,
             description: `${message}\n\n---\nContato: ${name}\nEmail: ${email}${phone ? `\nTelefone: ${phone}` : ''}`,
             priority: 'normal',
@@ -106,8 +137,18 @@ Deno.serve(async (req) => {
               sender_type: 'company',
               message: message
             })
+
+          // Update contact message with ticket_id
+          if (contactData?.id) {
+            await supabase
+              .from('contact_messages')
+              .update({ ticket_id: ticketId })
+              .eq('id', contactData.id)
+          }
         }
       }
+    } else if (existingTicketId) {
+      ticketId = existingTicketId
     }
 
     // Always create a ticket from contact widget for admin to see
