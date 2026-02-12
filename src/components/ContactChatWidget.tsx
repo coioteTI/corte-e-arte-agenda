@@ -46,12 +46,22 @@ const ContactChatWidget = () => {
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [sendingAudio, setSendingAudio] = useState(false);
   const [ticketId, setTicketId] = useState<string | null>(null);
+  const [isResolved, setIsResolved] = useState(false);
+  const [resolvedTimer, setResolvedTimer] = useState<number | null>(null);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  // Create notification sound
+  useEffect(() => {
+    // Use a simple beep sound via AudioContext
+    notificationSoundRef.current = null;
+  }, []);
 
   // Load saved user data on mount
   useEffect(() => {
