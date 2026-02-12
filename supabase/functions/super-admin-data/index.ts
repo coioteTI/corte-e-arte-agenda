@@ -922,13 +922,23 @@ Deno.serve(async (req) => {
  
       // ========== CONTACT MESSAGES ACTIONS ==========
       case 'get_contact_messages':
-        const { data: contactMessages } = await supabase
+        // Group contact messages by email, showing only the latest per unique email
+        const { data: allContactMessages } = await supabase
           .from('contact_messages')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(params?.limit || 100)
+          .limit(500)
 
-        result = { messages: contactMessages || [] }
+        // Deduplicate by email - keep only the latest message per email
+        const emailMap = new Map<string, any>()
+        for (const msg of (allContactMessages || [])) {
+          if (!emailMap.has(msg.email)) {
+            emailMap.set(msg.email, msg)
+          }
+        }
+        const uniqueContacts = Array.from(emailMap.values())
+
+        result = { messages: uniqueContacts }
         break
 
       case 'mark_contact_read':
