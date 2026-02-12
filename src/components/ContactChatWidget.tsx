@@ -668,7 +668,7 @@ const ContactChatWidget = () => {
             )}
 
             {/* Attachment Preview */}
-            {!audioBlob && attachment && (
+            {!isResolved && !audioBlob && attachment && (
               <div className="px-3 py-2 border-t bg-muted/30">
                 <div className="flex items-center gap-2 text-sm">
                   <Paperclip className="w-4 h-4" />
