@@ -623,6 +623,28 @@ const ContactChatWidget = () => {
                   </div>
                 </div>
               ))}
+              {/* Resolved state UI */}
+              {isResolved && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 space-y-3">
+                  <p className="text-sm text-center font-medium text-green-700 dark:text-green-400">
+                    ✅ Chamado resolvido com sucesso!
+                  </p>
+                  <p className="text-xs text-center text-muted-foreground">
+                    Se precisar de ajuda novamente, escolha uma opção abaixo:
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <Button size="sm" onClick={handleNewRequest} className="w-full text-xs">
+                      📝 Nova Solicitação
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleContinueSubject} className="w-full text-xs">
+                      🔄 Continuar o Assunto
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-center text-muted-foreground animate-pulse">
+                    O chat será reiniciado em 15 segundos...
+                  </p>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
