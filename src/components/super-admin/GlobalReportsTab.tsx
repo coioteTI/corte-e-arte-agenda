@@ -22,32 +22,40 @@
    sessionToken: string;
  }
  
- interface ReportData {
-   totals: {
-     totalRevenue: number;
-     totalAppointmentRevenue: number;
-     totalStockRevenue: number;
-     totalCompanies: number;
-     totalAppointments: number;
-     totalStockSales: number;
-   };
-   planDistribution: Record<string, number>;
-   chartData: {
-     month: string;
-     label: string;
-     appointmentRevenue: number;
-     stockRevenue: number;
-     totalRevenue: number;
-     newCompanies: number;
-     appointments: number;
-   }[];
-   topCompanies: {
-     id: string;
-     name: string;
-     revenue: number;
-     appointments: number;
-   }[];
- }
+  interface ReportData {
+    totals: {
+      totalRevenue: number;
+      totalAppointmentRevenue: number;
+      totalStockRevenue: number;
+      totalCompanies: number;
+      totalAppointments: number;
+      totalStockSales: number;
+      subscriptionRevenue?: number;
+    };
+    subscriptionRevenue?: {
+      monthly: number;
+      annual: number;
+      monthlyCount: number;
+      annualCount: number;
+    };
+    planDistribution: Record<string, number>;
+    chartData: {
+      month: string;
+      label: string;
+      appointmentRevenue: number;
+      stockRevenue: number;
+      totalRevenue: number;
+      newCompanies: number;
+      appointments: number;
+    }[];
+    topCompanies: {
+      id: string;
+      name: string;
+      revenue: number;
+      appointments: number;
+      plan?: string;
+    }[];
+  }
  
  const COLORS = ['#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#EC4899'];
  

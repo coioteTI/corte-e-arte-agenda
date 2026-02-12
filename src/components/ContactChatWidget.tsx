@@ -681,7 +681,7 @@ const ContactChatWidget = () => {
             )}
 
             {/* Input */}
-            {!audioBlob && (
+            {!isResolved && !audioBlob && (
               <div className="p-3 border-t bg-background">
                 <div className="flex gap-2 items-end">
                   <input
