@@ -347,15 +347,42 @@ const ContactChatWidget = () => {
 
   const handleClose = () => {
     setIsOpen(false);
-    // Don't clear messages - they'll be reloaded from server on reopen
+  };
+
+  const handleNewRequest = () => {
+    if (resolvedTimer) clearTimeout(resolvedTimer);
+    setResolvedTimer(null);
+    setIsResolved(false);
+    setTicketId(null);
+    setLastMessageCount(0);
+    localStorage.removeItem(STORAGE_KEY);
+    const userData: ChatUserData = { name, email, phone };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    setMessages([{
+      id: 'welcome',
+      text: `Olá, ${name}! 👋 Como posso ajudar você hoje?`,
+      sender: 'system',
+      timestamp: new Date()
+    }]);
+  };
+
+  const handleContinueSubject = () => {
+    if (resolvedTimer) clearTimeout(resolvedTimer);
+    setResolvedTimer(null);
+    setIsResolved(false);
+    // Keep the same ticket, just continue chatting
   };
 
   const handleClearData = () => {
+    if (resolvedTimer) clearTimeout(resolvedTimer);
+    setResolvedTimer(null);
+    setIsResolved(false);
     localStorage.removeItem(STORAGE_KEY);
     setName('');
     setEmail('');
     setPhone('');
     setTicketId(null);
+    setLastMessageCount(0);
     setStep('form');
     setMessages([{
       id: 'welcome',
