@@ -649,7 +649,7 @@ const ContactChatWidget = () => {
             </div>
 
             {/* Audio Preview */}
-            {audioBlob && (
+            {!isResolved && audioBlob && (
               <div className="px-3 py-2 border-t bg-muted/30">
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={togglePreview}>
