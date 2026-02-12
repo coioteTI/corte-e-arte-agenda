@@ -17,6 +17,7 @@ interface Message {
     type: string;
     url?: string;
   };
+  isResolved?: boolean;
 }
 
 interface ChatUserData {
