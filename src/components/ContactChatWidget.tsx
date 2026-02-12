@@ -101,6 +101,25 @@ const ContactChatWidget = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Play notification sound
+  const playNotificationSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.value = 0.3;
+      oscillator.start();
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      oscillator.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+      console.log('Could not play notification sound');
+    }
+  }, []);
+
   // Load messages from server
   const loadMessagesFromServer = useCallback(async (userEmail: string, tId?: string | null) => {
     try {
@@ -115,12 +134,30 @@ const ContactChatWidget = () => {
           setTicketId(data.ticket_id);
         }
 
-        const serverMessages: Message[] = data.messages.map((msg: any) => ({
-          id: msg.id,
-          text: msg.message,
-          sender: msg.sender_type === 'admin' ? 'admin' as const : 'user' as const,
-          timestamp: new Date(msg.created_at)
-        }));
+        const serverMessages: Message[] = data.messages.map((msg: any) => {
+          const isResolvedMsg = msg.message.startsWith('[RESOLVED]');
+          return {
+            id: msg.id,
+            text: isResolvedMsg ? msg.message.replace('[RESOLVED]', '') : msg.message,
+            sender: msg.sender_type === 'admin' ? 'admin' as const : 'user' as const,
+            timestamp: new Date(msg.created_at),
+            isResolved: isResolvedMsg,
+          };
+        });
+
+        // Check if there's a resolved message
+        const hasResolved = serverMessages.some(m => m.isResolved);
+        if (hasResolved && !isResolved) {
+          setIsResolved(true);
+          // Start 15 second auto-close timer
+          const timer = window.setTimeout(() => {
+            handleNewRequest();
+          }, 15000);
+          setResolvedTimer(timer);
+        }
+
+        // Check for new admin messages (notification sound)
+        const adminMsgCount = serverMessages.filter(m => m.sender === 'admin').length;
 
         // Build full message list: welcome + server messages
         setMessages(prev => {
@@ -128,7 +165,6 @@ const ContactChatWidget = () => {
           const result: Message[] = [];
           if (welcomeMsg) result.push(welcomeMsg);
           
-          // Add server messages, deduplicating by id
           const existingIds = new Set(result.map(m => m.id));
           for (const msg of serverMessages) {
             if (!existingIds.has(msg.id)) {
@@ -139,11 +175,19 @@ const ContactChatWidget = () => {
           
           return result;
         });
+
+        // Play sound if there are new admin messages
+        setLastMessageCount(prev => {
+          if (adminMsgCount > prev && prev > 0) {
+            playNotificationSound();
+          }
+          return adminMsgCount;
+        });
       }
     } catch (error) {
       console.error('Error loading messages from server:', error);
     }
-  }, [ticketId]);
+  }, [ticketId, isResolved, playNotificationSound]);
 
   // Poll for new messages when chat is open
   useEffect(() => {
