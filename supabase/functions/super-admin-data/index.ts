@@ -763,6 +763,13 @@ Deno.serve(async (req) => {
 
         if (params.status === 'resolved') {
           ticketUpdateData.resolved_at = new Date().toISOString()
+          
+          // Send a system message to the ticket so the client can see it
+          await supabase.from('support_messages').insert({
+            ticket_id: params.ticket_id,
+            sender_type: 'admin',
+            message: '[RESOLVED]Seu chamado foi resolvido com sucesso! ✅'
+          })
         }
 
         if (params.assigned_to) {
