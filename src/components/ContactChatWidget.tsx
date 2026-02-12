@@ -17,6 +17,7 @@ interface Message {
     type: string;
     url?: string;
   };
+  isResolved?: boolean;
 }
 
 interface ChatUserData {
@@ -45,12 +46,22 @@ const ContactChatWidget = () => {
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [sendingAudio, setSendingAudio] = useState(false);
   const [ticketId, setTicketId] = useState<string | null>(null);
+  const [isResolved, setIsResolved] = useState(false);
+  const [resolvedTimer, setResolvedTimer] = useState<number | null>(null);
+  const [lastMessageCount, setLastMessageCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  // Create notification sound
+  useEffect(() => {
+    // Use a simple beep sound via AudioContext
+    notificationSoundRef.current = null;
+  }, []);
 
   // Load saved user data on mount
   useEffect(() => {
@@ -90,6 +101,25 @@ const ContactChatWidget = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Play notification sound
+  const playNotificationSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.value = 0.3;
+      oscillator.start();
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      oscillator.stop(audioCtx.currentTime + 0.3);
+    } catch (e) {
+      console.log('Could not play notification sound');
+    }
+  }, []);
+
   // Load messages from server
   const loadMessagesFromServer = useCallback(async (userEmail: string, tId?: string | null) => {
     try {
@@ -104,12 +134,30 @@ const ContactChatWidget = () => {
           setTicketId(data.ticket_id);
         }
 
-        const serverMessages: Message[] = data.messages.map((msg: any) => ({
-          id: msg.id,
-          text: msg.message,
-          sender: msg.sender_type === 'admin' ? 'admin' as const : 'user' as const,
-          timestamp: new Date(msg.created_at)
-        }));
+        const serverMessages: Message[] = data.messages.map((msg: any) => {
+          const isResolvedMsg = msg.message.startsWith('[RESOLVED]');
+          return {
+            id: msg.id,
+            text: isResolvedMsg ? msg.message.replace('[RESOLVED]', '') : msg.message,
+            sender: msg.sender_type === 'admin' ? 'admin' as const : 'user' as const,
+            timestamp: new Date(msg.created_at),
+            isResolved: isResolvedMsg,
+          };
+        });
+
+        // Check if there's a resolved message
+        const hasResolved = serverMessages.some(m => m.isResolved);
+        if (hasResolved && !isResolved) {
+          setIsResolved(true);
+          // Start 15 second auto-close timer
+          const timer = window.setTimeout(() => {
+            handleNewRequest();
+          }, 15000);
+          setResolvedTimer(timer);
+        }
+
+        // Check for new admin messages (notification sound)
+        const adminMsgCount = serverMessages.filter(m => m.sender === 'admin').length;
 
         // Build full message list: welcome + server messages
         setMessages(prev => {
@@ -117,7 +165,6 @@ const ContactChatWidget = () => {
           const result: Message[] = [];
           if (welcomeMsg) result.push(welcomeMsg);
           
-          // Add server messages, deduplicating by id
           const existingIds = new Set(result.map(m => m.id));
           for (const msg of serverMessages) {
             if (!existingIds.has(msg.id)) {
@@ -128,11 +175,19 @@ const ContactChatWidget = () => {
           
           return result;
         });
+
+        // Play sound if there are new admin messages
+        setLastMessageCount(prev => {
+          if (adminMsgCount > prev && prev > 0) {
+            playNotificationSound();
+          }
+          return adminMsgCount;
+        });
       }
     } catch (error) {
       console.error('Error loading messages from server:', error);
     }
-  }, [ticketId]);
+  }, [ticketId, isResolved, playNotificationSound]);
 
   // Poll for new messages when chat is open
   useEffect(() => {
@@ -292,15 +347,42 @@ const ContactChatWidget = () => {
 
   const handleClose = () => {
     setIsOpen(false);
-    // Don't clear messages - they'll be reloaded from server on reopen
+  };
+
+  const handleNewRequest = () => {
+    if (resolvedTimer) clearTimeout(resolvedTimer);
+    setResolvedTimer(null);
+    setIsResolved(false);
+    setTicketId(null);
+    setLastMessageCount(0);
+    localStorage.removeItem(STORAGE_KEY);
+    const userData: ChatUserData = { name, email, phone };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    setMessages([{
+      id: 'welcome',
+      text: `Olá, ${name}! 👋 Como posso ajudar você hoje?`,
+      sender: 'system',
+      timestamp: new Date()
+    }]);
+  };
+
+  const handleContinueSubject = () => {
+    if (resolvedTimer) clearTimeout(resolvedTimer);
+    setResolvedTimer(null);
+    setIsResolved(false);
+    // Keep the same ticket, just continue chatting
   };
 
   const handleClearData = () => {
+    if (resolvedTimer) clearTimeout(resolvedTimer);
+    setResolvedTimer(null);
+    setIsResolved(false);
     localStorage.removeItem(STORAGE_KEY);
     setName('');
     setEmail('');
     setPhone('');
     setTicketId(null);
+    setLastMessageCount(0);
     setStep('form');
     setMessages([{
       id: 'welcome',
@@ -541,11 +623,33 @@ const ContactChatWidget = () => {
                   </div>
                 </div>
               ))}
+              {/* Resolved state UI */}
+              {isResolved && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 space-y-3">
+                  <p className="text-sm text-center font-medium text-green-700 dark:text-green-400">
+                    ✅ Chamado resolvido com sucesso!
+                  </p>
+                  <p className="text-xs text-center text-muted-foreground">
+                    Se precisar de ajuda novamente, escolha uma opção abaixo:
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    <Button size="sm" onClick={handleNewRequest} className="w-full text-xs">
+                      📝 Nova Solicitação
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleContinueSubject} className="w-full text-xs">
+                      🔄 Continuar o Assunto
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-center text-muted-foreground animate-pulse">
+                    O chat será reiniciado em 15 segundos...
+                  </p>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Audio Preview */}
-            {audioBlob && (
+            {!isResolved && audioBlob && (
               <div className="px-3 py-2 border-t bg-muted/30">
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={togglePreview}>
@@ -564,7 +668,7 @@ const ContactChatWidget = () => {
             )}
 
             {/* Attachment Preview */}
-            {!audioBlob && attachment && (
+            {!isResolved && !audioBlob && attachment && (
               <div className="px-3 py-2 border-t bg-muted/30">
                 <div className="flex items-center gap-2 text-sm">
                   <Paperclip className="w-4 h-4" />
@@ -577,7 +681,7 @@ const ContactChatWidget = () => {
             )}
 
             {/* Input */}
-            {!audioBlob && (
+            {!isResolved && !audioBlob && (
               <div className="p-3 border-t bg-background">
                 <div className="flex gap-2 items-end">
                   <input

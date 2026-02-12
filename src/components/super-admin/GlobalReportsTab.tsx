@@ -22,32 +22,40 @@
    sessionToken: string;
  }
  
- interface ReportData {
-   totals: {
-     totalRevenue: number;
-     totalAppointmentRevenue: number;
-     totalStockRevenue: number;
-     totalCompanies: number;
-     totalAppointments: number;
-     totalStockSales: number;
-   };
-   planDistribution: Record<string, number>;
-   chartData: {
-     month: string;
-     label: string;
-     appointmentRevenue: number;
-     stockRevenue: number;
-     totalRevenue: number;
-     newCompanies: number;
-     appointments: number;
-   }[];
-   topCompanies: {
-     id: string;
-     name: string;
-     revenue: number;
-     appointments: number;
-   }[];
- }
+  interface ReportData {
+    totals: {
+      totalRevenue: number;
+      totalAppointmentRevenue: number;
+      totalStockRevenue: number;
+      totalCompanies: number;
+      totalAppointments: number;
+      totalStockSales: number;
+      subscriptionRevenue?: number;
+    };
+    subscriptionRevenue?: {
+      monthly: number;
+      annual: number;
+      monthlyCount: number;
+      annualCount: number;
+    };
+    planDistribution: Record<string, number>;
+    chartData: {
+      month: string;
+      label: string;
+      appointmentRevenue: number;
+      stockRevenue: number;
+      totalRevenue: number;
+      newCompanies: number;
+      appointments: number;
+    }[];
+    topCompanies: {
+      id: string;
+      name: string;
+      revenue: number;
+      appointments: number;
+      plan?: string;
+    }[];
+  }
  
  const COLORS = ['#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#EC4899'];
  
@@ -205,9 +213,48 @@
              </div>
            </CardContent>
          </Card>
-       </div>
- 
-       {/* Charts Row */}
+        </div>
+
+        {/* Subscription Revenue */}
+        {data.subscriptionRevenue && (
+          <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Crown className="w-4 h-4 text-purple-600" />
+                Receita de Assinaturas
+              </CardTitle>
+              <CardDescription>Receita recorrente das lojas assinantes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Assinantes Mensais</p>
+                  <p className="text-xl font-bold">{data.subscriptionRevenue.monthlyCount}</p>
+                  <p className="text-sm text-muted-foreground">{formatCurrency(data.subscriptionRevenue.monthly)}/mês</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Assinantes Anuais</p>
+                  <p className="text-xl font-bold">{data.subscriptionRevenue.annualCount}</p>
+                  <p className="text-sm text-muted-foreground">{formatCurrency(data.subscriptionRevenue.annual)}/ano</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Receita Recorrente</p>
+                  <p className="text-xl font-bold text-purple-600">
+                    {formatCurrency(data.subscriptionRevenue.monthly + data.subscriptionRevenue.annual)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Total Assinantes</p>
+                  <p className="text-xl font-bold">
+                    {data.subscriptionRevenue.monthlyCount + data.subscriptionRevenue.annualCount}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Charts Row */}
        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
          {/* Revenue Chart */}
          <Card>
