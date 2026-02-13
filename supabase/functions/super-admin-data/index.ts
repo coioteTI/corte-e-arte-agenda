@@ -945,6 +945,98 @@ Deno.serve(async (req) => {
          break
        }
  
+      // ========== COMPANY FINANCIAL DETAILS ==========
+      case 'get_company_financials': {
+        if (!params?.company_id) {
+          return new Response(
+            JSON.stringify({ error: 'company_id é obrigatório' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const cId = params.company_id
+        const fMonths = params.months || 12
+        const fStartDate = new Date()
+        fStartDate.setMonth(fStartDate.getMonth() - fMonths)
+
+        const [cAppts, cSales, cExpenses, cServices, cProducts, cCompanyInfo] = await Promise.all([
+          supabase.from('appointments').select('id, total_price, appointment_date, created_at, service_id, status').eq('company_id', cId).gte('created_at', fStartDate.toISOString()),
+          supabase.from('stock_sales').select('id, total_price, sold_at, product_id, quantity').eq('company_id', cId).gte('sold_at', fStartDate.toISOString()),
+          supabase.from('expenses').select('id, amount, expense_date, description').eq('company_id', cId).gte('expense_date', fStartDate.toISOString().substring(0, 10)),
+          supabase.from('services').select('id, name').eq('company_id', cId),
+          supabase.from('stock_products').select('id, name').eq('company_id', cId),
+          supabase.from('companies').select('name, plan, subscription_status, subscription_end_date').eq('id', cId).single()
+        ])
+
+        // Monthly revenue/expenses
+        const mRevenue: Record<string, number> = {}
+        const mExpenses: Record<string, number> = {}
+        const mSalesRevenue: Record<string, number> = {}
+        const serviceCount: Record<string, number> = {}
+        const productCount: Record<string, number> = {}
+
+        ;(cAppts.data || []).forEach(a => {
+          const m = a.created_at.substring(0, 7)
+          mRevenue[m] = (mRevenue[m] || 0) + Number(a.total_price || 0)
+          if (a.service_id) serviceCount[a.service_id] = (serviceCount[a.service_id] || 0) + 1
+        })
+
+        ;(cSales.data || []).forEach(s => {
+          const m = s.sold_at.substring(0, 7)
+          mSalesRevenue[m] = (mSalesRevenue[m] || 0) + Number(s.total_price || 0)
+          if (s.product_id) productCount[s.product_id] = (productCount[s.product_id] || 0) + (s.quantity || 1)
+        })
+
+        ;(cExpenses.data || []).forEach(e => {
+          const m = e.expense_date.substring(0, 7)
+          mExpenses[m] = (mExpenses[m] || 0) + Number(e.amount || 0)
+        })
+
+        // Build chart data
+        const fMonthsList: string[] = []
+        for (let i = fMonths - 1; i >= 0; i--) {
+          const d = new Date(); d.setMonth(d.getMonth() - i)
+          fMonthsList.push(d.toISOString().substring(0, 7))
+        }
+
+        const fChartData = fMonthsList.map(m => ({
+          month: m,
+          label: new Date(m + '-01').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+          serviceRevenue: mRevenue[m] || 0,
+          salesRevenue: mSalesRevenue[m] || 0,
+          totalRevenue: (mRevenue[m] || 0) + (mSalesRevenue[m] || 0),
+          expenses: mExpenses[m] || 0,
+          profit: (mRevenue[m] || 0) + (mSalesRevenue[m] || 0) - (mExpenses[m] || 0),
+        }))
+
+        const totalServiceRev = Object.values(mRevenue).reduce((a, b) => a + b, 0)
+        const totalSalesRev = Object.values(mSalesRevenue).reduce((a, b) => a + b, 0)
+        const totalExp = Object.values(mExpenses).reduce((a, b) => a + b, 0)
+
+        // Top service
+        const topServiceId = Object.entries(serviceCount).sort((a, b) => b[1] - a[1])[0]
+        const topService = topServiceId ? (cServices.data || []).find(s => s.id === topServiceId[0]) : null
+
+        // Top product
+        const topProductId = Object.entries(productCount).sort((a, b) => b[1] - a[1])[0]
+        const topProduct = topProductId ? (cProducts.data || []).find(p => p.id === topProductId[0]) : null
+
+        result = {
+          company: cCompanyInfo.data,
+          totals: {
+            serviceRevenue: totalServiceRev,
+            salesRevenue: totalSalesRev,
+            totalRevenue: totalServiceRev + totalSalesRev,
+            expenses: totalExp,
+            profit: totalServiceRev + totalSalesRev - totalExp,
+          },
+          chartData: fChartData,
+          topService: topService ? { name: topService.name, count: topServiceId![1] } : null,
+          topProduct: topProduct ? { name: topProduct.name, count: topProductId![1] } : null,
+        }
+        break
+      }
+
       // ========== CONTACT MESSAGES ACTIONS ==========
       case 'get_contact_messages':
         // Group contact messages by email, showing only the latest per unique email
