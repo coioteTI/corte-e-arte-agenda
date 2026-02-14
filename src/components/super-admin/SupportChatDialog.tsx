@@ -249,12 +249,55 @@ const SupportChatDialog = ({ open, onOpenChange, ticket, onTicketResolved }: Sup
     finally { setSendingAudio(false); }
   };
 
-  const renderMessageContent = (message: string) => {
-    if (message.startsWith('[AUDIO]')) {
-      const url = message.replace('[AUDIO]', '');
+  const renderMessageContent = (msgText: string) => {
+    if (msgText.startsWith('[AUDIO]')) {
+      const url = msgText.replace('[AUDIO]', '');
       return <audio controls className="max-w-full" preload="metadata"><source src={url} type="audio/webm" /></audio>;
     }
-    return <p className="text-sm whitespace-pre-wrap">{message}</p>;
+    if (msgText.startsWith('[RESOLVED]')) {
+      return <p className="text-sm whitespace-pre-wrap">{msgText.replace('[RESOLVED]', '')}</p>;
+    }
+
+    // Parse [IMAGE], [VIDEO], [FILE] tags
+    const parts: React.ReactNode[] = [];
+    const mediaRegex = /\[IMAGE\](https?:\/\/[^\s\]]+)|\[VIDEO\](https?:\/\/[^\s\]]+)|\[FILE:([^\]]+)\](https?:\/\/[^\s\]]+)/g;
+    let lastIdx = 0;
+    let match;
+    let key = 0;
+
+    while ((match = mediaRegex.exec(msgText)) !== null) {
+      if (match.index > lastIdx) {
+        const before = msgText.substring(lastIdx, match.index).trim();
+        if (before) parts.push(<p key={key++} className="text-sm whitespace-pre-wrap">{before}</p>);
+      }
+      if (match[1]) {
+        parts.push(
+          <div key={key++} className="mt-1">
+            <img src={match[1]} alt="Anexo" className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer" onClick={() => window.open(match[1], '_blank')} />
+          </div>
+        );
+      } else if (match[2]) {
+        parts.push(
+          <div key={key++} className="mt-1">
+            <video controls className="max-w-full rounded-lg max-h-48" preload="metadata"><source src={match[2]} /></video>
+          </div>
+        );
+      } else if (match[3] && match[4]) {
+        parts.push(
+          <a key={key++} href={match[4]} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-2 p-2 bg-muted rounded text-xs hover:bg-muted/80">
+            📎 {match[3]}
+          </a>
+        );
+      }
+      lastIdx = match.index + match[0].length;
+    }
+
+    if (lastIdx < msgText.length) {
+      const remaining = msgText.substring(lastIdx).trim();
+      if (remaining) parts.push(<p key={key++} className="text-sm whitespace-pre-wrap">{remaining}</p>);
+    }
+
+    return parts.length > 0 ? <>{parts}</> : <p className="text-sm whitespace-pre-wrap">{msgText}</p>;
   };
 
   if (!ticket) return null;

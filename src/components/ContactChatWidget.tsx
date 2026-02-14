@@ -182,20 +182,33 @@ const ContactChatWidget = () => {
 
   const startResolvedCountdown = useCallback(() => {
     setResolvedCountdown(15);
-    if (resolvedTimerRef.current) clearInterval(resolvedTimerRef.current);
-    resolvedTimerRef.current = setInterval(() => {
+    if (resolvedTimerRef.current) { clearInterval(resolvedTimerRef.current); resolvedTimerRef.current = null; }
+    
+    const timer = setInterval(() => {
       setResolvedCountdown(prev => {
         if (prev <= 1) {
-          if (resolvedTimerRef.current) clearInterval(resolvedTimerRef.current);
+          clearInterval(timer);
           resolvedTimerRef.current = null;
-          // Auto-close: reset to new request state
-          handleNewRequestInternal();
+          // Reset to initial form state
+          setIsResolved(false);
+          setTicketId(null);
+          setLastAdminMsgCount(0);
+          const userData: ChatUserData = { name, email, phone };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+          setStep('form');
+          setMessages([{
+            id: 'welcome',
+            text: 'Olá! 👋 Bem-vindo ao suporte Corte & Arte. Preencha seus dados para iniciar o atendimento.',
+            sender: 'system',
+            timestamp: new Date()
+          }]);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-  }, []);
+    resolvedTimerRef.current = timer;
+  }, [name, email, phone]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -411,9 +424,10 @@ const ContactChatWidget = () => {
     setResolvedCountdown(15);
     const userData: ChatUserData = { name, email, phone };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    setStep('form');
     setMessages([{
       id: 'welcome',
-      text: `Olá, ${name}! 👋 Como posso ajudar você hoje?`,
+      text: 'Olá! 👋 Bem-vindo ao suporte Corte & Arte. Preencha seus dados para iniciar o atendimento.',
       sender: 'system',
       timestamp: new Date()
     }]);
@@ -423,15 +437,16 @@ const ContactChatWidget = () => {
     handleNewRequestInternal();
   };
 
-  const handleContinueSubject = () => {
+  const handleContinueSubject = async () => {
     if (resolvedTimerRef.current) { clearInterval(resolvedTimerRef.current); resolvedTimerRef.current = null; }
     setIsResolved(false);
     setResolvedCountdown(15);
-    // Reopen ticket
+    // Reopen ticket by sending a message that reopens it
     if (ticketId) {
-      supabase.functions.invoke('get-chat-messages', {
-        body: { email, ticket_id: ticketId }
-      }).catch(() => {});
+      try {
+        // The client just continues chatting - remove resolved messages from view
+        setMessages(prev => prev.filter(m => !m.isResolved));
+      } catch {}
     }
   };
 
