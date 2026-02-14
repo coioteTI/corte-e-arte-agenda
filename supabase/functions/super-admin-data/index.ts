@@ -46,7 +46,6 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'get_dashboard_stats':
-        // Get overall platform statistics
         const [companies, branches, appointments, users] = await Promise.all([
           supabase.from('companies').select('id, name, plan, subscription_status, subscription_end_date, can_create_branches, created_at', { count: 'exact' }),
           supabase.from('branches').select('id', { count: 'exact' }).eq('is_active', true),
@@ -54,25 +53,21 @@ Deno.serve(async (req) => {
           supabase.from('profiles').select('id', { count: 'exact' })
         ])
 
-        // Premium companies
         const { count: premiumCount } = await supabase
           .from('companies')
           .select('*', { count: 'exact', head: true })
           .in('plan', ['premium_mensal', 'premium_anual'])
 
-        // Trial companies
         const { count: trialCount } = await supabase
           .from('companies')
           .select('*', { count: 'exact', head: true })
           .in('plan', ['trial', 'pro', 'free'])
 
-        // Blocked companies
         const { count: blockedCount } = await supabase
           .from('companies')
           .select('*', { count: 'exact', head: true })
           .eq('is_blocked', true)
 
-        // Companies expiring soon (within 7 days)
         const sevenDaysFromNow = new Date()
         sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7)
 
@@ -83,7 +78,6 @@ Deno.serve(async (req) => {
           .lte('subscription_end_date', sevenDaysFromNow.toISOString())
           .gte('subscription_end_date', new Date().toISOString())
 
-        // Monthly appointments
         const startOfMonth = new Date()
         startOfMonth.setDate(1)
         startOfMonth.setHours(0, 0, 0, 0)
@@ -93,13 +87,11 @@ Deno.serve(async (req) => {
           .select('*', { count: 'exact', head: true })
           .gte('created_at', startOfMonth.toISOString())
 
-        // Stock sales this month
         const { count: monthlyStockSales } = await supabase
           .from('stock_sales')
           .select('*', { count: 'exact', head: true })
           .gte('sold_at', startOfMonth.toISOString())
 
-        // Companies with branch creation enabled
         const { count: branchCreationEnabledCount } = await supabase
           .from('companies')
           .select('*', { count: 'exact', head: true })
@@ -132,7 +124,6 @@ Deno.serve(async (req) => {
           `)
           .order('created_at', { ascending: false })
 
-        // Get branch counts for each company
         const companiesWithBranches = await Promise.all(
           (companiesData || []).map(async (company) => {
             const { count } = await supabase
@@ -141,7 +132,6 @@ Deno.serve(async (req) => {
               .eq('company_id', company.id)
               .eq('is_active', true)
 
-            // Get appointments count for this company
             const { count: appointmentsCount } = await supabase
               .from('appointments')
               .select('*', { count: 'exact', head: true })
@@ -158,7 +148,6 @@ Deno.serve(async (req) => {
         result = companiesWithBranches
         break
 
-      // Get only companies (matrices) - for dedicated company management tab
       case 'get_companies_only':
         const { data: companiesOnlyData } = await supabase
           .from('companies')
@@ -188,7 +177,6 @@ Deno.serve(async (req) => {
         result = companiesWithCounts
         break
 
-      // Simple list of companies for dropdowns
       case 'get_companies_list':
         const { data: companiesList } = await supabase
           .from('companies')
@@ -215,18 +203,15 @@ Deno.serve(async (req) => {
 
       // ========== USER ACCESS MANAGEMENT ==========
       case 'get_all_user_access':
-        // Get all users with their roles and company info
         const { data: allRoles } = await supabase
           .from('user_roles')
           .select('user_id, role, created_at')
           .order('created_at', { ascending: false })
 
-        // Get profiles
         const { data: allProfiles } = await supabase
           .from('profiles')
           .select('user_id, full_name, phone')
 
-        // Get user branches for company association
         const { data: allUserBranches } = await supabase
           .from('user_branches')
           .select(`
@@ -234,24 +219,29 @@ Deno.serve(async (req) => {
             branches:branch_id (id, name, company_id)
           `)
 
-        // Get all branches to map company info
         const { data: allBranchesForUsers } = await supabase
           .from('branches')
           .select('id, name, company_id')
 
-        // Get all companies
         const { data: allCompaniesForUsers } = await supabase
           .from('companies')
-          .select('id, name, user_id, email')
+          .select('id, name, user_id, email, is_blocked')
 
-        // Build user access list
+        // Get banned users from auth
+        const { data: { users: authUsers } } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+
+        const bannedUserIds = new Set(
+          (authUsers || [])
+            .filter(u => u.banned_until && new Date(u.banned_until) > new Date())
+            .map(u => u.id)
+        )
+
         const userAccessList: any[] = []
 
         for (const role of (allRoles || [])) {
           const profile = (allProfiles || []).find(p => p.user_id === role.user_id)
           const userBranch = (allUserBranches || []).find(ub => ub.user_id === role.user_id)
           
-          // Find company - either owned by user or through branch
           let company = (allCompaniesForUsers || []).find(c => c.user_id === role.user_id)
           let branch = null
 
@@ -263,10 +253,13 @@ Deno.serve(async (req) => {
             }
           }
 
+          // Find the auth user email
+          const authUser = (authUsers || []).find(u => u.id === role.user_id)
+
           userAccessList.push({
             id: role.user_id,
             user_id: role.user_id,
-            email: company?.email || 'N/A',
+            email: authUser?.email || company?.email || 'N/A',
             full_name: profile?.full_name,
             phone: profile?.phone,
             role: role.role,
@@ -274,7 +267,7 @@ Deno.serve(async (req) => {
             company_name: company?.name,
             branch_id: branch?.id,
             branch_name: branch?.name,
-            is_blocked: false, // We'd need a separate blocked users table for this
+            is_blocked: bannedUserIds.has(role.user_id),
             created_at: role.created_at
           })
         }
@@ -307,6 +300,13 @@ Deno.serve(async (req) => {
             .from('user_roles')
             .update({ role: params.role })
             .eq('user_id', params.user_id)
+        }
+
+        // Update block status
+        if (params.is_blocked === true) {
+          await supabase.auth.admin.updateUserById(params.user_id, { ban_duration: '876000h' })
+        } else if (params.is_blocked === false) {
+          await supabase.auth.admin.updateUserById(params.user_id, { ban_duration: 'none' })
         }
 
         // Update password if provided
@@ -342,9 +342,8 @@ Deno.serve(async (req) => {
           )
         }
 
-        // Ban or unban user
         if (params.is_blocked) {
-          await supabase.auth.admin.updateUserById(params.user_id, { ban_duration: '876000h' }) // ~100 years
+          await supabase.auth.admin.updateUserById(params.user_id, { ban_duration: '876000h' })
         } else {
           await supabase.auth.admin.updateUserById(params.user_id, { ban_duration: 'none' })
         }
@@ -361,13 +360,10 @@ Deno.serve(async (req) => {
         }
 
         for (const userId of params.user_ids) {
-          // Delete related data
           await supabase.from('user_roles').delete().eq('user_id', userId)
           await supabase.from('user_branches').delete().eq('user_id', userId)
           await supabase.from('user_sessions').delete().eq('user_id', userId)
           await supabase.from('profiles').delete().eq('user_id', userId)
-          
-          // Delete auth user
           await supabase.auth.admin.deleteUser(userId)
         }
 
@@ -408,11 +404,9 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString()
         }
 
-        // If setting to premium, update subscription dates
         if (params.plan === 'premium_mensal' || params.plan === 'premium_anual') {
           updateData.subscription_status = 'active'
           
-          // Use custom dates if provided, otherwise use defaults
           if (params.start_date) {
             updateData.subscription_start_date = new Date(params.start_date).toISOString()
           } else {
@@ -431,13 +425,11 @@ Deno.serve(async (req) => {
             updateData.subscription_end_date = endDate.toISOString()
           }
         } else if (params.plan === 'cancelled' || params.plan === 'inactive') {
-          // Cancel plan
           updateData.plan = 'trial'
           updateData.subscription_status = 'cancelled'
           updateData.subscription_end_date = new Date().toISOString()
         } else {
           updateData.subscription_status = 'inactive'
-          // Reset trial if switching to trial
           if (params.plan === 'trial') {
             if (params.reset_trial) {
               updateData.trial_appointments_used = 0
@@ -455,7 +447,6 @@ Deno.serve(async (req) => {
         result = { success: true, message: 'Plano atualizado com sucesso' }
         break
 
-      // Toggle branch creation permission
       case 'toggle_branch_creation':
         if (!params?.company_id) {
           return new Response(
@@ -496,6 +487,7 @@ Deno.serve(async (req) => {
           )
         }
 
+        // Block the company
         const { error: blockError } = await supabase
           .from('companies')
           .update({ 
@@ -507,6 +499,38 @@ Deno.serve(async (req) => {
           .eq('id', params.company_id)
 
         if (blockError) throw blockError
+
+        // Also ban the company owner and all users associated with the company
+        {
+          const { data: companyOwner } = await supabase
+            .from('companies')
+            .select('user_id')
+            .eq('id', params.company_id)
+            .single()
+          
+          if (companyOwner?.user_id) {
+            await supabase.auth.admin.updateUserById(companyOwner.user_id, { ban_duration: '876000h' })
+          }
+
+          // Ban all users linked to company branches
+          const { data: companyBranchIds } = await supabase
+            .from('branches')
+            .select('id')
+            .eq('company_id', params.company_id)
+
+          if (companyBranchIds && companyBranchIds.length > 0) {
+            const branchIds = companyBranchIds.map(b => b.id)
+            const { data: branchUsers } = await supabase
+              .from('user_branches')
+              .select('user_id')
+              .in('branch_id', branchIds)
+
+            for (const bu of (branchUsers || [])) {
+              await supabase.auth.admin.updateUserById(bu.user_id, { ban_duration: '876000h' })
+            }
+          }
+        }
+
         result = { success: true, message: 'Empresa bloqueada com sucesso' }
         break
 
@@ -529,6 +553,37 @@ Deno.serve(async (req) => {
           .eq('id', params.company_id)
 
         if (unblockError) throw unblockError
+
+        // Unban the company owner and all users
+        {
+          const { data: compOwner } = await supabase
+            .from('companies')
+            .select('user_id')
+            .eq('id', params.company_id)
+            .single()
+          
+          if (compOwner?.user_id) {
+            await supabase.auth.admin.updateUserById(compOwner.user_id, { ban_duration: 'none' })
+          }
+
+          const { data: compBranchIds } = await supabase
+            .from('branches')
+            .select('id')
+            .eq('company_id', params.company_id)
+
+          if (compBranchIds && compBranchIds.length > 0) {
+            const bIds = compBranchIds.map(b => b.id)
+            const { data: bUsers } = await supabase
+              .from('user_branches')
+              .select('user_id')
+              .in('branch_id', bIds)
+
+            for (const bu of (bUsers || [])) {
+              await supabase.auth.admin.updateUserById(bu.user_id, { ban_duration: 'none' })
+            }
+          }
+        }
+
         result = { success: true, message: 'Empresa desbloqueada com sucesso' }
         break
 
@@ -568,7 +623,6 @@ Deno.serve(async (req) => {
           )
         }
 
-        // Delete branches
         const { error: deleteBranchesError } = await supabase
           .from('branches')
           .delete()
@@ -586,9 +640,7 @@ Deno.serve(async (req) => {
           )
         }
 
-        // Delete in order to avoid FK constraints
         for (const companyId of params.ids) {
-          // Delete all related data
           await supabase.from('appointments').delete().eq('company_id', companyId)
           await supabase.from('services').delete().eq('company_id', companyId)
           await supabase.from('professionals').delete().eq('company_id', companyId)
@@ -609,8 +661,6 @@ Deno.serve(async (req) => {
           await supabase.from('support_tickets').delete().eq('company_id', companyId)
           await supabase.from('reviews').delete().eq('company_id', companyId)
           await supabase.from('favorites').delete().eq('company_id', companyId)
-          
-          // Finally delete the company
           await supabase.from('companies').delete().eq('id', companyId)
         }
 
@@ -666,7 +716,6 @@ Deno.serve(async (req) => {
 
         if (ticketsError) throw ticketsError
 
-        // Get unread message counts for each ticket
         const ticketsWithCounts = await Promise.all(
           (ticketsData || []).map(async (ticket) => {
             const { count } = await supabase
@@ -707,7 +756,6 @@ Deno.serve(async (req) => {
             .order('created_at', { ascending: true })
         ])
 
-        // Mark company messages as read
         await supabase
           .from('support_messages')
           .update({ is_read: true })
@@ -738,7 +786,6 @@ Deno.serve(async (req) => {
 
         if (messageError) throw messageError
 
-        // Update ticket status if it was open
         await supabase
           .from('support_tickets')
           .update({ status: 'in_progress', updated_at: new Date().toISOString() })
@@ -764,7 +811,6 @@ Deno.serve(async (req) => {
         if (params.status === 'resolved') {
           ticketUpdateData.resolved_at = new Date().toISOString()
           
-          // Send a system message to the ticket so the client can see it
           await supabase.from('support_messages').insert({
             ticket_id: params.ticket_id,
             sender_type: 'admin',
@@ -804,36 +850,30 @@ Deno.serve(async (req) => {
        // ========== GLOBAL REPORTS ACTIONS ==========
        case 'get_global_reports': {
          try {
-          // Get date range from params (default: last 12 months)
           const monthsBack = params?.months || 12
           const reportStartDate = new Date()
           reportStartDate.setMonth(reportStartDate.getMonth() - monthsBack)
   
-          // Get all appointments with company and payment info
           const { data: allAppointments } = await supabase
             .from('appointments')
             .select('id, total_price, payment_status, appointment_date, created_at, company_id, status')
             .gte('created_at', reportStartDate.toISOString())
   
-          // Get all stock sales
           const { data: allStockSales } = await supabase
             .from('stock_sales')
             .select('id, total_price, payment_status, sold_at, company_id')
             .gte('sold_at', reportStartDate.toISOString())
   
-          // Get companies for growth tracking
           const { data: allCompaniesForGrowth } = await supabase
             .from('companies')
             .select('id, name, plan, created_at, subscription_status, subscription_start_date, subscription_end_date')
             .order('created_at', { ascending: true })
   
-          // Calculate monthly revenue from appointments
           const monthlyAppointmentRevenue: Record<string, number> = {}
           const monthlyStockRevenue: Record<string, number> = {}
           const monthlyNewCompanies: Record<string, number> = {}
           const monthlyAppointmentCount: Record<string, number> = {}
   
-          // Process appointments
           ;(allAppointments || []).forEach(apt => {
             if (apt.total_price && Number(apt.total_price) > 0) {
               const month = (apt.appointment_date || apt.created_at).substring(0, 7)
@@ -843,7 +883,6 @@ Deno.serve(async (req) => {
             monthlyAppointmentCount[month] = (monthlyAppointmentCount[month] || 0) + 1
           })
   
-          // Process stock sales
           ;(allStockSales || []).forEach(sale => {
             if (sale.total_price && Number(sale.total_price) > 0) {
               const month = sale.sold_at.substring(0, 7)
@@ -851,24 +890,20 @@ Deno.serve(async (req) => {
             }
           })
   
-          // Process company growth
           ;(allCompaniesForGrowth || []).forEach(company => {
             const month = company.created_at.substring(0, 7)
             monthlyNewCompanies[month] = (monthlyNewCompanies[month] || 0) + 1
           })
   
-          // Calculate totals
           const totalAppointmentRevenue = Object.values(monthlyAppointmentRevenue).reduce((a, b) => a + b, 0)
           const totalStockRevenue = Object.values(monthlyStockRevenue).reduce((a, b) => a + b, 0)
           const totalRevenue = totalAppointmentRevenue + totalStockRevenue
   
-          // Plan distribution
           const planDistribution: Record<string, number> = {}
           ;(allCompaniesForGrowth || []).forEach(company => {
             planDistribution[company.plan] = (planDistribution[company.plan] || 0) + 1
           })
   
-          // Prepare monthly data for charts
           const monthsList: string[] = []
           for (let i = monthsBack - 1; i >= 0; i--) {
             const d = new Date()
@@ -886,7 +921,6 @@ Deno.serve(async (req) => {
             appointments: monthlyAppointmentCount[month] || 0,
           }))
   
-          // Top companies by revenue
           const companyRevenue: Record<string, { name: string; revenue: number; appointments: number; plan: string }> = {}
           ;(allAppointments || []).forEach(apt => {
             if (apt.total_price && Number(apt.total_price) > 0) {
@@ -909,7 +943,6 @@ Deno.serve(async (req) => {
             .sort((a, b) => b.revenue - a.revenue)
             .slice(0, 10)
 
-          // Subscription revenue tracking
           const subscriptionRevenue = {
             monthly: (allCompaniesForGrowth || []).filter(c => c.plan === 'premium_mensal' && c.subscription_status === 'active').length * 79.90,
             annual: (allCompaniesForGrowth || []).filter(c => c.plan === 'premium_anual' && c.subscription_status === 'active').length * 799.00,
@@ -959,16 +992,17 @@ Deno.serve(async (req) => {
         const fStartDate = new Date()
         fStartDate.setMonth(fStartDate.getMonth() - fMonths)
 
-        const [cAppts, cSales, cExpenses, cServices, cProducts, cCompanyInfo] = await Promise.all([
+        const [cAppts, cSales, cExpenses, cServices, cProducts, cCompanyInfo, cSupplierProducts, cProfPayments] = await Promise.all([
           supabase.from('appointments').select('id, total_price, appointment_date, created_at, service_id, status').eq('company_id', cId).gte('created_at', fStartDate.toISOString()),
           supabase.from('stock_sales').select('id, total_price, sold_at, product_id, quantity').eq('company_id', cId).gte('sold_at', fStartDate.toISOString()),
           supabase.from('expenses').select('id, amount, expense_date, description').eq('company_id', cId).gte('expense_date', fStartDate.toISOString().substring(0, 10)),
           supabase.from('services').select('id, name').eq('company_id', cId),
           supabase.from('stock_products').select('id, name').eq('company_id', cId),
-          supabase.from('companies').select('name, plan, subscription_status, subscription_end_date').eq('id', cId).single()
+          supabase.from('companies').select('name, plan, subscription_status, subscription_end_date').eq('id', cId).single(),
+          supabase.from('supplier_products').select('id, purchase_price, quantity, created_at').eq('company_id', cId).gte('created_at', fStartDate.toISOString()),
+          supabase.from('professional_payments').select('id, amount, payment_date').eq('company_id', cId).gte('payment_date', fStartDate.toISOString().substring(0, 10)),
         ])
 
-        // Monthly revenue/expenses
         const mRevenue: Record<string, number> = {}
         const mExpenses: Record<string, number> = {}
         const mSalesRevenue: Record<string, number> = {}
@@ -992,7 +1026,19 @@ Deno.serve(async (req) => {
           mExpenses[m] = (mExpenses[m] || 0) + Number(e.amount || 0)
         })
 
-        // Build chart data
+        // Add supplier product purchases to expenses
+        ;(cSupplierProducts.data || []).forEach(sp => {
+          const m = sp.created_at.substring(0, 7)
+          const cost = Number(sp.purchase_price || 0) * Number(sp.quantity || 1)
+          mExpenses[m] = (mExpenses[m] || 0) + cost
+        })
+
+        // Add professional salary payments to expenses
+        ;(cProfPayments.data || []).forEach(pp => {
+          const m = pp.payment_date.substring(0, 7)
+          mExpenses[m] = (mExpenses[m] || 0) + Number(pp.amount || 0)
+        })
+
         const fMonthsList: string[] = []
         for (let i = fMonths - 1; i >= 0; i--) {
           const d = new Date(); d.setMonth(d.getMonth() - i)
@@ -1013,11 +1059,9 @@ Deno.serve(async (req) => {
         const totalSalesRev = Object.values(mSalesRevenue).reduce((a, b) => a + b, 0)
         const totalExp = Object.values(mExpenses).reduce((a, b) => a + b, 0)
 
-        // Top service
         const topServiceId = Object.entries(serviceCount).sort((a, b) => b[1] - a[1])[0]
         const topService = topServiceId ? (cServices.data || []).find(s => s.id === topServiceId[0]) : null
 
-        // Top product
         const topProductId = Object.entries(productCount).sort((a, b) => b[1] - a[1])[0]
         const topProduct = topProductId ? (cProducts.data || []).find(p => p.id === topProductId[0]) : null
 
@@ -1040,18 +1084,39 @@ Deno.serve(async (req) => {
       // ========== CONTACT MESSAGES ACTIONS ==========
       case 'get_contact_messages':
         // Group contact messages by email, showing only the latest per unique email
+        // But only show contacts whose ticket is NOT resolved (or has no ticket)
         const { data: allContactMessages } = await supabase
           .from('contact_messages')
           .select('*')
           .order('created_at', { ascending: false })
           .limit(500)
 
+        // Get all ticket statuses for referenced tickets
+        const ticketIdsSet = new Set<string>()
+        for (const msg of (allContactMessages || [])) {
+          if (msg.ticket_id) ticketIdsSet.add(msg.ticket_id)
+        }
+        
+        let ticketStatuses: Record<string, string> = {}
+        if (ticketIdsSet.size > 0) {
+          const { data: ticketStatusData } = await supabase
+            .from('support_tickets')
+            .select('id, status')
+            .in('id', Array.from(ticketIdsSet))
+          
+          for (const t of (ticketStatusData || [])) {
+            ticketStatuses[t.id] = t.status
+          }
+        }
+
         // Deduplicate by email - keep only the latest message per email
+        // Skip contacts whose ticket is resolved
         const emailMap = new Map<string, any>()
         for (const msg of (allContactMessages || [])) {
-          if (!emailMap.has(msg.email)) {
-            emailMap.set(msg.email, msg)
-          }
+          if (emailMap.has(msg.email)) continue
+          // If has a resolved ticket, skip it from the contact list
+          if (msg.ticket_id && ticketStatuses[msg.ticket_id] === 'resolved') continue
+          emailMap.set(msg.email, msg)
         }
         const uniqueContacts = Array.from(emailMap.values())
 
@@ -1086,7 +1151,6 @@ Deno.serve(async (req) => {
           )
         }
 
-        // Check if contact already has an associated ticket
         const { data: existingContact } = await supabase
           .from('contact_messages')
           .select('*')
@@ -1103,50 +1167,62 @@ Deno.serve(async (req) => {
         let replyTicketId = existingContact.ticket_id
 
         if (!replyTicketId) {
-          // Check if there's already a ticket for this contact email
+          // Check if there's already an active (non-resolved) ticket for this contact email
           const { data: existingTicketByEmail } = await supabase
             .from('contact_messages')
             .select('ticket_id')
             .eq('email', existingContact.email)
             .not('ticket_id', 'is', null)
+            .order('created_at', { ascending: false })
             .limit(1)
             .single()
 
           if (existingTicketByEmail?.ticket_id) {
-            replyTicketId = existingTicketByEmail.ticket_id
-          } else {
-            // Create a new support ticket
-            const systemAdminId = '00000000-0000-0000-0000-000000000000'
-            const { data: newTicket, error: ticketCreateError } = await supabase
+            // Check if that ticket is not resolved
+            const { data: ticketCheck } = await supabase
               .from('support_tickets')
-              .insert({
-                company_id: null,
-                created_by: systemAdminId,
-                subject: `Resposta ao contato: ${params.contact_name || existingContact.name}`,
-                description: existingContact.message,
-                category: 'contact_reply',
-                status: 'in_progress'
-              })
-              .select('id')
+              .select('status')
+              .eq('id', existingTicketByEmail.ticket_id)
               .single()
-
-            if (ticketCreateError) throw ticketCreateError
-            replyTicketId = newTicket.id
-
-            // Insert original message as first message in the thread
-            await supabase.from('support_messages').insert({
-              ticket_id: replyTicketId,
-              sender_type: 'company',
-              message: existingContact.message
-            })
+            
+            if (ticketCheck && ticketCheck.status !== 'resolved') {
+              replyTicketId = existingTicketByEmail.ticket_id
+            }
           }
-
-          // Link all contact_messages with this email to this ticket
-          await supabase
-            .from('contact_messages')
-            .update({ ticket_id: replyTicketId })
-            .eq('email', existingContact.email)
         }
+
+        if (!replyTicketId) {
+          // Create a new support ticket
+          const systemAdminId = '00000000-0000-0000-0000-000000000000'
+          const { data: newTicket, error: ticketCreateError } = await supabase
+            .from('support_tickets')
+            .insert({
+              company_id: null,
+              created_by: systemAdminId,
+              subject: `Resposta ao contato: ${params.contact_name || existingContact.name}`,
+              description: existingContact.message,
+              category: 'contact_reply',
+              status: 'in_progress'
+            })
+            .select('id')
+            .single()
+
+          if (ticketCreateError) throw ticketCreateError
+          replyTicketId = newTicket.id
+
+          // Insert original message as first message in the thread
+          await supabase.from('support_messages').insert({
+            ticket_id: replyTicketId,
+            sender_type: 'company',
+            message: existingContact.message
+          })
+        }
+
+        // Link all contact_messages with this email to this ticket
+        await supabase
+          .from('contact_messages')
+          .update({ ticket_id: replyTicketId })
+          .eq('email', existingContact.email)
 
         // Insert admin reply
         await supabase.from('support_messages').insert({
