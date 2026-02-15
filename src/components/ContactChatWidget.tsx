@@ -56,6 +56,8 @@ const ContactChatWidget = () => {
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resolvedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Flag to prevent race condition: after reset, ignore any pending poll results
+  const hasResetRef = useRef(false);
 
   // Load saved user data on mount
   useEffect(() => {
@@ -116,12 +118,17 @@ const ContactChatWidget = () => {
 
   // Load messages from server
   const loadMessagesFromServer = useCallback(async (userEmail: string, tId?: string | null) => {
+    // If we just reset, skip processing to avoid race condition
+    if (hasResetRef.current) return;
+    
     try {
       const { data, error } = await supabase.functions.invoke('get-chat-messages', {
         body: { email: userEmail, ticket_id: tId || undefined }
       });
 
       if (error) throw error;
+      // Check again after async call
+      if (hasResetRef.current) return;
 
       if (data?.success && data.messages?.length > 0) {
         if (data.ticket_id && data.ticket_id !== ticketId) {
@@ -141,7 +148,7 @@ const ContactChatWidget = () => {
 
         // Check if there's a resolved message
         const hasResolved = serverMessages.some(m => m.isResolved);
-        if (hasResolved && !isResolved) {
+        if (hasResolved && !isResolved && !hasResetRef.current) {
           setIsResolved(true);
           startResolvedCountdown();
         }
@@ -190,24 +197,45 @@ const ContactChatWidget = () => {
           clearInterval(timer);
           resolvedTimerRef.current = null;
           // Reset to initial form state
-          setIsResolved(false);
-          setTicketId(null);
-          setLastAdminMsgCount(0);
-          const userData: ChatUserData = { name, email, phone };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
-          setStep('form');
-          setMessages([{
-            id: 'welcome',
-            text: 'Olá! 👋 Bem-vindo ao suporte Corte & Arte. Preencha seus dados para iniciar o atendimento.',
-            sender: 'system',
-            timestamp: new Date()
-          }]);
+          doFullReset();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     resolvedTimerRef.current = timer;
+  }, []);
+
+  // Full reset function - clears everything and goes back to form
+  const doFullReset = useCallback(() => {
+    // Set flag to prevent pending polls from re-triggering resolved
+    hasResetRef.current = true;
+    
+    if (resolvedTimerRef.current) { clearInterval(resolvedTimerRef.current); resolvedTimerRef.current = null; }
+    if (pollIntervalRef.current) { clearTimeout(pollIntervalRef.current); pollIntervalRef.current = null; }
+    
+    setIsResolved(false);
+    setTicketId(null);
+    setLastAdminMsgCount(0);
+    setResolvedCountdown(15);
+    
+    // Save user data WITHOUT ticket_id
+    const currentName = name;
+    const currentEmail = email;
+    const currentPhone = phone;
+    const userData: ChatUserData = { name: currentName, email: currentEmail, phone: currentPhone };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    
+    setStep('form');
+    setMessages([{
+      id: 'welcome',
+      text: 'Olá! 👋 Bem-vindo ao suporte Corte & Arte. Preencha seus dados para iniciar o atendimento.',
+      sender: 'system',
+      timestamp: new Date()
+    }]);
+    
+    // Clear the flag after a delay to allow pending polls to be ignored
+    setTimeout(() => { hasResetRef.current = false; }, 2000);
   }, [name, email, phone]);
 
   // Cleanup timers on unmount
@@ -297,6 +325,9 @@ const ContactChatWidget = () => {
       return;
     }
     
+    // Clear reset flag when starting fresh chat
+    hasResetRef.current = false;
+    
     const userData: ChatUserData = { name: name.trim(), email: email.trim(), phone: phone.trim() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
     
@@ -339,11 +370,10 @@ const ContactChatWidget = () => {
       let attachmentUrl = '';
       let attachmentInfo = '';
 
-      // Upload attachment to storage if present
       if (currentAttachment) {
         const fileName = `chat_${Date.now()}_${currentAttachment.name}`;
         const { error: uploadError } = await supabase.storage
-          .from('support-audio') // reuse bucket for all chat attachments
+          .from('support-audio')
           .upload(fileName, currentAttachment, { contentType: currentAttachment.type });
         
         if (uploadError) {
@@ -365,7 +395,6 @@ const ContactChatWidget = () => {
 
       const fullMessage = currentMessage + attachmentInfo;
 
-      // Add message locally immediately
       const userMessage: Message = {
         id: `local-${Date.now()}`,
         text: fullMessage,
@@ -416,42 +445,38 @@ const ContactChatWidget = () => {
     setIsOpen(false);
   };
 
-  const handleNewRequestInternal = () => {
-    if (resolvedTimerRef.current) { clearInterval(resolvedTimerRef.current); resolvedTimerRef.current = null; }
-    setIsResolved(false);
-    setTicketId(null);
-    setLastAdminMsgCount(0);
-    setResolvedCountdown(15);
-    const userData: ChatUserData = { name, email, phone };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
-    setStep('form');
-    setMessages([{
-      id: 'welcome',
-      text: 'Olá! 👋 Bem-vindo ao suporte Corte & Arte. Preencha seus dados para iniciar o atendimento.',
-      sender: 'system',
-      timestamp: new Date()
-    }]);
-  };
-
   const handleNewRequest = () => {
-    handleNewRequestInternal();
+    doFullReset();
   };
 
   const handleContinueSubject = async () => {
     if (resolvedTimerRef.current) { clearInterval(resolvedTimerRef.current); resolvedTimerRef.current = null; }
-    setIsResolved(false);
-    setResolvedCountdown(15);
-    // Reopen ticket by sending a message that reopens it
+    
+    // Reopen the ticket on the backend
     if (ticketId) {
       try {
-        // The client just continues chatting - remove resolved messages from view
-        setMessages(prev => prev.filter(m => !m.isResolved));
-      } catch {}
+        await supabase.functions.invoke('contact-message', {
+          body: {
+            name, email, phone,
+            message: 'Cliente deseja continuar o assunto.',
+            source: 'chat_widget',
+            reopen_ticket_id: ticketId
+          }
+        });
+      } catch (e) {
+        console.error('Error reopening ticket:', e);
+      }
     }
+    
+    setIsResolved(false);
+    setResolvedCountdown(15);
+    // Remove resolved messages from view, keep conversation going
+    setMessages(prev => prev.filter(m => !m.isResolved));
   };
 
   const handleClearData = () => {
     if (resolvedTimerRef.current) { clearInterval(resolvedTimerRef.current); resolvedTimerRef.current = null; }
+    hasResetRef.current = true;
     setIsResolved(false);
     setResolvedCountdown(15);
     localStorage.removeItem(STORAGE_KEY);
@@ -467,6 +492,7 @@ const ContactChatWidget = () => {
       sender: 'system',
       timestamp: new Date()
     }]);
+    setTimeout(() => { hasResetRef.current = false; }, 2000);
   };
 
   // Audio functions
@@ -562,7 +588,6 @@ const ContactChatWidget = () => {
   const renderMsgContent = (msg: Message) => {
     const text = msg.text;
     
-    // Audio message
     if (text.startsWith('[AUDIO]')) {
       const url = text.replace('[AUDIO]', '');
       return (
@@ -575,18 +600,13 @@ const ContactChatWidget = () => {
       );
     }
 
-    // Parse text for embedded media
     const parts: React.ReactNode[] = [];
-    let remaining = text;
-    let key = 0;
-
-    // Process [IMAGE], [VIDEO], [FILE] tags
     const mediaRegex = /\[IMAGE\](https?:\/\/[^\s\]]+)|\[VIDEO\](https?:\/\/[^\s\]]+)|\[FILE:([^\]]+)\](https?:\/\/[^\s\]]+)/g;
     let lastIndex = 0;
     let match;
+    let key = 0;
 
     while ((match = mediaRegex.exec(text)) !== null) {
-      // Add text before this match
       if (match.index > lastIndex) {
         const beforeText = text.substring(lastIndex, match.index).trim();
         if (beforeText) {
@@ -595,7 +615,6 @@ const ContactChatWidget = () => {
       }
 
       if (match[1]) {
-        // Image
         parts.push(
           <div key={key++} className="mt-1">
             <img 
@@ -607,7 +626,6 @@ const ContactChatWidget = () => {
           </div>
         );
       } else if (match[2]) {
-        // Video
         parts.push(
           <div key={key++} className="mt-1">
             <video 
@@ -620,7 +638,6 @@ const ContactChatWidget = () => {
           </div>
         );
       } else if (match[3] && match[4]) {
-        // File
         parts.push(
           <a 
             key={key++} 
@@ -638,7 +655,6 @@ const ContactChatWidget = () => {
       lastIndex = match.index + match[0].length;
     }
 
-    // Add remaining text
     if (lastIndex < text.length) {
       const remainingText = text.substring(lastIndex).trim();
       if (remainingText) {

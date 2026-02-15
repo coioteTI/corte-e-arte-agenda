@@ -14,6 +14,7 @@ interface ContactRequest {
   source?: string;
   company_id?: string;
   create_ticket?: boolean;
+  reopen_ticket_id?: string;
 }
 
 Deno.serve(async (req) => {
@@ -30,7 +31,26 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    const { name, email, phone, message, source, company_id, create_ticket }: ContactRequest = await req.json()
+    const { name, email, phone, message, source, company_id, create_ticket, reopen_ticket_id }: ContactRequest = await req.json()
+    
+    // Handle ticket reopen
+    if (reopen_ticket_id) {
+      await supabase
+        .from('support_tickets')
+        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
+        .eq('id', reopen_ticket_id)
+      
+      await supabase.from('support_messages').insert({
+        ticket_id: reopen_ticket_id,
+        sender_type: 'company',
+        message: message
+      })
+
+      return new Response(
+        JSON.stringify({ success: true, ticket_id: reopen_ticket_id }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     if (!name || !email || !message) {
       return new Response(
