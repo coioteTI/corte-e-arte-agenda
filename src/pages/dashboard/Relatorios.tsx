@@ -286,28 +286,32 @@ const Relatorios = () => {
     };
   });
 
-  // Stock sales data
+  // Stock sales data - uses period-filtered data
   const getStockSalesData = () => {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - 7);
+    const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfWeekDate = new Date(now);
+    startOfWeekDate.setDate(now.getDate() - 7);
 
-    const monthlySales = companyData.stockSales.filter(sale => 
-      new Date(sale.sold_at) >= startOfMonth
-    );
+    const monthlySales = companyData.stockSales.filter(sale => {
+      const saleDate = new Date(sale.sold_at);
+      return saleDate >= startOfMonthDate;
+    });
 
-    const weeklySales = companyData.stockSales.filter(sale => 
-      new Date(sale.sold_at) >= startOfWeek
-    );
+    const weeklySales = companyData.stockSales.filter(sale => {
+      const saleDate = new Date(sale.sold_at);
+      return saleDate >= startOfWeekDate;
+    });
 
     const monthlyTotal = monthlySales.reduce((sum, sale) => sum + (sale.total_price || 0), 0);
     const weeklyTotal = weeklySales.reduce((sum, sale) => sum + (sale.total_price || 0), 0);
 
-    // Daily sales for chart
+    // Use period-filtered sales for chart
     const dailySales: { [key: string]: { vendas: number; valor: number } } = {};
-    companyData.stockSales.forEach(sale => {
-      const day = new Date(sale.sold_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+    filteredStockSales.forEach(sale => {
+      const dateParts = sale.sold_at.split('T')[0].split('-');
+      const saleDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+      const day = saleDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
       if (!dailySales[day]) {
         dailySales[day] = { vendas: 0, valor: 0 };
       }
@@ -320,17 +324,19 @@ const Relatorios = () => {
       weeklyCount: weeklySales.length,
       monthlyTotal,
       weeklyTotal,
-      chartData: Object.entries(dailySales).slice(-14).map(([dia, data]) => ({ dia, ...data }))
+      filteredCount: filteredStockSales.length,
+      filteredTotal: filteredStockSales.reduce((sum, sale) => sum + (sale.total_price || 0), 0),
+      chartData: Object.entries(dailySales).map(([dia, data]) => ({ dia, ...data }))
     };
   };
 
   const stockSalesData = getStockSalesData();
 
-  // Most popular products
+  // Most popular products - uses period-filtered data
   const getPopularProducts = () => {
     const productSales: { [key: string]: { name: string; quantity: number; revenue: number } } = {};
     
-    companyData.stockSales.forEach(sale => {
+    filteredStockSales.forEach(sale => {
       const productId = sale.product_id;
       const productName = sale.stock_products?.name || 'Produto não encontrado';
       
@@ -1153,8 +1159,8 @@ const Relatorios = () => {
                         <ShoppingBag className="h-5 w-5 text-purple-600" />
                       </div>
                       <div>
-                        <div className="text-2xl font-bold">{stockSalesData.monthlyCount}</div>
-                        <p className="text-sm text-muted-foreground">Vendas no Mês</p>
+                        <div className="text-2xl font-bold">{stockSalesData.filteredCount}</div>
+                        <p className="text-sm text-muted-foreground">Vendas no Período</p>
                       </div>
                     </div>
                   </CardContent>
@@ -1177,9 +1183,9 @@ const Relatorios = () => {
                 <Card>
                   <CardContent className="p-6">
                     <div className="text-2xl font-bold text-green-600">
-                      R$ {stockSalesData.monthlyTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      R$ {stockSalesData.filteredTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </div>
-                    <p className="text-sm text-muted-foreground">Faturamento Mensal</p>
+                    <p className="text-sm text-muted-foreground">Faturamento no Período</p>
                   </CardContent>
                 </Card>
 
@@ -1196,7 +1202,7 @@ const Relatorios = () => {
               {/* Gráfico de Vendas do Estoque */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Vendas de Estoque (Últimos 14 dias)</CardTitle>
+                  <CardTitle>Vendas de Estoque ({getPeriodLabel()})</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-80">
