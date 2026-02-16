@@ -58,6 +58,8 @@ const ContactChatWidget = () => {
   const resolvedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Flag to prevent race condition: after reset, ignore any pending poll results
   const hasResetRef = useRef(false);
+  // Flag to prevent resolved state from re-triggering after user clicks "Continuar o Assunto"
+  const hasContinuedRef = useRef(false);
 
   // Load saved user data on mount
   useEffect(() => {
@@ -146,9 +148,9 @@ const ContactChatWidget = () => {
           };
         });
 
-        // Check if there's a resolved message
+        // Check if there's a resolved message (but not if user clicked "Continuar o Assunto")
         const hasResolved = serverMessages.some(m => m.isResolved);
-        if (hasResolved && !isResolved && !hasResetRef.current) {
+        if (hasResolved && !isResolved && !hasResetRef.current && !hasContinuedRef.current) {
           setIsResolved(true);
           startResolvedCountdown();
         }
@@ -210,6 +212,7 @@ const ContactChatWidget = () => {
   const doFullReset = useCallback(() => {
     // Set flag to prevent pending polls from re-triggering resolved
     hasResetRef.current = true;
+    hasContinuedRef.current = false;
     
     if (resolvedTimerRef.current) { clearInterval(resolvedTimerRef.current); resolvedTimerRef.current = null; }
     if (pollIntervalRef.current) { clearTimeout(pollIntervalRef.current); pollIntervalRef.current = null; }
@@ -451,6 +454,9 @@ const ContactChatWidget = () => {
 
   const handleContinueSubject = async () => {
     if (resolvedTimerRef.current) { clearInterval(resolvedTimerRef.current); resolvedTimerRef.current = null; }
+    
+    // Set flag to prevent resolved state from re-triggering
+    hasContinuedRef.current = true;
     
     // Reopen the ticket on the backend
     if (ticketId) {

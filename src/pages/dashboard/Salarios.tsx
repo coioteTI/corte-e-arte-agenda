@@ -532,6 +532,7 @@ export default function Salarios() {
           payment_reason: paymentReason,
           proof_url: proofUrl,
           notes: paymentNotes || null,
+          branch_id: currentBranchId || null,
         });
 
       if (error) throw error;
