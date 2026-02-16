@@ -879,14 +879,22 @@ const Clientes = () => {
           
           <Card>
             <CardContent className="p-4 sm:p-6">
-              <div className="text-lg sm:text-2xl font-bold">0</div>
+              <div className="text-lg sm:text-2xl font-bold">
+                {(() => {
+                  const now = new Date();
+                  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                  return clientes.filter(c => new Date(c.created_at) >= startOfMonth).length;
+                })()}
+              </div>
               <p className="text-xs sm:text-sm text-muted-foreground">Novos este mês</p>
             </CardContent>
           </Card>
           
           <Card>
             <CardContent className="p-4 sm:p-6">
-              <div className="text-lg sm:text-2xl font-bold">0</div>
+              <div className="text-lg sm:text-2xl font-bold">
+                {clientes.length > 0 ? Math.round(clientes.length > 0 ? (clientes.length) : 0) : 0}
+              </div>
               <p className="text-xs sm:text-sm text-muted-foreground">Atendimentos por cliente</p>
             </CardContent>
           </Card>

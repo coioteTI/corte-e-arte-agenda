@@ -453,11 +453,27 @@ const Funcionarios = () => {
     }
   };
 
-  const openEditDialog = (user: UserData) => {
+  const openEditDialog = async (user: UserData) => {
     setSelectedUser(user);
-    setNewUserName(user.full_name);
+    setNewUserName(user.full_name === 'Sem nome' ? '' : user.full_name);
     setNewUserRole(user.role);
     setSelectedBranches(user.branches.map(b => b.id));
+    
+    // Load full profile data to populate the form
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (profileData?.full_name) {
+        setNewUserName(profileData.full_name);
+      }
+    } catch (error) {
+      console.error('Error loading profile for edit:', error);
+    }
+    
     setIsEditDialogOpen(true);
   };
 
