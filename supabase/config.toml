@@ -67,6 +67,9 @@ verify_jwt = false
 [functions.get-chat-messages]
 verify_jwt = false
 
+[functions.whatsapp-webhook]
+verify_jwt = false
+
 [edge-runtime]
 ip_version = "IPv4Only"
 
