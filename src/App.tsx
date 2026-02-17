@@ -52,6 +52,16 @@ import PagamentoCancelado from "./pages/PagamentoCancelado";
 import SuperAdminLogin from "./pages/super-admin/SuperAdminLogin";
 import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
 
+// WhatsApp Module
+import WhatsAppLayout from "./pages/whatsapp/WhatsAppLayout";
+import WhatsAppLogin from "./pages/whatsapp/WhatsAppLogin";
+import WhatsAppDashboard from "./pages/whatsapp/WhatsAppDashboard";
+import WhatsAppChat from "./pages/whatsapp/WhatsAppChat";
+import WhatsAppContatos from "./pages/whatsapp/WhatsAppContatos";
+import WhatsAppAgenda from "./pages/whatsapp/WhatsAppAgenda";
+import WhatsAppServicos from "./pages/whatsapp/WhatsAppServicos";
+import WhatsAppConfiguracoes from "./pages/whatsapp/WhatsAppConfiguracoes";
+
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient({
@@ -132,6 +142,17 @@ const App = () => {
                   {/* Super Admin Routes */}
                   <Route path="/super-admin/login" element={<SuperAdminLogin />} />
                   <Route path="/super-admin/dashboard" element={<SuperAdminDashboard />} />
+                  
+                  {/* WhatsApp Module Routes */}
+                  <Route path="/whatsapp/login" element={<WhatsAppLogin />} />
+                  <Route path="/whatsapp" element={<WhatsAppLayout />}>
+                    <Route path="dashboard" element={<WhatsAppDashboard />} />
+                    <Route path="chat" element={<WhatsAppChat />} />
+                    <Route path="contatos" element={<WhatsAppContatos />} />
+                    <Route path="agenda" element={<WhatsAppAgenda />} />
+                    <Route path="servicos" element={<WhatsAppServicos />} />
+                    <Route path="configuracoes" element={<WhatsAppConfiguracoes />} />
+                  </Route>
                   
                   {/* Rotas do Cliente */}
                   <Route path="/buscar-barbearias" element={<BuscarBarbearias />} />
