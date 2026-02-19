@@ -130,14 +130,14 @@ export const useSubscription = () => {
         status = 'trial';
         
         const appointmentsUsed = company.trial_appointments_used || 0;
-        const appointmentsLimit = company.trial_appointments_limit || 50;
+        const appointmentsLimit = company.trial_appointments_limit || 20;
         
         if (appointmentsUsed >= appointmentsLimit) {
           status = 'expired';
           isBlocked = true;
         }
       } else {
-        // Plano desconhecido ou 'free' - bloqueado
+        // Plano desconhecido - bloqueado
         status = 'inactive';
         isBlocked = true;
       }
@@ -166,7 +166,7 @@ export const useSubscription = () => {
         hoursInGracePeriod,
         isBlocked,
         trialAppointmentsUsed: company.trial_appointments_used || 0,
-        trialAppointmentsLimit: company.trial_appointments_limit || 50,
+        trialAppointmentsLimit: company.trial_appointments_limit || 20,
         isPremium
       });
     } catch (error) {

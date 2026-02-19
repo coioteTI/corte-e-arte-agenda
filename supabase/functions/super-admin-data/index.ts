@@ -434,7 +434,7 @@ Deno.serve(async (req) => {
             if (params.reset_trial) {
               updateData.trial_appointments_used = 0
             }
-            updateData.trial_appointments_limit = params.trial_limit || 50
+            updateData.trial_appointments_limit = params.trial_limit || 20
           }
         }
 

@@ -63,6 +63,7 @@ import WhatsAppServicos from "./pages/whatsapp/WhatsAppServicos";
 import WhatsAppConfiguracoes from "./pages/whatsapp/WhatsAppConfiguracoes";
 
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useSessionManager } from "@/hooks/useSessionManager";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -124,6 +125,9 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 const App = () => {
+  // Auto-logout at midnight
+  useSessionManager();
+
   return (
     <ErrorBoundary>
       <BrowserRouter>
