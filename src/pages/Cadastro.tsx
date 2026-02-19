@@ -85,7 +85,7 @@ const Cadastro = () => {
           instagram: formData.instagram || null,
           user_id: authData.user.id,
           plan: 'trial',
-          trial_appointments_limit: 50,
+          trial_appointments_limit: 20,
           trial_appointments_used: 0
         };
 
