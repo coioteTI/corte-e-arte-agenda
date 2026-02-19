@@ -161,21 +161,36 @@ const Login = () => {
         return;
       }
       
-      // Verificar se o usuário tem um plano ativo
-      const { data: companies } = await supabase
+      // Verificar se o usuário tem uma empresa cadastrada
+      const { data: companyData } = await supabase
         .from('companies')
-        .select('plan')
+        .select('plan, trial_appointments_used, trial_appointments_limit')
         .eq('user_id', data.user?.id)
-        .single();
+        .maybeSingle();
 
-      const hasActivePlan = companies?.plan && companies.plan !== 'nenhum';
+      // Se não tem empresa cadastrada, redirecionar para cadastro
+      if (!companyData) {
+        toast({
+          title: "Empresa não encontrada",
+          description: "Complete o cadastro da sua empresa para continuar.",
+        });
+        navigate("/cadastro");
+        return;
+      }
+
+      // Planos trial/teste/pro/free são válidos enquanto não atingirem o limite
+      const trialPlans = ['trial', 'pro', 'plano_teste', 'free'];
+      const premiumPlans = ['premium_mensal', 'premium_anual'];
+      const isTrialActive = trialPlans.includes(companyData.plan) && 
+        (companyData.trial_appointments_used || 0) < (companyData.trial_appointments_limit || 20);
+      const isPremiumActive = premiumPlans.includes(companyData.plan);
       
-      if (!hasActivePlan) {
+      if (!isTrialActive && !isPremiumActive) {
         toast({
           title: "Login realizado com sucesso!",
           description: "Escolha seu plano para continuar!",
         });
-        navigate("/planos");
+        navigate("/dashboard/planos");
         return;
       }
 
