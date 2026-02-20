@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Shield, Mail, Lock, AlertTriangle, Loader2, Key, Copy, Check } from 'lucide-react';
+import { Shield, Mail, Lock, AlertTriangle, Loader2, Key } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,15 +15,12 @@ const SuperAdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [generatedPassword, setGeneratedPassword] = useState('');
   const [generatingPassword, setGeneratingPassword] = useState(false);
-  const [copied, setCopied] = useState(false);
   
   const { login, isAuthenticated } = useSuperAdmin();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Redirect if already authenticated
   if (isAuthenticated) {
     navigate('/super-admin/dashboard');
     return null;
@@ -31,7 +28,6 @@ const SuperAdminLogin = () => {
 
   const handleGeneratePassword = async () => {
     setGeneratingPassword(true);
-    setGeneratedPassword('');
     setError('');
     
     try {
@@ -39,27 +35,20 @@ const SuperAdminLogin = () => {
       
       if (fnError) throw fnError;
       
-      if (data?.password) {
-        setGeneratedPassword(data.password);
-        toast.success('Nova senha gerada com sucesso!');
-      } else if (data?.success) {
-        toast.info('Senha gerada! Verifique seu email ou tente novamente.');
-        // Se não retornou password, pode ser porque está usando o modo seguro
+      if (data?.success) {
+        if (data?.email_sent) {
+          toast.success('Senha gerada e enviada para o seu e-mail! Verifique sua caixa de entrada.');
+        } else {
+          toast.warning('Senha gerada, mas houve um problema ao enviar o e-mail. Tente novamente.');
+        }
+      } else {
+        toast.error('Erro ao gerar senha. Tente novamente.');
       }
     } catch (err: any) {
       console.error('Error generating password:', err);
       setError('Erro ao gerar senha. Tente novamente.');
     } finally {
       setGeneratingPassword(false);
-    }
-  };
-
-  const handleCopyPassword = async () => {
-    if (generatedPassword) {
-      await navigator.clipboard.writeText(generatedPassword);
-      setCopied(true);
-      toast.success('Senha copiada!');
-      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -185,14 +174,18 @@ const SuperAdminLogin = () => {
               onClick={() => setShowPasswordReset(!showPasswordReset)}
             >
               <Key className="w-4 h-4 mr-2" />
-              {showPasswordReset ? 'Fechar' : 'Gerar Nova Senha'}
+              {showPasswordReset ? 'Fechar' : 'Não recebi a senha — Gerar Nova'}
             </Button>
 
             {showPasswordReset && (
               <div className="mt-4 p-4 bg-muted rounded-lg space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Gere uma nova senha de acesso instantaneamente:
+                  Uma nova senha será gerada e enviada para o e-mail autorizado:
                 </p>
+                <div className="flex items-center gap-2 p-2 bg-background border rounded-lg text-sm text-muted-foreground">
+                  <Mail className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span className="font-mono">corteearte.suporte@gmail.com</span>
+                </div>
                 
                 <Button
                   type="button"
@@ -203,40 +196,19 @@ const SuperAdminLogin = () => {
                   {generatingPassword ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Gerando...
+                      Enviando para o e-mail...
                     </>
                   ) : (
                     <>
                       <Key className="w-4 h-4 mr-2" />
-                      Gerar Senha Agora
+                      Gerar e Enviar por E-mail
                     </>
                   )}
                 </Button>
 
-                {generatedPassword && (
-                  <div className="p-3 bg-background border rounded-lg">
-                    <div className="flex items-center justify-between gap-2">
-                      <code className="text-lg font-mono font-bold text-primary">
-                        {generatedPassword}
-                      </code>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={handleCopyPassword}
-                      >
-                        {copied ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Use esta senha para fazer login. Válida por 24h.
-                    </p>
-                  </div>
-                )}
+                <p className="text-xs text-muted-foreground text-center">
+                  🔒 Por segurança, a senha é enviada apenas por e-mail e não é exibida na tela.
+                </p>
               </div>
             )}
           </div>
