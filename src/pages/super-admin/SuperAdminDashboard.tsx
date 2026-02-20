@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import PlansManagementTab from '@/components/super-admin/PlansManagementTab';
 import { 
   Shield, LogOut, Building2, Users, Calendar, GitBranch, 
   Loader2, RefreshCw, Lock, Unlock, Eye, TrendingUp,
@@ -505,6 +506,11 @@ const SuperAdminDashboard = () => {
                 <span className="hidden sm:inline">Auditoria</span>
                 <span className="sm:hidden">Aud.</span>
               </TabsTrigger>
+              <TabsTrigger value="plans" className="gap-1 sm:gap-2 text-xs sm:text-sm">
+                <Crown className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Planos</span>
+                <span className="sm:hidden">Plan.</span>
+              </TabsTrigger>
             </TabsList>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
@@ -772,6 +778,10 @@ const SuperAdminDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="plans" className="space-y-4">
+            <PlansManagementTab fetchData={fetchData} />
           </TabsContent>
         </Tabs>
       </main>

@@ -1240,6 +1240,75 @@ Deno.serve(async (req) => {
         result = { success: true, ticket_id: replyTicketId }
         break
 
+      case 'get_plan_settings':
+        const { data: planSettings, error: planSettingsError } = await supabase
+          .from('platform_plan_settings')
+          .select('*')
+          .order('sort_order', { ascending: true })
+        
+        if (planSettingsError) throw planSettingsError
+        result = planSettings
+        break
+
+      case 'create_plan_setting':
+        const { data: createdPlan, error: createPlanError } = await supabase
+          .from('platform_plan_settings')
+          .insert({
+            plan_key: params.plan_key,
+            plan_name: params.plan_name,
+            price: params.price,
+            description: params.description || null,
+            features: params.features || [],
+            payment_link: params.payment_link || null,
+            is_active: params.is_active ?? true,
+            sort_order: params.sort_order || 0,
+            billing_period: params.billing_period || 'mensal',
+          })
+          .select()
+          .single()
+        
+        if (createPlanError) {
+          result = { success: false, error: createPlanError.message }
+        } else {
+          result = { success: true, data: createdPlan }
+        }
+        break
+
+      case 'update_plan_setting':
+        const { error: updatePlanError } = await supabase
+          .from('platform_plan_settings')
+          .update({
+            plan_name: params.plan_name,
+            price: params.price,
+            description: params.description || null,
+            features: params.features || [],
+            payment_link: params.payment_link || null,
+            is_active: params.is_active ?? true,
+            sort_order: params.sort_order || 0,
+            billing_period: params.billing_period || 'mensal',
+          })
+          .eq('id', params.plan_id)
+        
+        if (updatePlanError) {
+          result = { success: false, error: updatePlanError.message }
+        } else {
+          result = { success: true }
+        }
+        break
+
+      case 'delete_plan_setting':
+        const { error: deletePlanError } = await supabase
+          .from('platform_plan_settings')
+          .delete()
+          .eq('id', params.plan_id)
+        
+        if (deletePlanError) {
+          result = { success: false, error: deletePlanError.message }
+        } else {
+          result = { success: true }
+        }
+        break
+
       default:
         return new Response(
           JSON.stringify({ error: 'Ação não reconhecida' }),

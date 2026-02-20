@@ -803,6 +803,51 @@ export type Database = {
           },
         ]
       }
+      platform_plan_settings: {
+        Row: {
+          billing_period: string
+          created_at: string
+          description: string | null
+          features: string[] | null
+          id: string
+          is_active: boolean
+          payment_link: string | null
+          plan_key: string
+          plan_name: string
+          price: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string
+          created_at?: string
+          description?: string | null
+          features?: string[] | null
+          id?: string
+          is_active?: boolean
+          payment_link?: string | null
+          plan_key: string
+          plan_name: string
+          price?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string
+          created_at?: string
+          description?: string | null
+          features?: string[] | null
+          id?: string
+          is_active?: boolean
+          payment_link?: string | null
+          plan_key?: string
+          plan_name?: string
+          price?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       professional_payments: {
         Row: {
           amount: number
