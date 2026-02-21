@@ -97,10 +97,13 @@ Deno.serve(async (req) => {
     const formattedDate = dateFormatter.format(now)
 
     // Send email with the password
-    // Using Resend's default domain for testing - replace with verified domain in production
+    // Get the Resend account email for test mode compatibility
+    const resendAccountEmail = Deno.env.get('RESEND_ACCOUNT_EMAIL') || 'elsantosel934@gmail.com'
+    const recipientEmail = resendAccountEmail
+    
     const { error: emailError } = await resend.emails.send({
       from: 'Corte & Arte <onboarding@resend.dev>',
-      to: ['corteearte.suporte@gmail.com'],
+      to: [recipientEmail],
       subject: `🔐 Senha de Acesso Super Admin - ${formattedDate}`,
       html: `
         <!DOCTYPE html>
@@ -179,8 +182,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: 'Password generated and sent',
-        email_sent: !emailError,
-        password: plainPassword // Return password for immediate use
+        email_sent: !emailError
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
