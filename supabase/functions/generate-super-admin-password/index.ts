@@ -96,14 +96,10 @@ Deno.serve(async (req) => {
     })
     const formattedDate = dateFormatter.format(now)
 
-    // Send email with the password
-    // Get the Resend account email for test mode compatibility
-    const resendAccountEmail = Deno.env.get('RESEND_ACCOUNT_EMAIL') || 'elsantosel934@gmail.com'
-    const recipientEmail = resendAccountEmail
-    
+    // Send email with the password to the authorized super admin email
     const { error: emailError } = await resend.emails.send({
       from: 'Corte & Arte <onboarding@resend.dev>',
-      to: [recipientEmail],
+      to: ['corteearte.suporte@gmail.com'],
       subject: `🔐 Senha de Acesso Super Admin - ${formattedDate}`,
       html: `
         <!DOCTYPE html>
